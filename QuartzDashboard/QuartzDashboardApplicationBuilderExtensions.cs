@@ -4,7 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Quartz;
 using Quartz.Impl.Matchers;
-using QuartzDashboard.Internal;
 using System.Collections.Concurrent;
 using System.Reflection;
 
@@ -195,29 +194,36 @@ public static class QuartzDashboardApplicationBuilderExtensions
                     IsDurable = detail.Durable,
                     PersistJobDataAfterExecution = detail.PersistJobDataAfterExecution,
                     ConcurrentExecutionDisallowed = detail.ConcurrentExecutionDisallowed,
-                    Triggers = triggers.Select(async t =>
-                    {
-                        var state = await sched.GetTriggerState(t.Key);
-                        return new
-                        {
-                            Name = t.Key.Name,
-                            Group = t.Key.Group,
-                            Type = t.GetType().Name.Replace("Impl", ""),
-                            State = state.ToString(),
-                            StartTime = t.StartTimeUtc,
-                            EndTime = t.EndTimeUtc,
-                            LastFireTime = t.GetPreviousFireTimeUtc(),
-                            NextFireTime = t.GetNextFireTimeUtc(),
-                            MayFireAgain = t.GetMayFireAgain(),
-                            Description = t.Description ?? "",
-                            CalendarName = t.CalendarName ?? "",
-                        };
-                    }).Select(t => t.Result).ToList(),
+                    Triggers = await GetTriggerList(sched, triggers),
                     IsExecuting = isExecuting,
                 });
             }
         }
         return Results.Ok(result);
+    }
+
+    private static async Task<List<object>> GetTriggerList(IScheduler sched, IReadOnlyCollection<ITrigger> triggers)
+    {
+        var list = new List<object>();
+        foreach (var t in triggers)
+        {
+            var state = await sched.GetTriggerState(t.Key);
+            list.Add(new
+            {
+                Name = t.Key.Name,
+                Group = t.Key.Group,
+                Type = t.GetType().Name.Replace("Impl", ""),
+                State = state.ToString(),
+                StartTime = t.StartTimeUtc,
+                EndTime = t.EndTimeUtc,
+                LastFireTime = t.GetPreviousFireTimeUtc(),
+                NextFireTime = t.GetNextFireTimeUtc(),
+                MayFireAgain = t.GetMayFireAgain(),
+                Description = t.Description ?? "",
+                CalendarName = t.CalendarName ?? "",
+            });
+        }
+        return list;
     }
 
     private static async Task<IResult> GetJobDetail(IScheduler sched, string group, string name)
