@@ -12,7 +12,7 @@ namespace QuartzDashboard;
 /// <summary>
 /// Extension methods for mounting the Quartz Dashboard.
 /// Call <c>app.UseQuartzDashboard()</c> at any point in the pipeline.
-/// Works with both <c>IApplicationBuilder</c> and <c>WebApplication</c>.
+/// Uses <c>app.Map()</c> to intercept requests before endpoint routing.
 /// </summary>
 public static class QuartzDashboardApplicationBuilderExtensions
 {
@@ -21,107 +21,96 @@ public static class QuartzDashboardApplicationBuilderExtensions
 
     /// <summary>
     /// Mounts the Quartz Dashboard SPA and REST API at the configured path (default: /quartz).
+    /// Creates a pipeline branch that intercepts requests before endpoint routing/fallback.
     /// </summary>
     public static IApplicationBuilder UseQuartzDashboard(this IApplicationBuilder app)
     {
         var options = app.ApplicationServices.GetRequiredService<QuartzDashboardOptions>();
         var basePath = options.Path.TrimEnd('/');
 
-        app.Use(async (ctx, next) =>
+        // app.Map() creates a branch that runs BEFORE endpoint routing middleware.
+        // This is critical — it prevents MapFallbackToFile from catching our routes.
+        app.Map(basePath, branch =>
         {
-            var path = ctx.Request.Path.Value ?? "";
-
-            // Only handle requests under the dashboard base path
-            if (!path.StartsWith(basePath, StringComparison.OrdinalIgnoreCase))
+            branch.Use(async (HttpContext ctx, RequestDelegate next) =>
             {
-                await next();
-                return;
-            }
+                var path = ctx.Request.Path.Value ?? "";
 
-            var remaining = path[basePath.Length..];
+                // --- API endpoints ---
+                if (path.StartsWith("/api", StringComparison.OrdinalIgnoreCase))
+                {
+                    var sched = app.ApplicationServices.GetRequiredService<ISchedulerFactory>();
+                    await HandleApi(ctx, await sched.GetScheduler(), path);
+                    return;
+                }
 
-            // --- API endpoints ---
-            if (remaining.StartsWith("/api", StringComparison.OrdinalIgnoreCase))
-            {
-                var sched = app.ApplicationServices.GetRequiredService<ISchedulerFactory>();
-                await HandleApi(ctx, await sched.GetScheduler(), remaining);
-                return;
-            }
+                // --- SPA static files ---
+                var relativePath = path.TrimStart('/');
+                if (string.IsNullOrEmpty(relativePath)) relativePath = "index.html";
 
-            // --- SPA static files ---
-            var relativePath = remaining.TrimStart('/');
-            if (string.IsNullOrEmpty(relativePath)) relativePath = "index.html";
+                var filePath = relativePath.Contains('?') ? relativePath[..relativePath.IndexOf('?')] : relativePath;
+                var fileInfo = EmbeddedFiles.GetFileInfo(filePath);
 
-            var filePath = relativePath.Contains('?') ? relativePath[..relativePath.IndexOf('?')] : relativePath;
-            var fileInfo = EmbeddedFiles.GetFileInfo(filePath);
-
-            if (fileInfo.Exists && !fileInfo.IsDirectory)
-            {
-                ctx.Response.ContentType = GetContentType(filePath);
-                ctx.Response.Headers.CacheControl = filePath == "index.html" ? "no-cache" : "public, max-age=86400";
-                await ctx.Response.SendFileAsync(fileInfo);
-            }
-            else
-            {
-                ctx.Response.ContentType = "text/html; charset=utf-8";
-                ctx.Response.Headers.CacheControl = "no-cache";
-                await ctx.Response.SendFileAsync(EmbeddedFiles.GetFileInfo("index.html"));
-            }
+                if (fileInfo.Exists && !fileInfo.IsDirectory)
+                {
+                    ctx.Response.ContentType = GetContentType(filePath);
+                    ctx.Response.Headers.CacheControl = filePath == "index.html" ? "no-cache" : "public, max-age=86400";
+                    await ctx.Response.SendFileAsync(fileInfo);
+                }
+                else
+                {
+                    ctx.Response.ContentType = "text/html; charset=utf-8";
+                    ctx.Response.Headers.CacheControl = "no-cache";
+                    await ctx.Response.SendFileAsync(EmbeddedFiles.GetFileInfo("index.html"));
+                }
+            });
         });
 
         return app;
     }
 
-    private static async Task HandleApi(HttpContext ctx, IScheduler sched, string remaining)
+    private static async Task HandleApi(HttpContext ctx, IScheduler sched, string path)
     {
         // Strip "/api" prefix
-        var path = remaining[4..].TrimEnd('/');
-        if (string.IsNullOrEmpty(path)) path = "/";
-
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        // segments[0] is "api", actual route starts at index 1
+        var route = segments.Length > 1 ? segments[1..] : [];
         var method = ctx.Request.Method;
+
         object? result = null;
 
         try
         {
-            // Parse path segments
-            var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-
-            if (method == "GET" && segments is ["scheduler"])
+            if (method == "GET" && route is ["scheduler"])
                 result = await GetSchedulerInfo(sched);
-
-            else if (method == "POST" && segments is ["scheduler", "standby"])
+            else if (method == "POST" && route is ["scheduler", "standby"])
                 result = await StandbyScheduler(sched);
-            else if (method == "POST" && segments is ["scheduler", "start"])
+            else if (method == "POST" && route is ["scheduler", "start"])
                 result = await StartScheduler(sched);
-
-            else if (method == "GET" && segments is ["jobs"])
+            else if (method == "GET" && route is ["jobs"])
                 result = await GetAllJobs(sched);
-            else if (method == "GET" && segments is ["jobs", _, _])
-                result = await GetJobDetail(sched, segments[1], segments[2]);
-            else if (method == "POST" && segments is ["jobs", _, _, "trigger"])
-                result = await TriggerJob(sched, segments[1], segments[2]);
-            else if (method == "POST" && segments is ["jobs", _, _, "pause"])
-                result = await PauseJob(sched, segments[1], segments[2]);
-            else if (method == "POST" && segments is ["jobs", _, _, "resume"])
-                result = await ResumeJob(sched, segments[1], segments[2]);
-
-            else if (method == "GET" && segments is ["triggers"])
+            else if (method == "GET" && route is ["jobs", _, _])
+                result = await GetJobDetail(sched, route[1], route[2]);
+            else if (method == "POST" && route is ["jobs", _, _, "trigger"])
+                result = await TriggerJob(sched, route[1], route[2]);
+            else if (method == "POST" && route is ["jobs", _, _, "pause"])
+                result = await PauseJob(sched, route[1], route[2]);
+            else if (method == "POST" && route is ["jobs", _, _, "resume"])
+                result = await ResumeJob(sched, route[1], route[2]);
+            else if (method == "GET" && route is ["triggers"])
                 result = await GetAllTriggers(sched);
-            else if (method == "GET" && segments is ["triggers", _, _])
-                result = await GetTriggerDetail(sched, segments[1], segments[2]);
-            else if (method == "POST" && segments is ["triggers", _, _, "pause"])
-                result = await PauseTrigger(sched, segments[1], segments[2]);
-            else if (method == "POST" && segments is ["triggers", _, _, "resume"])
-                result = await ResumeTrigger(sched, segments[1], segments[2]);
-
-            else if (method == "GET" && segments is ["executing"])
+            else if (method == "GET" && route is ["triggers", _, _])
+                result = await GetTriggerDetail(sched, route[1], route[2]);
+            else if (method == "POST" && route is ["triggers", _, _, "pause"])
+                result = await PauseTrigger(sched, route[1], route[2]);
+            else if (method == "POST" && route is ["triggers", _, _, "resume"])
+                result = await ResumeTrigger(sched, route[1], route[2]);
+            else if (method == "GET" && route is ["executing"])
                 result = await GetExecutingJobs(sched);
-
-            else if (method == "GET" && segments is ["history"])
+            else if (method == "GET" && route is ["history"])
                 result = GetFireHistory();
-
             else
-                result = Results.NotFound(new { Error = "Unknown endpoint", Path = path });
+                result = Results.NotFound(new { Error = "Unknown endpoint", Path = string.Join("/", route) });
 
             if (result is IResult ires)
                 await ires.ExecuteAsync(ctx);
@@ -134,7 +123,8 @@ public static class QuartzDashboardApplicationBuilderExtensions
                 System.Text.Json.JsonSerializer.Serialize(new { Error = ex.Message }));
         }
     }
-    // === API Handlers ===
+
+    // ============= API Handlers =============
 
     private static async Task<IResult> GetSchedulerInfo(IScheduler sched)
     {
@@ -184,7 +174,6 @@ public static class QuartzDashboardApplicationBuilderExtensions
                 var triggers = await sched.GetTriggersOfJob(key);
                 var executing = await sched.GetCurrentlyExecutingJobs();
                 var isExecuting = executing.Any(j => j.JobDetail.Key.Equals(key));
-
                 result.Add(new
                 {
                     Group = key.Group,
@@ -231,31 +220,23 @@ public static class QuartzDashboardApplicationBuilderExtensions
         var key = new JobKey(name, group);
         var detail = await sched.GetJobDetail(key);
         if (detail == null) return Results.NotFound(new { Error = $"Job '{group}.{name}' not found" });
-
         var triggers = await sched.GetTriggersOfJob(key);
         var executing = await sched.GetCurrentlyExecutingJobs();
-
         return Results.Ok(new
         {
-            Group = key.Group,
-            Name = key.Name,
-            Description = detail.Description ?? "",
-            JobType = detail.JobType.FullName ?? "",
-            IsDurable = detail.Durable,
+            Group = key.Group, Name = key.Name, Description = detail.Description ?? "",
+            JobType = detail.JobType.FullName ?? "", IsDurable = detail.Durable,
             PersistJobDataAfterExecution = detail.PersistJobDataAfterExecution,
             ConcurrentExecutionDisallowed = detail.ConcurrentExecutionDisallowed,
             JobDataMap = detail.JobDataMap.WrappedMap.ToDictionary(k => k.Key.ToString(), k => k.Value?.ToString() ?? ""),
-            Triggers = triggers.Select(t =>
+            Triggers = triggers.Select(t => new
             {
-                var state = sched.GetTriggerState(t.Key).Result;
-                return new
-                {
-                    Name = t.Key.Name, Group = t.Key.Group, Type = t.GetType().Name.Replace("Impl", ""),
-                    State = state.ToString(), StartTime = t.StartTimeUtc, EndTime = t.EndTimeUtc,
-                    LastFireTime = t.GetPreviousFireTimeUtc(), NextFireTime = t.GetNextFireTimeUtc(),
-                    MayFireAgain = t.GetMayFireAgain(), Description = t.Description ?? "",
-                    CalendarName = t.CalendarName ?? "", FinalFireTime = t.FinalFireTimeUtc,
-                };
+                Name = t.Key.Name, Group = t.Key.Group, Type = t.GetType().Name.Replace("Impl", ""),
+                State = sched.GetTriggerState(t.Key).Result.ToString(), StartTime = t.StartTimeUtc,
+                EndTime = t.EndTimeUtc, LastFireTime = t.GetPreviousFireTimeUtc(),
+                NextFireTime = t.GetNextFireTimeUtc(), MayFireAgain = t.GetMayFireAgain(),
+                Description = t.Description ?? "", CalendarName = t.CalendarName ?? "",
+                FinalFireTime = t.FinalFireTimeUtc,
             }).ToList(),
             IsExecuting = executing.Any(j => j.JobDetail.Key.Equals(key)),
         });
@@ -343,18 +324,12 @@ public static class QuartzDashboardApplicationBuilderExtensions
         var jobs = await sched.GetCurrentlyExecutingJobs();
         return Results.Ok(jobs.Select(j => new
         {
-            JobName = j.JobDetail.Key.Name,
-            JobGroup = j.JobDetail.Key.Group,
-            JobType = j.JobDetail.JobType.FullName,
-            TriggerName = j.Trigger.Key.Name,
-            TriggerGroup = j.Trigger.Key.Group,
-            FireTime = j.FireTimeUtc,
-            ScheduledFireTime = j.ScheduledFireTimeUtc,
-            PreviousFireTime = j.PreviousFireTimeUtc,
-            NextFireTime = j.NextFireTimeUtc,
-            RefireCount = j.RefireCount,
-            Recovering = j.Recovering,
-            Duration = DateTimeOffset.UtcNow - j.FireTimeUtc,
+            JobName = j.JobDetail.Key.Name, JobGroup = j.JobDetail.Key.Group,
+            JobType = j.JobDetail.JobType.FullName, TriggerName = j.Trigger.Key.Name,
+            TriggerGroup = j.Trigger.Key.Group, FireTime = j.FireTimeUtc,
+            ScheduledFireTime = j.ScheduledFireTimeUtc, PreviousFireTime = j.PreviousFireTimeUtc,
+            NextFireTime = j.NextFireTimeUtc, RefireCount = j.RefireCount,
+            Recovering = j.Recovering, Duration = DateTimeOffset.UtcNow - j.FireTimeUtc,
         }));
     }
 
@@ -380,7 +355,6 @@ public static class QuartzDashboardApplicationBuilderExtensions
         };
     }
 
-    // In-memory fire history (shared with the listener)
     internal static readonly ConcurrentQueue<FireRecord> FireHistory = new();
     internal const int MaxFireHistory = 100;
 
