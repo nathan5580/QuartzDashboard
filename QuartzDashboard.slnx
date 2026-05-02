@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="QuartzDashboard/QuartzDashboard.csproj" />
+  </Folder>
+  <Folder Name="/demo/">
+    <Project Path="QuartzDashboard.Demo/QuartzDashboard.Demo.csproj" />
+  </Folder>
+</Solution>

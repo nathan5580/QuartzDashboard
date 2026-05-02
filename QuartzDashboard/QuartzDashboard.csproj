@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+
+    <!-- NuGet packaging -->
+    <PackageId>N8.QuartzDashboard</PackageId>
+    <Version>0.1.0-alpha</Version>
+    <Authors>n8</Authors>
+    <Description>A clean, minimal Quartz.NET scheduler dashboard with Tailwind CSS and Alpine.js. View jobs, triggers, executing tasks, and control the scheduler from a polished SPA.</Description>
+    <PackageTags>quartz;dashboard;scheduler;admin</PackageTags>
+    <PackageProjectUrl>https://github.com/nathan5580/QuartzDashboard</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/nathan5580/QuartzDashboard</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Quartz" Version="3.18.0" />
+    <PackageReference Include="Quartz.Extensions.DependencyInjection" Version="3.18.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="wwwroot\**" />
+  </ItemGroup>
+
+</Project>

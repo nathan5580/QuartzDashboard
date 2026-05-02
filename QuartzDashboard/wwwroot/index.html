@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quartz Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            quartz: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              200: '#c7d2fe',
+              300: '#a5b4fc',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              800: '#3730a3',
+              900: '#312e81',
+              950: '#1e1b4b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }
+    .animate-fade { animation: fadeIn 0.2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .sidebar-item { @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer; }
+    .sidebar-item:hover { @apply bg-white/5 text-white; }
+    .sidebar-item.active { @apply bg-quartz-600/20 text-quartz-300 ring-1 ring-quartz-500/30; }
+    .btn { @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer select-none; }
+    .btn-primary { @apply bg-quartz-600 hover:bg-quartz-500 text-white; }
+    .btn-danger { @apply bg-red-600/80 hover:bg-red-600 text-red-100; }
+    .btn-warning { @apply bg-amber-600/80 hover:bg-amber-600 text-amber-100; }
+    .btn-success { @apply bg-emerald-600/80 hover:bg-emerald-600 text-emerald-100; }
+    .btn-ghost { @apply bg-white/5 hover:bg-white/10 text-gray-300; }
+    .card { @apply bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-5; }
+    .stat-card { @apply bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4; }
+    .badge { @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium; }
+    .badge-active { @apply bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30; }
+    .badge-paused { @apply bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30; }
+    .badge-error { @apply bg-red-500/20 text-red-300 ring-1 ring-red-500/30; }
+    .badge-normal { @apply bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30; }
+    .badge-info { @apply bg-gray-500/20 text-gray-300 ring-1 ring-gray-500/30; }
+    .table-header { @apply px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider; }
+    .table-cell { @apply px-4 py-3 text-sm text-gray-300; }
+    .table-row { @apply border-b border-gray-700/30 hover:bg-white/[0.02] transition-colors; }
+    .toast { @apply fixed bottom-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-2xl z-50 animate-fade; }
+    .toast-success { @apply bg-emerald-600 text-emerald-50; }
+    .toast-error { @apply bg-red-600 text-red-50; }
+    .toast-info { @apply bg-blue-600 text-blue-50; }
+    .loading-spinner { @apply inline-block w-4 h-4 border-2 border-gray-500 border-t-quartz-400 rounded-full; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-200 antialiased" x-data="dashboard()" x-init="init()">
+  <!-- Toast -->
+  <template x-teleport="body">
+    <div x-show="toast.show" x-text="toast.message" x-init="if(toast.show) setTimeout(() => toast.show = false, 3000)"
+         :class="'toast toast-' + toast.type" x-transition.duration.200ms style="display: none;">
+    </div>
+  </template>
+
+  <div class="flex h-screen overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="w-60 bg-gray-950/80 border-r border-gray-800 flex flex-col flex-shrink-0">
+      <!-- Logo -->
+      <div class="h-14 flex items-center gap-2.5 px-5 border-b border-gray-800/50">
+        <svg class="w-5 h-5 text-quartz-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <span class="font-semibold text-sm text-gray-100">Quartz<span class="text-quartz-400">Dashboard</span></span>
+        <span class="ml-auto text-[10px] text-gray-600 font-mono">v0.1</span>
+      </div>
+
+      <!-- Nav items -->
+      <nav class="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-thin">
+        <template x-for="item in navItems" :key="item.id">
+          <div @click="currentPage = item.id" :class="['sidebar-item', currentPage === item.id ? 'active' : 'text-gray-400']">
+            <span x-html="item.icon" class="w-5 h-5"></span>
+            <span x-text="item.label"></span>
+          </div>
+        </template>
+      </nav>
+
+      <!-- Scheduler status footer -->
+      <div class="p-3 border-t border-gray-800/50">
+        <div class="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-800/40">
+          <div class="flex items-center gap-2.5">
+            <span :class="['w-2 h-2 rounded-full', scheduler.isStarted && !scheduler.isStandbyMode ? 'bg-emerald-400 pulse-dot' : 'bg-gray-500']"></span>
+            <span class="text-xs text-gray-400">
+              <span x-text="scheduler.isStarted ? (scheduler.isStandbyMode ? 'Standby' : 'Running') : 'Stopped'"></span>
+            </span>
+          </div>
+          <span class="text-[10px] text-gray-600 font-mono" x-text="'v' + scheduler.version"></span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="flex-1 overflow-y-auto scrollbar-thin p-6">
+      <!-- Overview -->
+      <template x-if="currentPage === 'overview'">
+        <div class="animate-fade space-y-6">
+          <div class="flex items-center justify-between">
+            <h1 class="text-xl font-semibold text-gray-100">Scheduler Overview</h1>
+            <div class="flex gap-2">
+              <button @click="startScheduler()" :disabled="!scheduler.isStandbyMode"
+                      :class="['btn', scheduler.isStandbyMode ? 'btn-success' : 'btn-ghost']">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                Start
+              </button>
+              <button @click="standbyScheduler()" :disabled="scheduler.isStandbyMode || !scheduler.isStarted"
+                      :class="['btn', !scheduler.isStandbyMode && scheduler.isStarted ? 'btn-warning' : 'btn-ghost']">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                Standby
+              </button>
+              <button @click="refreshAll()" class="btn btn-ghost">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          <!-- Stat cards -->
+          <div class="grid grid-cols-4 gap-4">
+            <div class="stat-card">
+              <div class="text-xs text-gray-500 mb-1">Jobs</div>
+              <div class="text-2xl font-semibold text-gray-100" x-text="jobs.length"></div>
+            </div>
+            <div class="stat-card">
+              <div class="text-xs text-gray-500 mb-1">Triggers</div>
+              <div class="text-2xl font-semibold text-gray-100" x-text="triggers.length"></div>
+            </div>
+            <div class="stat-card">
+              <div class="text-xs text-gray-500 mb-1">Executing Now</div>
+              <div class="text-2xl font-semibold text-gray-100">
+                <span x-text="executingJobs.length" :class="executingJobs.length > 0 ? 'text-emerald-400' : 'text-gray-100'"></span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="text-xs text-gray-500 mb-1">Total Executions</div>
+              <div class="text-2xl font-semibold text-gray-100" x-text="scheduler.numberOfJobsExecuted || 0"></div>
+            </div>
+          </div>
+
+          <!-- Scheduler info -->
+          <div class="card">
+            <h2 class="text-sm font-medium text-gray-300 mb-4">Scheduler Info</h2>
+            <div class="grid grid-cols-2 gap-x-8 gap-y-3">
+              <div><span class="text-xs text-gray-500">Name</span><p class="text-sm text-gray-200 mt-0.5" x-text="scheduler.name"></p></div>
+              <div><span class="text-xs text-gray-500">Instance ID</span><p class="text-sm text-gray-200 mt-0.5 mono" x-text="scheduler.instanceId"></p></div>
+              <div><span class="text-xs text-gray-500">Job Store</span><p class="text-sm text-gray-200 mt-0.5" x-text="scheduler.jobStoreType"></p></div>
+              <div><span class="text-xs text-gray-500">Thread Pool</span><p class="text-sm text-gray-200 mt-0.5" x-text="scheduler.threadPoolType"></p></div>
+              <div><span class="text-xs text-gray-500">Uptime</span><p class="text-sm text-gray-200 mt-0.5" x-text="formatDuration(scheduler.upTime)"></p></div>
+              <div><span class="text-xs text-gray-500">Status</span>
+                <p class="text-sm mt-0.5">
+                  <span :class="scheduler.isStandbyMode ? 'badge badge-paused' : (scheduler.isStarted ? 'badge badge-active' : 'badge badge-error')"
+                        x-text="scheduler.isStandbyMode ? 'Standby' : (scheduler.isStarted ? 'Running' : 'Stopped')"></span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- Jobs -->
+      <template x-if="currentPage === 'jobs'">
+        <div class="animate-fade space-y-4">
+          <div class="flex items-center justify-between">
+            <h1 class="text-xl font-semibold text-gray-100">Jobs</h1>
+            <button @click="loadJobs()" class="btn btn-ghost">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+              Refresh
+            </button>
+          </div>
+
+          <div class="overflow-x-auto rounded-xl border border-gray-700/50">
+            <table class="w-full">
+              <thead class="bg-gray-800/60">
+                <tr>
+                  <th class="table-header">Job / Group</th>
+                  <th class="table-header">Type</th>
+                  <th class="table-header">Triggers</th>
+                  <th class="table-header">Status</th>
+                  <th class="table-header text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-700/30">
+                <template x-for="job in jobs" :key="job.group + '.' + job.name">
+                  <tr class="table-row">
+                    <td class="table-cell">
+                      <div class="font-medium text-gray-100" x-text="job.name"></div>
+                      <div class="text-xs text-gray-500" x-text="job.group"></div>
+                    </td>
+                    <td class="table-cell">
+                      <span class="mono text-xs text-gray-400" x-text="job.jobType"></span>
+                    </td>
+                    <td class="table-cell">
+                      <div class="flex flex-wrap gap-1.5">
+                        <template x-for="t in job.triggers" :key="t.name">
+                          <span :class="'badge ' + (t.state === 'Normal' ? 'badge-active' : t.state === 'Paused' ? 'badge-paused' : 'badge-info')"
+                                x-text="t.name + ' (' + t.state + ')'">
+                          </span>
+                        </template>
+                        <span x-show="!job.triggers.length" class="text-xs text-gray-500">No triggers</span>
+                      </div>
+                    </td>
+                    <td class="table-cell">
+                      <span x-show="job.isExecuting" class="badge badge-active">Executing</span>
+                      <span x-show="!job.isExecuting" class="badge badge-info">Idle</span>
+                    </td>
+                    <td class="table-cell text-right">
+                      <div class="flex gap-1 justify-end">
+                        <button @click="triggerJob(job.group, job.name)" class="btn btn-primary" title="Trigger Now">
+                          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        </button>
+                        <button @click="pauseJob(job.group, job.name)" class="btn btn-warning" title="Pause">
+                          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                        </button>
+                        <button @click="resumeJob(job.group, job.name)" class="btn btn-success" title="Resume">
+                          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+                <tr x-show="!jobs.length">
+                  <td colspan="5" class="px-4 py-12 text-center text-gray-500 text-sm">
+                    <template x-if="loading">Loading jobs...</template>
+                    <template x-if="!loading">No jobs found</template>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+
+      <!-- Triggers -->
+      <template x-if="currentPage === 'triggers'">
+        <div class="animate-fade space-y-4">
+          <div class="flex items-center justify-between">
+            <h1 class="text-xl font-semibold text-gray-100">Triggers</h1>
+            <button @click="loadTriggers()" class="btn btn-ghost">Refresh</button>
+          </div>
+
+          <div class="overflow-x-auto rounded-xl border border-gray-700/50">
+            <table class="w-full">
+              <thead class="bg-gray-800/60">
+                <tr>
+                  <th class="table-header">Trigger</th>
+                  <th class="table-header">Group</th>
+                  <th class="table-header">Type</th>
+                  <th class="table-header">State</th>
+                  <th class="table-header">Job</th>
+                  <th class="table-header">Next Fire</th>
+                  <th class="table-header text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-700/30">
+                <template x-for="t in triggers" :key="t.group + '.' + t.name">
+                  <tr class="table-row">
+                    <td class="table-cell font-medium text-gray-100" x-text="t.name"></td>
+                    <td class="table-cell text-xs text-gray-500" x-text="t.group"></td>
+                    <td class="table-cell"><span class="mono text-xs text-gray-400" x-text="t.type"></span></td>
+                    <td class="table-cell">
+                      <span :class="'badge ' + (t.state === 'Normal' ? 'badge-active' : t.state === 'Paused' ? 'badge-paused' : 'badge-info')" x-text="t.state"></span>
+                    </td>
+                    <td class="table-cell text-xs" x-text="t.jobGroup + '.' + t.jobName"></td>
+                    <td class="table-cell text-xs mono text-gray-400" x-text="formatDate(t.nextFireTime) || '—'"></td>
+                    <td class="table-cell text-right">
+                      <div class="flex gap-1 justify-end">
+                        <button @click="pauseTrigger(t.group, t.name)" class="btn btn-warning" title="Pause">Pause</button>
+                        <button @click="resumeTrigger(t.group, t.name)" class="btn btn-success" title="Resume">Resume</button>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+                <tr x-show="!triggers.length">
+                  <td colspan="7" class="px-4 py-12 text-center text-gray-500 text-sm">
+                    <template x-if="loading">Loading triggers...</template>
+                    <template x-if="!loading">No triggers found</template>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+
+      <!-- Executing Jobs -->
+      <template x-if="currentPage === 'executing'">
+        <div class="animate-fade space-y-4">
+          <div class="flex items-center justify-between">
+            <h1 class="text-xl font-semibold text-gray-100">Executing Jobs</h1>
+            <button @click="loadExecutingJobs()" class="btn btn-ghost">Refresh</button>
+          </div>
+
+          <div x-show="!executingJobs.length" class="card text-center py-12">
+            <svg class="w-12 h-12 mx-auto text-gray-600 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <p class="text-gray-500 text-sm">No jobs currently executing</p>
+          </div>
+
+          <div class="space-y-3" x-show="executingJobs.length">
+            <template x-for="ej in executingJobs" :key="ej.jobGroup + '.' + ej.jobName">
+              <div class="card">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span>
+                    <span class="font-medium text-gray-100" x-text="ej.jobName"></span>
+                    <span class="text-xs text-gray-500" x-text="ej.jobGroup"></span>
+                  </div>
+                  <span class="badge badge-active">Running</span>
+                </div>
+                <div class="grid grid-cols-3 gap-4 text-sm">
+                  <div><span class="text-xs text-gray-500">Type</span><p class="text-gray-300 mono text-xs mt-0.5" x-text="ej.jobType"></p></div>
+                  <div><span class="text-xs text-gray-500">Trigger</span><p class="text-gray-300 text-xs mt-0.5" x-text="ej.triggerGroup + '.' + ej.triggerName"></p></div>
+                  <div><span class="text-xs text-gray-500">Duration</span><p class="text-gray-300 text-xs mt-0.5" x-text="formatDuration(ej.duration)"></p></div>
+                  <div><span class="text-xs text-gray-500">Fired At</span><p class="text-gray-300 text-xs mt-0.5 mono" x-text="formatDate(ej.fireTime)"></p></div>
+                  <div><span class="text-xs text-gray-500">Scheduled For</span><p class="text-gray-300 text-xs mt-0.5 mono" x-text="formatDate(ej.scheduledFireTime)"></p></div>
+                  <div><span class="text-xs text-gray-500">Refire #</span><p class="text-gray-300 text-xs mt-0.5" x-text="ej.refireCount"></p></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- History -->
+      <template x-if="currentPage === 'history'">
+        <div class="animate-fade space-y-4">
+          <div class="flex items-center justify-between">
+            <h1 class="text-xl font-semibold text-gray-100">Fire History</h1>
+            <button @click="loadHistory()" class="btn btn-ghost">Refresh</button>
+          </div>
+
+          <div x-show="!history.length" class="card text-center py-12">
+            <p class="text-gray-500 text-sm">No fire history yet. <span class="text-gray-600">Enable <code class="mono text-xs bg-gray-800 px-1.5 py-0.5 rounded">AddQuartzDashboardHistory()</code> to record fire events.</span></p>
+          </div>
+
+          <div class="overflow-x-auto rounded-xl border border-gray-700/50" x-show="history.length">
+            <table class="w-full">
+              <thead class="bg-gray-800/60">
+                <tr>
+                  <th class="table-header">Time</th>
+                  <th class="table-header">Job</th>
+                  <th class="table-header">Trigger</th>
+                  <th class="table-header">Duration</th>
+                  <th class="table-header">Outcome</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-700/30">
+                <template x-for="(h, idx) in history" :key="idx">
+                  <tr class="table-row">
+                    <td class="table-cell mono text-xs" x-text="formatDate(h.fireTime)"></td>
+                    <td class="table-cell font-medium text-gray-100" x-text="h.jobKey"></td>
+                    <td class="table-cell text-xs text-gray-400" x-text="h.triggerKey"></td>
+                    <td class="table-cell text-xs mono" x-text="h.duration ? formatDuration(h.duration) : '—'"></td>
+                    <td class="table-cell">
+                      <span :class="h.success ? 'badge badge-active' : 'badge badge-error'" x-text="h.success ? 'OK' : 'Error'"></span>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+    </main>
+  </div>
+
+  <!-- Loading overlay -->
+  <div x-show="loading" class="fixed inset-0 bg-gray-900/30 flex items-center justify-center z-40" style="display: none;">
+    <div class="loading-spinner w-8 h-8 border-4"></div>
+  </div>
+
+  <script>
+    function dashboard() {
+      return {
+        // State
+        currentPage: 'overview',
+        loading: false,
+        scheduler: { isStarted: false, isStandbyMode: false },
+        jobs: [],
+        triggers: [],
+        executingJobs: [],
+        history: [],
+        toast: { show: false, message: '', type: 'info' },
+        autoRefresh: null,
+
+        navItems: [
+          { id: 'overview', label: 'Overview', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>' },
+          { id: 'jobs', label: 'Jobs', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>' },
+          { id: 'triggers', label: 'Triggers', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>' },
+          { id: 'executing', label: 'Executing', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
+          { id: 'history', label: 'History', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
+        ],
+
+        async init() {
+          await this.refreshAll();
+          // Auto-refresh every 5 seconds
+          this.autoRefresh = setInterval(() => this.refreshAll(), 5000);
+        },
+
+        showToast(msg, type = 'info') {
+          this.toast = { show: true, message: msg, type };
+          setTimeout(() => this.toast.show = false, 3000);
+        },
+
+        async fetchApi(path) {
+          const res = await fetch(path);
+          if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+          return res.json();
+        },
+
+        async postApi(path) {
+          const res = await fetch(path, { method: 'POST' });
+          if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+          return res.json();
+        },
+
+        async refreshAll() {
+          try {
+            const [scheduler, jobs, triggers, executing] = await Promise.all([
+              this.fetchApi('/quartz/api/scheduler').catch(() => this.scheduler),
+              this.fetchApi('/quartz/api/jobs').catch(() => this.jobs),
+              this.fetchApi('/quartz/api/triggers').catch(() => this.triggers),
+              this.fetchApi('/quartz/api/executing').catch(() => this.executingJobs),
+            ]);
+            this.scheduler = scheduler;
+            this.jobs = jobs;
+            this.triggers = triggers;
+            this.executingJobs = executing;
+          } catch (e) {
+            console.error('Refresh error:', e);
+          }
+        },
+
+        async loadJobs() {
+          this.loading = true;
+          try { this.jobs = await this.fetchApi('/quartz/api/jobs'); } catch {}
+          this.loading = false;
+        },
+
+        async loadTriggers() {
+          this.loading = true;
+          try { this.triggers = await this.fetchApi('/quartz/api/triggers'); } catch {}
+          this.loading = false;
+        },
+
+        async loadExecutingJobs() {
+          this.loading = true;
+          try { this.executingJobs = await this.fetchApi('/quartz/api/executing'); } catch {}
+          this.loading = false;
+        },
+
+        async loadHistory() {
+          this.loading = true;
+          try { this.history = await this.fetchApi('/quartz/api/history'); } catch {}
+          this.loading = false;
+        },
+
+        async startScheduler() {
+          this.loading = true;
+          try {
+            await this.postApi('/quartz/api/scheduler/start');
+            this.showToast('Scheduler started', 'success');
+            await this.refreshAll();
+          } catch (e) { this.showToast('Failed to start: ' + e.message, 'error'); }
+          this.loading = false;
+        },
+
+        async standbyScheduler() {
+          this.loading = true;
+          try {
+            await this.postApi('/quartz/api/scheduler/standby');
+            this.showToast('Scheduler on standby', 'info');
+            await this.refreshAll();
+          } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+          this.loading = false;
+        },
+
+        async triggerJob(group, name) {
+          try {
+            await this.postApi(`/quartz/api/jobs/${group}/${name}/trigger`);
+            this.showToast(`Triggered ${group}.${name}`, 'success');
+          } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
+        async pauseJob(group, name) {
+          try {
+            await this.postApi(`/quartz/api/jobs/${group}/${name}/pause`);
+            await this.loadJobs();
+            this.showToast(`Paused ${group}.${name}`, 'info');
+          } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
+        async resumeJob(group, name) {
+          try {
+            await this.postApi(`/quartz/api/jobs/${group}/${name}/resume`);
+            await this.loadJobs();
+            this.showToast(`Resumed ${group}.${name}`, 'success');
+          } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
+        async pauseTrigger(group, name) {
+          try {
+            await this.postApi(`/quartz/api/triggers/${group}/${name}/pause`);
+            await this.loadTriggers();
+            this.showToast(`Paused trigger ${group}.${name}`, 'info');
+          } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
+        async resumeTrigger(group, name) {
+          try {
+            await this.postApi(`/quartz/api/triggers/${group}/${name}/resume`);
+            await this.loadTriggers();
+            this.showToast(`Resumed trigger ${group}.${name}`, 'success');
+          } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
+        formatDuration(d) {
+          if (!d) return '';
+          if (typeof d === 'string') d = d.replace('PT', '').replace('H', 'h ').replace('M', 'm ').replace('S', 's');
+          if (typeof d === 'object') {
+            const secs = d.hours * 3600 + d.minutes * 60 + d.seconds + d.milliseconds / 1000;
+            if (secs < 1) return Math.round(secs * 1000) + 'ms';
+            if (secs < 60) return secs.toFixed(1) + 's';
+            return Math.floor(secs / 60) + 'm ' + Math.round(secs % 60) + 's';
+          }
+          return d;
+        },
+
+        formatDate(d) {
+          if (!d) return '';
+          const dt = new Date(d);
+          if (isNaN(dt.getTime())) return '';
+          return dt.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+      }
+    }
+  </script>
+</body>
+</html>
