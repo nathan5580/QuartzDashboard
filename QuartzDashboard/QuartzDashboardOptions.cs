@@ -15,4 +15,11 @@ public class QuartzDashboardOptions
     /// Default: false
     /// </summary>
     public bool ReadOnly { get; set; } = false;
+
+    /// <summary>
+    /// Whether to enable SignalR for real-time updates.
+    /// When true, the dashboard pushes execution events instantly to connected browsers.
+    /// Default: true
+    /// </summary>
+    public bool UseSignalR { get; set; } = true;
 }

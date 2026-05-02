@@ -1,6 +1,6 @@
 # QuartzDashboard — Agent Guide
 
-**NuGet:** `N8.QuartzDashboard` v1.0.0 — https://www.nuget.org/packages/N8.QuartzDashboard
+**NuGet:** `Dot.QuartzDashboard` v1.0.0 — https://www.nuget.org/packages/Dot.QuartzDashboard
 **GitHub:** https://github.com/nathan5580/QuartzDashboard
 
 ## Overview

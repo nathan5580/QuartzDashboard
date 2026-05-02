@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging;
 using Quartz;
 using Quartz.Impl.Matchers;
 using System.Collections.Concurrent;
@@ -66,6 +69,12 @@ public static class QuartzDashboardApplicationBuilderExtensions
             });
         });
 
+        // Map SignalR hub
+        if (options.UseSignalR)
+        {
+            ((IEndpointRouteBuilder)app).MapHub<QuartzDashboardHub>($"{basePath}/hub");
+        }
+
         return app;
     }
 
@@ -111,6 +120,24 @@ public static class QuartzDashboardApplicationBuilderExtensions
                 result = GetFireHistory();
             else if (method == "GET" && route is ["stats"])
                 result = await GetStats(sched);
+            // Create job
+            else if (method == "POST" && route is ["jobs"])
+                result = await CreateJob(sched, await ctx.Request.ReadFromJsonAsync<CreateJobRequest>());
+            // Delete job  
+            else if (method == "DELETE" && route is ["jobs", _, _])
+                result = await DeleteJob(sched, route[1], route[2]);
+            // Update job (JobDataMap)
+            else if (method == "PUT" && route is ["jobs", _, _])
+                result = await UpdateJob(sched, route[1], route[2], await ctx.Request.ReadFromJsonAsync<UpdateJobRequest>());
+            // Create trigger
+            else if (method == "POST" && route is ["triggers"])
+                result = await CreateTrigger(sched, await ctx.Request.ReadFromJsonAsync<CreateTriggerRequest>());
+            // Delete trigger
+            else if (method == "DELETE" && route is ["triggers", _, _])
+                result = await DeleteTrigger(sched, route[1], route[2]);
+            // Get timeline
+            else if (method == "GET" && route is ["timeline"])
+                result = GetTimeline();
             else
                 result = Results.NotFound(new { Error = "Unknown endpoint", Path = string.Join("/", route) });
 
@@ -342,6 +369,147 @@ public static class QuartzDashboardApplicationBuilderExtensions
         return Results.Ok(FireHistory.Reverse().Take(50).ToList());
     }
 
+    private static async Task<IResult> CreateJob(IScheduler sched, CreateJobRequest? req)
+    {
+        if (req == null || string.IsNullOrWhiteSpace(req.Name))
+            return Results.BadRequest(new { Error = "Job name is required" });
+        
+        var jobType = AppDomain.CurrentDomain.GetAssemblies()
+            .SelectMany(a => a.GetTypes())
+            .FirstOrDefault(t => t.GetInterfaces().Contains(typeof(IJob)) && t.Name == req.JobType);
+        
+        if (jobType == null && !string.IsNullOrWhiteSpace(req.JobType))
+            return Results.BadRequest(new { Error = $"Job type '{req.JobType}' not found. Must be an IJob implementation." });
+        
+        var key = new JobKey(req.Name, req.Group ?? "DEFAULT");
+        
+        if (await sched.CheckExists(key))
+            return Results.Conflict(new { Error = $"Job '{key.Group}.{key.Name}' already exists" });
+        
+        var detail = jobType != null
+            ? JobBuilder.Create(jobType).WithIdentity(key).Build()
+            : JobBuilder.Create<PlaceholderJob>().WithIdentity(key).Build();
+        
+        if (!string.IsNullOrWhiteSpace(req.Description))
+            detail = detail.GetJobBuilder().WithDescription(req.Description).Build();
+        
+        if (req.PersistJobDataAfterExecution)
+            detail = detail.GetJobBuilder().PersistJobDataAfterExecution().Build();
+        
+        if (req.DisallowConcurrentExecution)
+            detail = detail.GetJobBuilder().DisallowConcurrentExecution().Build();
+        
+        if (req.IsDurable)
+            detail = detail.GetJobBuilder().StoreDurably().Build();
+        
+        await sched.AddJob(detail, replace: false);
+        return Results.Ok(new { Status = "created", Job = $"{key.Group}.{key.Name}" });
+    }
+
+    private static async Task<IResult> DeleteJob(IScheduler sched, string group, string name)
+    {
+        var key = new JobKey(name, group);
+        if (await sched.CheckExists(key))
+        {
+            await sched.DeleteJob(key);
+            return Results.Ok(new { Status = "deleted", Job = $"{group}.{name}" });
+        }
+        return Results.NotFound(new { Error = $"Job '{group}.{name}' not found" });
+    }
+
+    private static async Task<IResult> UpdateJob(IScheduler sched, string group, string name, UpdateJobRequest? req)
+    {
+        var key = new JobKey(name, group);
+        var detail = await sched.GetJobDetail(key);
+        if (detail == null)
+            return Results.NotFound(new { Error = $"Job '{group}.{name}' not found" });
+        
+        if (req?.JobDataMap != null)
+        {
+            var builder = detail.GetJobBuilder();
+            foreach (var (k, v) in req.JobDataMap)
+                builder.UsingJobData(k, v ?? "");
+            await sched.AddJob(builder.Build(), replace: true);
+        }
+        
+        return Results.Ok(new { Status = "updated", Job = $"{group}.{name}" });
+    }
+
+    private static async Task<IResult> CreateTrigger(IScheduler sched, CreateTriggerRequest? req)
+    {
+        if (req == null || string.IsNullOrWhiteSpace(req.Name))
+            return Results.BadRequest(new { Error = "Trigger name is required" });
+
+        var triggerKey = new TriggerKey(req.Name, req.Group ?? "DEFAULT");
+        var jobKey = new JobKey(req.JobName, req.JobGroup ?? "DEFAULT");
+
+        if (!await sched.CheckExists(jobKey))
+            return Results.NotFound(new { Error = $"Job '{jobKey.Group}.{jobKey.Name}' not found" });
+
+        ITrigger trigger;
+        var builder = TriggerBuilder.Create()
+            .WithIdentity(triggerKey)
+            .ForJob(jobKey);
+
+        if (!string.IsNullOrWhiteSpace(req.Description))
+            builder.WithDescription(req.Description);
+
+        if (req.Priority.HasValue)
+            builder.WithPriority(req.Priority.Value);
+
+        if (req.StartTimeUtc.HasValue)
+            builder.StartAt(req.StartTimeUtc.Value);
+        else
+            builder.StartNow();
+
+        if (req.EndTimeUtc.HasValue)
+            builder.EndAt(req.EndTimeUtc.Value);
+
+        if (!string.IsNullOrWhiteSpace(req.CronExpression))
+        {
+            trigger = builder.WithCronSchedule(req.CronExpression).Build();
+        }
+        else if (req.IntervalSeconds.HasValue)
+        {
+            trigger = req.RepeatCount.HasValue
+                ? builder.WithSimpleSchedule(x => x.WithIntervalInSeconds(req.IntervalSeconds.Value).WithRepeatCount(req.RepeatCount.Value)).Build()
+                : builder.WithSimpleSchedule(x => x.WithIntervalInSeconds(req.IntervalSeconds.Value).RepeatForever()).Build();
+        }
+        else
+        {
+            return Results.BadRequest(new { Error = "Either cronExpression or intervalSeconds is required" });
+        }
+
+        await sched.ScheduleJob(trigger);
+        return Results.Ok(new { Status = "created", Trigger = $"{triggerKey.Group}.{triggerKey.Name}" });
+    }
+
+    private static async Task<IResult> DeleteTrigger(IScheduler sched, string group, string name)
+    {
+        var key = new TriggerKey(name, group);
+        if (await sched.CheckExists(key))
+        {
+            await sched.UnscheduleJob(key);
+            return Results.Ok(new { Status = "deleted", Trigger = $"{group}.{name}" });
+        }
+        return Results.NotFound(new { Error = $"Trigger '{group}.{name}' not found" });
+    }
+
+    private static IResult GetTimeline()
+    {
+        var events = FireHistory.Reverse().Take(100).Select(f => new
+        {
+            jobKey = f.JobKey,
+            triggerKey = f.TriggerKey,
+            fireTime = f.FireTime,
+            duration = f.Duration.TotalMilliseconds,
+            success = f.Success,
+            relativeTime = (DateTimeOffset.UtcNow - f.FireTime).TotalSeconds,
+        }).ToList();
+
+        return Results.Ok(events);
+    }
+
     private static string GetContentType(string path)
     {
         return Path.GetExtension(path).ToLowerInvariant() switch
@@ -450,4 +618,49 @@ internal sealed record ExecutionBucket
     public int ExecutionCount { get; set; }
     public double TotalDurationMs { get; set; }
     public int ErrorCount { get; set; }
+}
+
+public sealed record CreateJobRequest
+{
+    public string Name { get; init; } = "";
+    public string? Group { get; init; }
+    public string? Description { get; init; }
+    public string? JobType { get; init; }
+    public bool IsDurable { get; init; }
+    public bool PersistJobDataAfterExecution { get; init; }
+    public bool DisallowConcurrentExecution { get; init; }
+}
+
+public sealed record UpdateJobRequest
+{
+    public Dictionary<string, string>? JobDataMap { get; init; }
+}
+
+public sealed record CreateTriggerRequest
+{
+    public string Name { get; init; } = "";
+    public string? Group { get; init; }
+    public string JobName { get; init; } = "";
+    public string? JobGroup { get; init; }
+    public string? Description { get; init; }
+    public string? CronExpression { get; init; }
+    public int? IntervalSeconds { get; init; }
+    public int? RepeatCount { get; init; }
+    public int? Priority { get; init; }
+    public DateTimeOffset? StartTimeUtc { get; init; }
+    public DateTimeOffset? EndTimeUtc { get; init; }
+}
+
+/// <summary>
+/// Fallback job type used when a user creates a job without specifying a real IJob type.
+/// Logs a message when executed.
+/// </summary>
+public sealed class PlaceholderJob(ILogger<PlaceholderJob> logger) : IJob
+{
+    public Task Execute(IJobExecutionContext context)
+    {
+        logger.LogInformation("Placeholder job '{Job}' executed — replace with a real IJob type", 
+            $"{context.JobDetail.Key.Group}.{context.JobDetail.Key.Name}");
+        return Task.CompletedTask;
+    }
 }
