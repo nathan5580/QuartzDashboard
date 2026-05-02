@@ -109,6 +109,8 @@ public static class QuartzDashboardApplicationBuilderExtensions
                 result = await GetExecutingJobs(sched);
             else if (method == "GET" && route is ["history"])
                 result = GetFireHistory();
+            else if (method == "GET" && route is ["stats"])
+                result = await GetStats(sched);
             else
                 result = Results.NotFound(new { Error = "Unknown endpoint", Path = string.Join("/", route) });
 
@@ -210,6 +212,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
                 MayFireAgain = t.GetMayFireAgain(),
                 Description = t.Description ?? "",
                 CalendarName = t.CalendarName ?? "",
+                ScheduleDescription = GetScheduleDescription(t),
             });
         }
         return list;
@@ -282,6 +285,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
                     LastFireTime = trigger.GetPreviousFireTimeUtc(), NextFireTime = trigger.GetNextFireTimeUtc(),
                     MayFireAgain = trigger.GetMayFireAgain(), Description = trigger.Description ?? "",
                     CalendarName = trigger.CalendarName ?? "", JobName = trigger.JobKey.Name, JobGroup = trigger.JobKey.Group,
+                    ScheduleDescription = GetScheduleDescription(trigger),
                 });
             }
         }
@@ -355,6 +359,19 @@ public static class QuartzDashboardApplicationBuilderExtensions
         };
     }
 
+    private static string GetScheduleDescription(ITrigger trigger)
+    {
+        var typeName = trigger.GetType().Name;
+        return trigger switch
+        {
+            // Use interface pattern matching — concrete impl types are internal in Quartz 3.x
+            ICronTrigger cron when cron.CronExpressionString != null => cron.CronExpressionString,
+            ISimpleTrigger simple => $"Every {simple.RepeatInterval}",
+            IDailyTimeIntervalTrigger daily => $"Every {daily.RepeatInterval}",
+            _ => typeName.Replace("Impl", ""),
+        };
+    }
+
     internal static readonly ConcurrentQueue<FireRecord> FireHistory = new();
     internal const int MaxFireHistory = 100;
 
@@ -362,6 +379,59 @@ public static class QuartzDashboardApplicationBuilderExtensions
     {
         FireHistory.Enqueue(new FireRecord { JobKey = jobKey, TriggerKey = triggerKey, FireTime = fireTime, Duration = duration, Success = true });
         while (FireHistory.Count > MaxFireHistory) FireHistory.TryDequeue(out _);
+        RecordExecution(jobKey, triggerKey, duration, true);
+    }
+
+    private static async Task<IResult> GetStats(IScheduler sched)
+    {
+        var meta = await sched.GetMetaData();
+        var buckets = ExecutionBuckets.OrderBy(b => b.Timestamp).Select(b => new
+        {
+            Minute = b.Timestamp.ToString("HH:mm"),
+            Count = b.ExecutionCount,
+            AvgDurationMs = b.ExecutionCount > 0 ? Math.Round(b.TotalDurationMs / b.ExecutionCount, 1) : 0,
+            ErrorRate = b.ExecutionCount > 0 ? Math.Round((double)b.ErrorCount / b.ExecutionCount * 100, 1) : 0,
+        }).ToList();
+
+        return Results.Ok(new
+        {
+            TotalExecutions = meta.NumberOfJobsExecuted,
+            UptimeMinutes = meta.RunningSince.HasValue ? Math.Round((DateTimeOffset.UtcNow - meta.RunningSince.Value).TotalMinutes, 1) : 0,
+            ExecutionBuckets = buckets,
+            ExecutionRate = buckets.Count >= 2
+                ? Math.Round(buckets.TakeLast(5).Average(b => b.Count), 1)
+                : 0,
+        });
+    }
+
+    internal static readonly ConcurrentQueue<ExecutionBucket> ExecutionBuckets = new();
+    private const int MaxBuckets = 120;
+
+    internal static void RecordExecution(string jobKey, string triggerKey, TimeSpan duration, bool success)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var rounded = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, now.Offset);
+        if (ExecutionBuckets.TryPeek(out var last) && last.Timestamp == rounded)
+        {
+            ExecutionBuckets.TryDequeue(out _);
+            ExecutionBuckets.Enqueue(last with
+            {
+                ExecutionCount = last.ExecutionCount + 1,
+                TotalDurationMs = last.TotalDurationMs + duration.TotalMilliseconds,
+                ErrorCount = last.ErrorCount + (success ? 0 : 1)
+            });
+        }
+        else
+        {
+            ExecutionBuckets.Enqueue(new ExecutionBucket
+            {
+                Timestamp = rounded,
+                ExecutionCount = 1,
+                TotalDurationMs = duration.TotalMilliseconds,
+                ErrorCount = success ? 0 : 1
+            });
+        }
+        while (ExecutionBuckets.Count > MaxBuckets) ExecutionBuckets.TryDequeue(out _);
     }
 }
 
@@ -372,4 +442,12 @@ internal sealed record FireRecord
     public DateTimeOffset FireTime { get; set; }
     public TimeSpan Duration { get; set; }
     public bool Success { get; set; }
+}
+
+internal sealed record ExecutionBucket
+{
+    public DateTimeOffset Timestamp { get; set; }
+    public int ExecutionCount { get; set; }
+    public double TotalDurationMs { get; set; }
+    public int ErrorCount { get; set; }
 }
