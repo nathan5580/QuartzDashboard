@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Quartz Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8/dist/browser/signalr.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -24,6 +25,7 @@
             'fade-in': 'fade-in 0.25s ease-out',
             'slide-up': 'slide-up 0.3s ease-out',
             'scale-in': 'scale-in 0.15s ease-out',
+            'dot-pop': 'dot-pop 0.2s ease-out',
           },
           keyframes: {
             shimmer: {
@@ -34,6 +36,7 @@
             'fade-in': { from: { opacity: '0', transform: 'translateY(6px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
             'slide-up': { from: { opacity: '0', transform: 'translateY(12px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
             'scale-in': { from: { opacity: '0', transform: 'scale(0.97)' }, to: { opacity: '1', transform: 'scale(1)' } },
+            'dot-pop': { from: { opacity: '0', transform: 'scale(0)' }, to: { opacity: '1', transform: 'scale(1)' } },
           }
         }
       }
@@ -238,6 +241,53 @@
       box-shadow: 0 0 0 2px rgba(99,102,241,0.15);
     }
 
+    /* Select */
+    .glass-select {
+      background: rgba(31,41,55,0.6);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 0.5rem;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.8125rem;
+      color: #e5e7eb;
+      outline: none;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    .glass-select:focus {
+      border-color: rgba(99,102,241,0.5);
+      box-shadow: 0 0 0 2px rgba(99,102,241,0.15);
+    }
+    .glass-select option { background: #1f2937; color: #e5e7eb; }
+
+    /* Textarea */
+    .glass-textarea {
+      background: rgba(31,41,55,0.6);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 0.5rem;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.8125rem;
+      color: #e5e7eb;
+      outline: none;
+      transition: all 0.15s ease;
+      resize: vertical;
+    }
+    .glass-textarea::placeholder { color: #6b7280; }
+    .glass-textarea:focus {
+      border-color: rgba(99,102,241,0.5);
+      box-shadow: 0 0 0 2px rgba(99,102,241,0.15);
+    }
+
+    /* Label for form */
+    .form-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #9ca3af;
+      margin-bottom: 0.375rem;
+      display: block;
+    }
+
     /* Table */
     .table-wrap {
       border: 1px solid rgba(255,255,255,0.06);
@@ -320,17 +370,14 @@
 
     /* Toast */
     .toast {
-      position: fixed;
-      bottom: 1.5rem;
-      right: 1.5rem;
       padding: 0.75rem 1.25rem;
       border-radius: 0.75rem;
       font-size: 0.8125rem;
       font-weight: 500;
       box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-      z-index: 50;
       backdrop-filter: blur(12px);
       border: 1px solid rgba(255,255,255,0.08);
+      animation: slide-up 0.25s ease-out;
     }
     .toast-success { background: rgba(16,185,129,0.2); color: #6ee7b7; border-color: rgba(16,185,129,0.15); }
     .toast-error { background: rgba(239,68,68,0.2); color: #fca5a5; border-color: rgba(239,68,68,0.15); }
@@ -412,17 +459,221 @@
     /* New executing highlight */
     .highlight-new { animation: highlightFade 2s ease-out; }
     @keyframes highlightFade { 0% { background-color: rgba(99,102,241,0.12); } 100% { background-color: transparent; } }
+
+    /* Modal overlay */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(4px);
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: fade-in 0.15s ease-out;
+    }
+
+    .modal-card {
+      background: rgba(17,24,39,0.95);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      max-width: 36rem;
+      width: 90vw;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      animation: scale-in 0.15s ease-out;
+    }
+    .modal-card::-webkit-scrollbar { width: 4px; }
+    .modal-card::-webkit-scrollbar-track { background: transparent; }
+    .modal-card::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 2px; }
+
+    /* Command palette */
+    .command-palette-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(8px);
+      z-index: 70;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 10vh;
+      animation: fade-in 0.15s ease-out;
+    }
+
+    .command-palette-card {
+      background: rgba(17,24,39,0.97);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 1rem;
+      max-width: 32rem;
+      width: 90vw;
+      max-height: 60vh;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      animation: scale-in 0.15s ease-out;
+    }
+
+    .command-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.625rem 1rem;
+      cursor: pointer;
+      transition: all 0.1s ease;
+    }
+    .command-item:hover, .command-item.active {
+      background: rgba(99,102,241,0.1);
+      color: #a5b4fc;
+    }
+
+    /* Timeline */
+    .timeline-now-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #6366f1;
+      box-shadow: 0 0 8px rgba(99,102,241,0.5);
+      z-index: 5;
+      pointer-events: none;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    .timeline-dot {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+      z-index: 3;
+      animation: dot-pop 0.2s ease-out;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .timeline-dot:hover {
+      transform: translate(-50%, -50%) scale(1.5);
+      z-index: 6;
+    }
+    .timeline-dot-success { background: #34d399; border: 1.5px solid rgba(52,211,153,0.3); }
+    .timeline-dot-error { background: #ef4444; border: 1.5px solid rgba(239,68,68,0.3); }
+
+    .timeline-tooltip {
+      position: absolute;
+      background: rgba(3,7,18,0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.6875rem;
+      pointer-events: none;
+      z-index: 10;
+      transform: translateY(-100%);
+      white-space: nowrap;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+
+    /* Light mode overrides */
+    .light body,
+    body.light {
+      background: #f9fafb !important;
+    }
+    .light .card-gradient {
+      background: rgba(255,255,255,0.85) !important;
+      border-color: rgba(0,0,0,0.06) !important;
+    }
+    .light .card-gradient::before {
+      background: linear-gradient(to right, transparent, rgba(99,102,241,0.15), transparent) !important;
+    }
+    .light .stat-card {
+      background: rgba(255,255,255,0.85) !important;
+      border-color: rgba(0,0,0,0.06) !important;
+    }
+    .light .stat-card::before {
+      background: linear-gradient(to right, transparent, rgba(99,102,241,0.12), transparent) !important;
+    }
+    .light .table-wrap {
+      border-color: rgba(0,0,0,0.06) !important;
+    }
+    .light .table-wrap th {
+      background: rgba(243,244,246,0.9) !important;
+      color: #6b7280 !important;
+      border-bottom-color: rgba(0,0,0,0.06) !important;
+    }
+    .light .table-wrap td {
+      color: #374151 !important;
+      border-bottom-color: rgba(0,0,0,0.03) !important;
+    }
+    .light .table-wrap tbody tr:hover { background: rgba(0,0,0,0.02) !important; }
+    .light .table-wrap tbody tr:nth-child(even) { background: rgba(0,0,0,0.01) !important; }
+    .light .sidebar-border {
+      border-image: linear-gradient(to bottom, rgba(99,102,241,0.08), transparent 60%) 1 !important;
+    }
+    .light .footer-bar {
+      background: rgba(255,255,255,0.85) !important;
+      border-top-color: rgba(0,0,0,0.06) !important;
+      color: #6b7280 !important;
+    }
+    .light .glass-input {
+      background: white !important;
+      border-color: rgba(0,0,0,0.1) !important;
+      color: #374151 !important;
+    }
+    .light .glass-input::placeholder { color: #9ca3af !important; }
+    .light .glass-select {
+      background: white !important;
+      border-color: rgba(0,0,0,0.1) !important;
+      color: #374151 !important;
+    }
+    .light .glass-textarea {
+      background: white !important;
+      border-color: rgba(0,0,0,0.1) !important;
+      color: #374151 !important;
+    }
+    .light .modal-card {
+      background: rgba(255,255,255,0.97) !important;
+      border-color: rgba(0,0,0,0.08) !important;
+    }
+    .light .command-palette-card {
+      background: rgba(255,255,255,0.97) !important;
+      border-color: rgba(0,0,0,0.08) !important;
+    }
+    .light .badge { --badge-bg: rgba(0,0,0,0.04); }
+    .light .btn-ghost { background: rgba(0,0,0,0.03); color: #6b7280; }
+    .light .btn-ghost:hover { background: rgba(0,0,0,0.06); color: #374151; }
+    .light .sidebar-item { color: #6b7280; }
+    .light .sidebar-item:hover { background: rgba(0,0,0,0.03); color: #374151; }
+    .light .sidebar-item.active { background: rgba(99,102,241,0.06); color: #4f46e5; }
+    .light h1, .light h2, .light h3, .light h4 { color: #111827 !important; }
+    .light .text-gray-100 { color: #111827 !important; }
+    .light .text-gray-200 { color: #1f2937 !important; }
+    .light .text-gray-300 { color: #374151 !important; }
+    .light .text-gray-400 { color: #6b7280 !important; }
+    .light .text-gray-500 { color: #9ca3af !important; }
+    .light .text-gray-600 { color: #9ca3af !important; }
+    .light .toggle-off { background: #d1d5db; }
+    .light .timeline-tooltip { background: rgba(255,255,255,0.95) !important; border-color: rgba(0,0,0,0.08) !important; }
+    .light .graph-tooltip { background: rgba(255,255,255,0.95) !important; border-color: rgba(0,0,0,0.08) !important; }
+    .light .graph-tooltip::after { background: rgba(255,255,255,0.95) !important; border-color: rgba(0,0,0,0.08) !important; }
+    .light .shimmer, .light .sk { background: rgba(200,200,210,0.3) !important; }
+    .light .spinner { border-color: rgba(0,0,0,0.1) !important; }
   </style>
+  <style id="light-mode-override"></style>
 </head>
 <body class="bg-gray-950 text-gray-200 antialiased" x-data="dashboard()" x-init="init()">
 
-  <!-- Toast notification -->
-  <template x-teleport="body">
-    <div x-show="toast.show" x-text="toast.message"
-         :class="'toast toast-' + toast.type"
-         x-transition:enter.duration.150 x-transition:leave.duration.150 style="display: none;">
-    </div>
-  </template>
+  <!-- Toast queue -->
+  <div class="fixed bottom-12 right-4 z-50 flex flex-col-reverse gap-2 pointer-events-none" style="z-index: 55;">
+    <template x-for="(t, idx) in toastQueue.slice(0, 3)" :key="t.id">
+      <div class="toast pointer-events-auto"
+           :class="'toast-' + t.type"
+           x-transition:enter.duration.150
+           x-transition:leave.duration.150
+           x-text="t.message">
+      </div>
+    </template>
+  </div>
 
   <!-- Loading overlay -->
   <div x-show="loading.global" class="fixed inset-0 bg-gray-950/40 backdrop-blur-sm flex items-center justify-center z-40" style="display: none;">
@@ -431,6 +682,195 @@
       <span class="text-sm text-gray-300">Processing...</span>
     </div>
   </div>
+
+  <!-- ============ CREATE JOB MODAL ============ -->
+  <template x-teleport="body">
+    <div x-show="showCreateJobModal" class="modal-overlay" @click.self="showCreateJobModal = false" style="display: none;">
+      <div class="modal-card">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-base font-semibold text-gray-100">Create Job</h2>
+          <button @click="showCreateJobModal = false" class="btn-icon">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="form-label">Name *</label>
+            <input type="text" x-model="newJob.name" class="glass-input w-full" placeholder="MyJob">
+          </div>
+          <div>
+            <label class="form-label">Group</label>
+            <input type="text" x-model="newJob.group" class="glass-input w-full" placeholder="DEFAULT">
+          </div>
+          <div>
+            <label class="form-label">Description</label>
+            <textarea x-model="newJob.description" rows="2" class="glass-textarea w-full" placeholder="Optional description"></textarea>
+          </div>
+          <div>
+            <label class="form-label">Job Type (.NET type name)</label>
+            <input type="text" x-model="newJob.jobType" class="glass-input w-full" placeholder="MyApp.Jobs.MyJob, MyApp">
+          </div>
+          <div class="flex items-center gap-6 pt-1">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" x-model="newJob.isDurable" class="w-3.5 h-3.5 accent-quartz-500">
+              <span class="text-xs text-gray-300">Durable</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" x-model="newJob.disallowConcurrentExecution" class="w-3.5 h-3.5 accent-quartz-500">
+              <span class="text-xs text-gray-300">Disallow Concurrent</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" x-model="newJob.persistJobDataAfterExecution" class="w-3.5 h-3.5 accent-quartz-500">
+              <span class="text-xs text-gray-300">Persist Job Data</span>
+            </label>
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button @click="showCreateJobModal = false" class="btn btn-ghost">Cancel</button>
+            <button @click="submitCreateJob()" :disabled="!newJob.name" class="btn btn-primary">Create Job</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ============ CREATE TRIGGER MODAL ============ -->
+  <template x-teleport="body">
+    <div x-show="showCreateTriggerModal" class="modal-overlay" @click.self="showCreateTriggerModal = false" style="display: none;">
+      <div class="modal-card">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-base font-semibold text-gray-100">Create Trigger</h2>
+          <button @click="showCreateTriggerModal = false" class="btn-icon">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="form-label">Name *</label>
+            <input type="text" x-model="newTrigger.name" class="glass-input w-full" placeholder="MyTrigger">
+          </div>
+          <div>
+            <label class="form-label">Group</label>
+            <input type="text" x-model="newTrigger.group" class="glass-input w-full" placeholder="DEFAULT">
+          </div>
+          <div>
+            <label class="form-label">Job Name *</label>
+            <input type="text" x-model="newTrigger.jobName" class="glass-input w-full" placeholder="MyJob">
+          </div>
+          <div>
+            <label class="form-label">Job Group</label>
+            <input type="text" x-model="newTrigger.jobGroup" class="glass-input w-full" placeholder="DEFAULT">
+          </div>
+          <div>
+            <label class="form-label">Description</label>
+            <textarea x-model="newTrigger.description" rows="2" class="glass-textarea w-full" placeholder="Optional description"></textarea>
+          </div>
+
+          <!-- Trigger type tabs -->
+          <div class="flex gap-2 border-b border-white/[0.06] pb-2">
+            <button @click="newTrigger.triggerType = 'cron'"
+                    :class="['btn text-xs', newTrigger.triggerType === 'cron' ? 'btn-primary' : 'btn-ghost']">Cron</button>
+            <button @click="newTrigger.triggerType = 'simple'"
+                    :class="['btn text-xs', newTrigger.triggerType === 'simple' ? 'btn-primary' : 'btn-ghost']">Simple</button>
+          </div>
+
+          <!-- Cron fields -->
+          <template x-if="newTrigger.triggerType === 'cron'">
+            <div>
+              <label class="form-label">Cron Expression *</label>
+              <input type="text" x-model="newTrigger.cronExpression" class="glass-input w-full" placeholder="0/5 * * * * ?">
+            </div>
+          </template>
+
+          <!-- Simple fields -->
+          <template x-if="newTrigger.triggerType === 'simple'">
+            <div class="space-y-3">
+              <div>
+                <label class="form-label">Interval (seconds) *</label>
+                <input type="number" x-model.number="newTrigger.intervalSeconds" class="glass-input w-full" placeholder="10" min="1">
+              </div>
+              <div>
+                <label class="form-label">Repeat Count</label>
+                <div class="flex items-center gap-2">
+                  <input type="number" x-model.number="newTrigger.repeatCount" class="glass-input w-24" placeholder="0" min="-1">
+                  <span class="text-xs text-gray-500">(-1 = infinite)</span>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <div>
+            <label class="form-label">Priority</label>
+            <input type="number" x-model.number="newTrigger.priority" class="glass-input w-24" placeholder="5" min="0">
+          </div>
+          <div>
+            <label class="form-label">Start Time</label>
+            <input type="datetime-local" x-model="newTrigger.startTimeUtc" class="glass-input w-full">
+          </div>
+          <div>
+            <label class="form-label">End Time (optional)</label>
+            <input type="datetime-local" x-model="newTrigger.endTimeUtc" class="glass-input w-full">
+          </div>
+
+          <div class="flex justify-end gap-2 pt-2">
+            <button @click="showCreateTriggerModal = false" class="btn btn-ghost">Cancel</button>
+            <button @click="submitCreateTrigger()" :disabled="!newTrigger.name || !newTrigger.jobName || (newTrigger.triggerType==='cron' && !newTrigger.cronExpression) || (newTrigger.triggerType==='simple' && !newTrigger.intervalSeconds)" class="btn btn-primary">Create Trigger</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ============ DELETE CONFIRMATION MODAL ============ -->
+  <template x-teleport="body">
+    <div x-show="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false" style="display: none;">
+      <div class="modal-card max-w-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold text-gray-100">Confirm Delete</h2>
+          <button @click="showDeleteConfirm = false" class="btn-icon">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <p class="text-sm text-gray-300 mb-6" x-text="deleteConfirmMessage"></p>
+        <div class="flex justify-end gap-2">
+          <button @click="showDeleteConfirm = false" class="btn btn-ghost">Cancel</button>
+          <button @click="executeDelete()" class="btn btn-danger">Delete</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ============ COMMAND PALETTE ============ -->
+  <template x-teleport="body">
+    <div x-show="showCommandPalette" class="command-palette-overlay" @click.self="showCommandPalette = false" style="display: none;">
+      <div class="command-palette-card" @keydown.escape="showCommandPalette = false" @keydown.arrow-up.prevent="commandPalettePrev" @keydown.arrow-down.prevent="commandPaletteNext" @keydown.enter.prevent="commandPaletteSelect">
+        <div class="flex items-center px-4 py-3 border-b border-white/[0.06]">
+          <svg class="w-4 h-4 text-gray-500 mr-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" x-model="commandPaletteQuery" x-ref="commandPaletteInput"
+                 placeholder="Search pages and actions..."
+                 class="flex-1 bg-transparent border-none outline-none text-sm text-gray-200 placeholder-gray-500"
+                 @keydown.escape.stop="showCommandPalette = false">
+        </div>
+        <div class="max-h-64 overflow-y-auto p-1" x-ref="commandPaletteList">
+          <template x-for="(cmd, idx) in filteredCommands" :key="cmd.id">
+            <div @click="executeCommand(cmd)"
+                 :class="['command-item rounded-lg text-sm', commandPaletteIndex === idx ? 'active' : '']"
+                 @mouseenter="commandPaletteIndex = idx">
+              <div class="flex items-center gap-3">
+                <span x-html="cmd.icon" class="w-4 h-4 text-gray-500 flex-shrink-0"></span>
+                <span x-text="cmd.label" class="text-gray-200"></span>
+              </div>
+              <span class="text-[10px] text-gray-500 mono" x-text="cmd.shortcut || ''"></span>
+            </div>
+          </template>
+          <div x-show="!filteredCommands.length" class="text-center py-6 text-sm text-gray-500">
+            No matching commands
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
 
   <div class="flex h-screen overflow-hidden" :style="'padding-bottom: 2rem'">
     <!-- ===================== SIDEBAR ===================== -->
@@ -623,6 +1063,10 @@
                     <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
                 </div>
+                <button @click="showCreateJobModal = true" class="btn btn-primary">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Create Job
+                </button>
                 <button @click="loadJobs()" class="btn btn-ghost">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
                   Refresh
@@ -707,6 +1151,7 @@
                               <span class="text-[10px] text-gray-500 mono" x-text="t.nextFireTime ? 'in ' + relativeTime(t.nextFireTime) : '\u2014'"></span>
                               <button @click.stop="pauseTrigger(t.group, t.name)" class="btn btn-warning text-[10px] px-2 py-1">Pause</button>
                               <button @click.stop="resumeTrigger(t.group, t.name)" class="btn btn-success text-[10px] px-2 py-1">Resume</button>
+                              <button @click.stop="deleteJobTrigger(job.group, job.name, t.group, t.name)" class="btn btn-danger text-[10px] px-2 py-1">Delete</button>
                             </div>
                           </div>
                         </template>
@@ -743,10 +1188,16 @@
                 <h1 class="text-lg font-semibold tracking-tight text-gray-100">Triggers</h1>
                 <p class="text-xs text-gray-500 mt-0.5">Grouped by job</p>
               </div>
-              <button @click="loadTriggers()" class="btn btn-ghost">
-                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
-                Refresh
-              </button>
+              <div class="flex items-center gap-2">
+                <button @click="showCreateTriggerModal = true" class="btn btn-primary">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Create Trigger
+                </button>
+                <button @click="loadTriggers()" class="btn btn-ghost">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                  Refresh
+                </button>
+              </div>
             </div>
 
             <!-- Loading skeleton -->
@@ -809,6 +1260,7 @@
                                   <div class="flex gap-1 justify-end">
                                     <button @click.stop="pauseTrigger(t.group, t.name)" class="btn btn-warning text-[10px] px-2 py-1">Pause</button>
                                     <button @click.stop="resumeTrigger(t.group, t.name)" class="btn btn-success text-[10px] px-2 py-1">Resume</button>
+                                    <button @click.stop="deleteTrigger(t.group, t.name)" class="btn btn-danger text-[10px] px-2 py-1">Delete</button>
                                   </div>
                                 </td>
                               </tr>
@@ -1178,6 +1630,99 @@
         </div>
       </template>
 
+      <!-- ===================== TIMELINE PAGE ===================== -->
+      <template x-if="currentPage === 'timeline'">
+        <div x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h1 class="text-lg font-semibold tracking-tight text-gray-100">Timeline</h1>
+                <p class="text-xs text-gray-500 mt-0.5">Last 50 fire events in real-time</p>
+              </div>
+              <button @click="loadTimeline()" class="btn btn-ghost">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                Refresh
+              </button>
+            </div>
+
+            <div class="card-gradient">
+              <div class="relative overflow-x-auto" x-ref="timelineContainer" style="height: 400px;">
+                <template x-if="loading.timeline">
+                  <div class="flex items-center justify-center h-full">
+                    <div class="spinner w-6 h-6"></div>
+                  </div>
+                </template>
+                <template x-if="!loading.timeline && !timelineEvents.length">
+                  <div class="flex items-center justify-center h-full text-sm text-gray-500">
+                    No timeline events yet
+                  </div>
+                </template>
+                <template x-if="!loading.timeline && timelineEvents.length">
+                  <div class="relative" :style="'height: ' + timelineHeight + 'px; min-width: 100%; width: ' + timelineWidth + 'px'">
+                    <!-- Y-axis labels (job names) -->
+                    <div class="absolute left-0 top-0 bottom-8 w-36 flex flex-col justify-around pointer-events-none z-10">
+                      <template x-for="(jobName, idx) in timelineYLabels" :key="jobName">
+                        <div class="text-[10px] text-gray-500 truncate px-2 leading-none" 
+                             :style="'position: absolute; top: ' + (timelineRowCenter(idx)) + 'px; transform: translateY(-50%)'"
+                             x-text="jobName"></div>
+                      </template>
+                    </div>
+                    <!-- SVG area -->
+                    <svg :width="timelineWidth" :height="timelineHeight" class="absolute left-36 top-0 overflow-visible">
+                      <!-- Grid lines (vertical, time markers) -->
+                      <template x-for="i in 6" :key="'tgrid-' + i">
+                        <line :x1="timelineXForTime(now - (60000/6) * i)" y1="0" 
+                              :x2="timelineXForTime(now - (60000/6) * i)" :y2="timelineHeight - 30"
+                              stroke="rgba(255,255,255,0.04)" stroke-width="0.5" stroke-dasharray="2,3"/>
+                      </template>
+                      <!-- Time labels -->
+                      <template x-for="i in 6" :key="'tlabel-' + i">
+                        <text :x="timelineXForTime(now - (60000/6) * i)" :y="timelineHeight - 12"
+                              text-anchor="middle" class="fill-gray-600 text-[8px] font-mono">
+                          <tspan x-text="formatTimeShort(new Date(now - (60000/6) * i))"></tspan>
+                        </text>
+                      </template>
+                      <!-- Horizontal separator lines -->
+                      <template x-for="(jobName, idx) in timelineYLabels" :key="'hline-' + idx">
+                        <line x1="0" :y1="timelineRowCenter(idx)" 
+                              :x2="timelineWidth" :y2="timelineRowCenter(idx)"
+                              stroke="rgba(255,255,255,0.03)" stroke-width="0.5"/>
+                      </template>
+                      <!-- Current time indicator line -->
+                      <line :x1="timelineXForTime(now)" y1="0" :x2="timelineXForTime(now)" :y2="timelineHeight - 30"
+                            stroke="#6366f1" stroke-width="2" stroke-dasharray="4,4" opacity="0.8">
+                        <animate attributeName="opacity" values="0.8;0.3;0.8" dur="2s" repeatCount="indefinite"/>
+                      </line>
+                      <!-- Event dots -->
+                      <template x-for="(evt, idx) in timelineEvents" :key="evt.fireTime + '-' + evt.jobKey + '-' + idx">
+                        <g>
+                          <circle :cx="timelineXForTime(new Date(evt.fireTime).getTime())"
+                                  :cy="timelineYForJob(evt.jobKey)"
+                                  r="5"
+                                  :class="'timeline-dot ' + (evt.success ? 'timeline-dot-success' : 'timeline-dot-error')"
+                                  @mouseenter="timelineTooltip = { show: true, event: evt, x: timelineXForTime(new Date(evt.fireTime).getTime()) - 18, y: timelineYForJob(evt.jobKey) - 14 }"
+                                  @mouseleave="timelineTooltip.show = false">
+                          </circle>
+                        </g>
+                      </template>
+                    </svg>
+                    <!-- Tooltip -->
+                    <div x-show="timelineTooltip.show" 
+                         :style="'left: ' + timelineTooltip.x + 'px; top: ' + timelineTooltip.y + 'px;'" 
+                         class="timeline-tooltip" style="display: none;">
+                      <div class="text-gray-200 font-medium text-xs" x-text="timelineTooltip.event.jobKey"></div>
+                      <div class="text-[10px] text-gray-400" x-text="'Trigger: ' + timelineTooltip.event.triggerKey"></div>
+                      <div class="text-[10px] text-gray-400" x-text="'Duration: ' + formatDuration(timelineTooltip.event.duration)"></div>
+                      <div class="text-[10px] mt-0.5" :class="timelineTooltip.event.success ? 'text-emerald-400' : 'text-red-400'" x-text="timelineTooltip.event.success ? 'Success' : 'Error'"></div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
       <!-- ===================== SETTINGS PAGE ===================== -->
       <template x-if="currentPage === 'settings'">
         <div x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
@@ -1222,12 +1767,45 @@
 
               <div class="border-t border-white/[0.04]"></div>
 
+              <!-- Light mode -->
+              <div>
+                <div class="flex items-center justify-between mb-3">
+                  <h2 class="text-sm font-semibold text-gray-200">Appearance</h2>
+                </div>
+                <label class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-white/[0.02] cursor-pointer transition-colors">
+                  <div class="flex items-center gap-3">
+                    <svg class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <span class="text-sm text-gray-300">Light Mode</span>
+                  </div>
+                  <div @click="toggleLightMode()"
+                       :class="['toggle', lightMode ? 'toggle-on' : 'toggle-off']">
+                    <div :class="['toggle-knob', lightMode ? 'toggle-knob-on' : 'toggle-knob-off']"></div>
+                  </div>
+                </label>
+                <p class="text-xs text-gray-500 mt-2">Toggle between dark and light appearance.</p>
+              </div>
+
+              <div class="border-t border-white/[0.04]"></div>
+
+              <!-- Connection info -->
+              <div>
+                <h2 class="text-sm font-semibold text-gray-200 mb-3">Connection</h2>
+                <div class="text-xs text-gray-500 space-y-1.5">
+                  <p>Status: <span class="font-medium" :class="signalRConnected ? 'text-emerald-400' : signalRPolling ? 'text-amber-400' : 'text-gray-400'" x-text="connectionStatus"></span></p>
+                  <p>Hub: <code class="mono text-quartz-400 bg-quartz-500/10 px-1.5 py-0.5 rounded text-[11px]">/quartz/hub</code></p>
+                </div>
+              </div>
+
+              <div class="border-t border-white/[0.04]"></div>
+
               <!-- About -->
               <div>
                 <h2 class="text-sm font-semibold text-gray-200 mb-3">About</h2>
                 <div class="text-xs text-gray-500 space-y-1.5">
                   <p>Quartz Dashboard <span class="text-gray-400">v0.2</span></p>
-                  <p>Built with Alpine.js 3.x + Tailwind CSS v4</p>
+                  <p>Built with Alpine.js 3.x + Tailwind CSS v4 + SignalR</p>
                   <p>Single-file SPA \u2014 no build step required</p>
                   <p class="mt-3">API endpoints: <code class="mono text-quartz-400 bg-quartz-500/10 px-1.5 py-0.5 rounded text-[11px]">/quartz/api/*</code></p>
                 </div>
@@ -1240,7 +1818,7 @@
   </div>
 
   <!-- ===================== FOOTER STATUS BAR ===================== -->
-  <div class="footer-bar" x-data>
+  <div class="footer-bar">
     <div class="flex items-center gap-4 w-full max-w-7xl mx-auto">
       <div class="flex items-center gap-1.5">
         <span class="relative inline-flex">
@@ -1254,6 +1832,10 @@
       <span class="hidden sm:inline"><span class="text-gray-500">Triggers:</span> <span class="text-gray-400 font-medium" x-text="triggers.length"></span></span>
       <span class="text-gray-600 hidden md:inline">|</span>
       <span class="hidden md:inline"><span class="text-gray-500">Instance:</span> <span class="text-gray-400 mono" x-text="scheduler.instanceId ? scheduler.instanceId.slice(0, 20) : '\u2014'"></span></span>
+      <span class="text-gray-600 hidden md:inline">|</span>
+      <span class="hidden md:inline">
+        <span :class="signalRConnected ? 'text-emerald-400' : signalRPolling ? 'text-amber-400' : 'text-gray-500'" x-text="connectionStatus"></span>
+      </span>
       <span class="ml-auto text-gray-600">
         Last refreshed: <span class="text-gray-400" x-text="lastRefreshed ? formatDate(lastRefreshed) : '\u2014'"></span>
       </span>
@@ -1267,7 +1849,7 @@
         currentPage: 'overview',
         sidebarOpen: true,
         lastRefreshed: null,
-        loading: { global: false, jobs: false, triggers: false, executing: false, history: false, stats: false },
+        loading: { global: false, jobs: false, triggers: false, executing: false, history: false, stats: false, timeline: false },
         scheduler: { isStarted: false, isStandbyMode: false, numberOfJobsExecuted: 0 },
         jobs: [],
         triggers: [],
@@ -1316,9 +1898,72 @@
             executing: true,
             history: true,
             graph: true,
+            timeline: true,
             settings: false
           }
         },
+
+        // ========================= SIGNALR / CONNECTION =========================
+        signalRConnected: false,
+        signalRPolling: false,
+        connection: null,
+        connectionAttempts: 0,
+        pollingTimer: null,
+        signalRTimeout: null,
+
+        // ========================= TOAST QUEUE =========================
+        toastQueue: [],
+        toastIdCounter: 0,
+
+        // ========================= COMMAND PALETTE =========================
+        showCommandPalette: false,
+        commandPaletteQuery: '',
+        commandPaletteIndex: 0,
+
+        // ========================= LIGHT MODE =========================
+        lightMode: false,
+
+        // ========================= CREATE JOB MODAL =========================
+        showCreateJobModal: false,
+        newJob: {
+          name: '',
+          group: 'DEFAULT',
+          description: '',
+          jobType: '',
+          isDurable: false,
+          disallowConcurrentExecution: false,
+          persistJobDataAfterExecution: false
+        },
+
+        // ========================= CREATE TRIGGER MODAL =========================
+        showCreateTriggerModal: false,
+        newTrigger: {
+          name: '',
+          group: 'DEFAULT',
+          jobName: '',
+          jobGroup: 'DEFAULT',
+          description: '',
+          triggerType: 'cron',
+          cronExpression: '',
+          intervalSeconds: null,
+          repeatCount: -1,
+          priority: 5,
+          startTimeUtc: '',
+          endTimeUtc: ''
+        },
+
+        // ========================= DELETE CONFIRM =========================
+        showDeleteConfirm: false,
+        deleteConfirmMessage: '',
+        deletePending: null,
+
+        // ========================= TIMELINE =========================
+        timelineEvents: [],
+        timelineWidth: 800,
+        timelineHeight: 400,
+        timelineTooltip: { show: false, event: null, x: 0, y: 0 },
+        timelineNowInterval: null,
+        timelineAnimFrame: null,
 
         navItems: [
           { id: 'overview', label: 'Overview', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>' },
@@ -1327,6 +1972,7 @@
           { id: 'executing', label: 'Executing', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
           { id: 'history', label: 'History', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
           { id: 'graph', label: 'Graph', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>' },
+          { id: 'timeline', label: 'Timeline', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="12" x2="21" y2="12"/><polyline points="8 7 3 12 8 17"/><polyline points="16 7 21 12 16 17"/></svg>' },
           { id: 'settings', label: 'Settings', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>' },
         ],
 
@@ -1361,11 +2007,97 @@
           return this.loading.stats;
         },
 
+        get connectionStatus() {
+          if (this.signalRConnected) return 'Live';
+          if (this.signalRPolling) {
+            const secs = Math.floor((Date.now() - (this.lastPollingTime || Date.now())) / 1000);
+            return 'Polling (' + secs + 's)';
+          }
+          return 'Connecting...';
+        },
+
+        // ========================= COMMAND PALETTE COMPUTED =========================
+        get commandPaletteCommands() {
+          const cmds = [];
+          for (const item of this.navItems) {
+            cmds.push({ id: 'nav-' + item.id, label: 'Go to ' + item.label, icon: item.icon, action: 'navigate', page: item.id, shortcut: this.navItems.indexOf(item) + 1 });
+          }
+          for (const job of this.jobs) {
+            cmds.push({ id: 'trigger-' + job.group + '.' + job.name, label: 'Trigger job ' + job.group + '.' + job.name, icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 5v14l11-7z"/></svg>', action: 'triggerJob', group: job.group, name: job.name });
+          }
+          return cmds;
+        },
+
+        get filteredCommands() {
+          if (!this.commandPaletteQuery) return this.commandPaletteCommands;
+          const q = this.commandPaletteQuery.toLowerCase();
+          return this.commandPaletteCommands.filter(c => c.label.toLowerCase().includes(q));
+        },
+
+        // ========================= TIMELINE COMPUTED =========================
+        get timelineYLabels() {
+          const labels = [];
+          for (const evt of this.timelineEvents) {
+            if (!labels.includes(evt.jobKey)) labels.push(evt.jobKey);
+          }
+          return labels;
+        },
+
+        get now() {
+          return Date.now();
+        },
+
+        timelineRowCenter(idx) {
+          const rowH = Math.max(40, (this.timelineHeight - 30) / Math.max(this.timelineYLabels.length, 1));
+          return (idx + 0.5) * rowH;
+        },
+
+        timelineXForTime(timeMs) {
+          const now = Date.now();
+          const range = 60000; // 60 seconds visible
+          const leftTime = now - range;
+          const w = this.timelineWidth - 10;
+          const frac = (timeMs - leftTime) / range;
+          return Math.max(0, Math.min(w, frac * w + 5));
+        },
+
+        timelineYForJob(jobKey) {
+          const idx = this.timelineYLabels.indexOf(jobKey);
+          if (idx === -1) return 20;
+          return this.timelineRowCenter(idx);
+        },
+
         // ========================= INIT =========================
         async init() {
+          // Load theme preference
+          const savedTheme = localStorage.getItem('quartz-dashboard-theme');
+          if (savedTheme === 'light') {
+            this.lightMode = true;
+            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light');
+            document.body.classList.add('light');
+          }
+
+          // Setup keyboard shortcuts
+          document.addEventListener('keydown', (e) => this.handleKeydown(e));
+
+          // Start SignalR connection
+          await this.connectSignalR();
+
+          // Fallback: if SignalR doesn't connect in 5 seconds, start polling
+          this.signalRTimeout = setTimeout(() => {
+            if (!this.signalRConnected) {
+              this.signalRPolling = true;
+              this.lastPollingTime = Date.now();
+              this.startPollingFallback();
+            }
+          }, 5000);
+
+          // Initial data load
           await this.refreshAll();
           await this.loadHistory();
           await this.loadStats();
+
           this.startAutoRefresh();
           this.$watch('currentPage', (val) => { this.onPageChange(val); });
           this.$watch('settings.refreshInterval', () => { this.startAutoRefresh(); });
@@ -1373,12 +2105,460 @@
             this.updateGraphSize();
           }
           window.addEventListener('resize', () => this.updateGraphSize());
+
+          // Start timeline now ticker
+          this.timelineNowInterval = setInterval(() => {
+            if (this.currentPage === 'timeline') {
+              // Force re-render by touching a watched property
+              this.timelineWidth = this.timelineWidth + 0.01;
+            }
+          }, 1000);
+        },
+
+        // ========================= SIGNALR =========================
+        async connectSignalR() {
+          try {
+            this.connection = new signalR.HubConnectionBuilder()
+              .withUrl('/quartz/hub')
+              .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+              .build();
+
+            this.connection.on('jobExecuted', (data) => {
+              this.handleJobExecuted(data);
+            });
+
+            this.connection.on('jobTriggered', (data) => {
+              this.handleJobTriggered(data);
+            });
+
+            this.connection.on('schedulerStatus', (data) => {
+              this.handleSchedulerStatus(data);
+            });
+
+            this.connection.on('jobsUpdated', (data) => {
+              this.handleJobsUpdated(data);
+            });
+
+            this.connection.onreconnecting(() => {
+              this.signalRConnected = false;
+            });
+
+            this.connection.onreconnected(() => {
+              this.signalRConnected = true;
+              this.signalRPolling = false;
+              this.stopPollingFallback();
+              this.refreshAll();
+            });
+
+            this.connection.onclose(() => {
+              this.signalRConnected = false;
+              if (!this.signalRPolling) {
+                this.signalRPolling = true;
+                this.lastPollingTime = Date.now();
+                this.startPollingFallback();
+              }
+            });
+
+            await this.connection.start();
+            await this.connection.invoke('Subscribe');
+            this.signalRConnected = true;
+            if (this.signalRTimeout) {
+              clearTimeout(this.signalRTimeout);
+              this.signalRTimeout = null;
+            }
+          } catch (err) {
+            console.error('SignalR connection failed:', err);
+            this.signalRConnected = false;
+          }
+        },
+
+        handleJobExecuted(data) {
+          // Append to history
+          if (data.jobKey) {
+            this.history.unshift(data);
+            if (this.history.length > 500) this.history.length = 500;
+            // Update maxHistoryDuration
+            const d = data.durationMs || 0;
+            if (d > this.maxHistoryDuration) this.maxHistoryDuration = d;
+          }
+
+          // Update executionBuckets if we have stats
+          if (this.executionBuckets.length) {
+            const now = new Date();
+            const bucketMinute = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes()).toISOString();
+            let bucket = this.executionBuckets[this.executionBuckets.length - 1];
+            if (bucket && bucket.minute === bucketMinute) {
+              bucket.count = (bucket.count || 0) + 1;
+              const prevAvg = bucket.avgDurationMs || 0;
+              const prevCount = bucket.count - 1;
+              bucket.avgDurationMs = prevCount > 0 ? (prevAvg * prevCount + (data.durationMs || 0)) / bucket.count : (data.durationMs || 0);
+              if (data.success === false) {
+                bucket.errorRate = ((bucket.errorRate || 0) * prevCount + 1) / bucket.count;
+              }
+            } else {
+              this.executionBuckets.push({
+                minute: bucketMinute,
+                count: 1,
+                avgDurationMs: data.durationMs || 0,
+                errorRate: data.success === false ? 1 : 0
+              });
+              if (this.executionBuckets.length > 60) this.executionBuckets.shift();
+            }
+          }
+
+          // Update stat counts
+          this.scheduler.numberOfJobsExecuted = (this.scheduler.numberOfJobsExecuted || 0) + 1;
+
+          // Remove from executingJobs if present
+          if (data.fireInstanceId) {
+            this.executingJobs = this.executingJobs.filter(ej => ej.fireInstanceId !== data.fireInstanceId);
+          }
+
+          // Update graph data
+          this.graphData = this.getGraphData();
+
+          // Add to timeline
+          this.addTimelineEvent(data);
+        },
+
+        handleJobTriggered(data) {
+          // Add to executingJobs
+          if (data.jobName) {
+            // Check if already there
+            const exists = this.executingJobs.some(ej => ej.fireInstanceId === data.fireInstanceId);
+            if (!exists) {
+              this.executingJobs.push(data);
+            }
+            // Show brief toast if on executing page
+            if (this.currentPage === 'executing') {
+              this.showToast('Job triggered: ' + (data.jobName || data.jobKey), 'info');
+            }
+          }
+        },
+
+        handleSchedulerStatus(data) {
+          if (data) {
+            if (data.isStarted !== undefined) this.scheduler.isStarted = data.isStarted;
+            if (data.isStandbyMode !== undefined) this.scheduler.isStandbyMode = data.isStandbyMode;
+            if (data.numberOfJobsExecuted !== undefined) this.scheduler.numberOfJobsExecuted = data.numberOfJobsExecuted;
+            if (data.name !== undefined) this.scheduler.name = data.name;
+            if (data.instanceId !== undefined) this.scheduler.instanceId = data.instanceId;
+            if (data.version !== undefined) this.scheduler.version = data.version;
+          }
+        },
+
+        handleJobsUpdated(data) {
+          // Silently refresh jobs and triggers
+          this.loadJobs();
+          this.loadTriggers();
+        },
+
+        // ========================= POLLING FALLBACK =========================
+        startPollingFallback() {
+          this.stopPollingFallback();
+          this.pollingTimer = setInterval(() => {
+            this.refreshAll();
+            this.lastPollingTime = Date.now();
+          }, this.settings.refreshInterval * 1000);
+        },
+
+        stopPollingFallback() {
+          if (this.pollingTimer) {
+            clearInterval(this.pollingTimer);
+            this.pollingTimer = null;
+          }
+        },
+
+        // ========================= KEYBOARD SHORTCUTS =========================
+        handleKeydown(e) {
+          // Command palette: Cmd+K or Ctrl+K
+          if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            e.preventDefault();
+            this.openCommandPalette();
+            return;
+          }
+
+          // Escape: close modals
+          if (e.key === 'Escape') {
+            if (this.showCommandPalette) { this.showCommandPalette = false; return; }
+            if (this.showCreateJobModal) { this.showCreateJobModal = false; return; }
+            if (this.showCreateTriggerModal) { this.showCreateTriggerModal = false; return; }
+            if (this.showDeleteConfirm) { this.showDeleteConfirm = false; return; }
+            return;
+          }
+
+          // If command palette is open, handle arrow keys internally
+          if (this.showCommandPalette) return;
+
+          // Number keys 1-8: switch pages
+          const num = parseInt(e.key);
+          if (num >= 1 && num <= 8 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+            const idx = num - 1;
+            if (idx < this.navItems.length) {
+              this.currentPage = this.navItems[idx].id;
+              e.preventDefault();
+            }
+            return;
+          }
+
+          // r: refresh
+          if (e.key === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+            // Only if no input is focused
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'SELECT') {
+              e.preventDefault();
+              this.refreshPage(this.currentPage);
+            }
+            return;
+          }
+
+          // /: focus search on jobs or history page
+          if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+              if (this.currentPage === 'jobs') {
+                e.preventDefault();
+                // Focus the jobs search input - find it in DOM
+                const input = document.querySelector('input[x-model="jobsFilter"]');
+                if (input) input.focus();
+              } else if (this.currentPage === 'history') {
+                e.preventDefault();
+                const input = document.querySelector('input[x-model="historyFilter"]');
+                if (input) input.focus();
+              }
+            }
+          }
+        },
+
+        // ========================= COMMAND PALETTE =========================
+        openCommandPalette() {
+          this.showCommandPalette = true;
+          this.commandPaletteQuery = '';
+          this.commandPaletteIndex = 0;
+          this.$nextTick(() => {
+            const input = this.$refs && this.$refs.commandPaletteInput;
+            if (input) input.focus();
+          });
+        },
+
+        commandPalettePrev() {
+          if (this.filteredCommands.length === 0) return;
+          this.commandPaletteIndex = (this.commandPaletteIndex - 1 + this.filteredCommands.length) % this.filteredCommands.length;
+          this.scrollCommandIntoView();
+        },
+
+        commandPaletteNext() {
+          if (this.filteredCommands.length === 0) return;
+          this.commandPaletteIndex = (this.commandPaletteIndex + 1) % this.filteredCommands.length;
+          this.scrollCommandIntoView();
+        },
+
+        scrollCommandIntoView() {
+          this.$nextTick(() => {
+            const list = this.$refs && this.$refs.commandPaletteList;
+            if (!list) return;
+            const items = list.querySelectorAll('.command-item');
+            if (items[this.commandPaletteIndex]) {
+              items[this.commandPaletteIndex].scrollIntoView({ block: 'nearest' });
+            }
+          });
+        },
+
+        commandPaletteSelect() {
+          const cmds = this.filteredCommands;
+          if (cmds.length > 0 && this.commandPaletteIndex < cmds.length) {
+            this.executeCommand(cmds[this.commandPaletteIndex]);
+          }
+        },
+
+        executeCommand(cmd) {
+          this.showCommandPalette = false;
+          if (cmd.action === 'navigate') {
+            this.currentPage = cmd.page;
+          } else if (cmd.action === 'triggerJob') {
+            this.triggerJob(cmd.group, cmd.name);
+          }
+        },
+
+        // ========================= LIGHT MODE =========================
+        toggleLightMode() {
+          this.lightMode = !this.lightMode;
+          if (this.lightMode) {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light');
+            document.body.classList.add('light');
+            localStorage.setItem('quartz-dashboard-theme', 'light');
+          } else {
+            document.documentElement.classList.remove('light');
+            document.documentElement.classList.add('dark');
+            document.body.classList.remove('light');
+            localStorage.setItem('quartz-dashboard-theme', 'dark');
+          }
+        },
+
+        // ========================= CREATE JOB =========================
+        async submitCreateJob() {
+          if (!this.newJob.name) return;
+          this.loading.global = true;
+          try {
+            const body = {};
+            if (this.newJob.name) body.name = this.newJob.name;
+            if (this.newJob.group && this.newJob.group !== 'DEFAULT') body.group = this.newJob.group;
+            if (this.newJob.description) body.description = this.newJob.description;
+            if (this.newJob.jobType) body.jobType = this.newJob.jobType;
+            if (this.newJob.isDurable) body.isDurable = true;
+            if (this.newJob.persistJobDataAfterExecution) body.persistJobDataAfterExecution = true;
+            if (this.newJob.disallowConcurrentExecution) body.disallowConcurrentExecution = true;
+
+            const res = await fetch('/quartz/api/jobs', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body)
+            });
+            if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+
+            this.showToast('Job ' + this.newJob.name + ' created', 'success');
+            this.showCreateJobModal = false;
+            this.newJob = { name: '', group: 'DEFAULT', description: '', jobType: '', isDurable: false, disallowConcurrentExecution: false, persistJobDataAfterExecution: false };
+            await this.loadJobs();
+          } catch (e) {
+            this.showToast('Failed to create job: ' + e.message, 'error');
+          }
+          this.loading.global = false;
+        },
+
+        // ========================= CREATE TRIGGER =========================
+        async submitCreateTrigger() {
+          if (!this.newTrigger.name || !this.newTrigger.jobName) return;
+          if (this.newTrigger.triggerType === 'cron' && !this.newTrigger.cronExpression) return;
+          if (this.newTrigger.triggerType === 'simple' && !this.newTrigger.intervalSeconds) return;
+
+          this.loading.global = true;
+          try {
+            const body = { name: this.newTrigger.name };
+            if (this.newTrigger.group && this.newTrigger.group !== 'DEFAULT') body.group = this.newTrigger.group;
+            body.jobName = this.newTrigger.jobName;
+            if (this.newTrigger.jobGroup && this.newTrigger.jobGroup !== 'DEFAULT') body.jobGroup = this.newTrigger.jobGroup;
+            if (this.newTrigger.description) body.description = this.newTrigger.description;
+
+            if (this.newTrigger.triggerType === 'cron') {
+              body.cronExpression = this.newTrigger.cronExpression;
+            } else {
+              body.intervalSeconds = this.newTrigger.intervalSeconds;
+              if (this.newTrigger.repeatCount !== null && this.newTrigger.repeatCount !== undefined) {
+                body.repeatCount = this.newTrigger.repeatCount;
+              }
+            }
+
+            if (this.newTrigger.priority !== null && this.newTrigger.priority !== undefined) {
+              body.priority = this.newTrigger.priority;
+            }
+            if (this.newTrigger.startTimeUtc) {
+              const d = new Date(this.newTrigger.startTimeUtc);
+              body.startTimeUtc = d.toISOString();
+            }
+            if (this.newTrigger.endTimeUtc) {
+              const d = new Date(this.newTrigger.endTimeUtc);
+              body.endTimeUtc = d.toISOString();
+            }
+
+            const res = await fetch('/quartz/api/triggers', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body)
+            });
+            if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+
+            this.showToast('Trigger ' + this.newTrigger.name + ' created', 'success');
+            this.showCreateTriggerModal = false;
+            this.newTrigger = { name: '', group: 'DEFAULT', jobName: '', jobGroup: 'DEFAULT', description: '', triggerType: 'cron', cronExpression: '', intervalSeconds: null, repeatCount: -1, priority: 5, startTimeUtc: '', endTimeUtc: '' };
+            await this.loadTriggers();
+          } catch (e) {
+            this.showToast('Failed to create trigger: ' + e.message, 'error');
+          }
+          this.loading.global = false;
+        },
+
+        // ========================= DELETE JOB =========================
+        deleteJob(group, name) {
+          this.deleteConfirmMessage = 'Are you sure you want to delete job ' + group + '.' + name + '?';
+          this.deletePending = { type: 'job', group: group, name: name };
+          this.showDeleteConfirm = true;
+        },
+
+        // ========================= DELETE TRIGGER =========================
+        deleteTrigger(group, name) {
+          this.deleteConfirmMessage = 'Are you sure you want to delete trigger ' + group + '.' + name + '?';
+          this.deletePending = { type: 'trigger', group: group, name: name };
+          this.showDeleteConfirm = true;
+        },
+
+        // Delete trigger from job inline details
+        deleteJobTrigger(jobGroup, jobName, triggerGroup, triggerName) {
+          this.deleteConfirmMessage = 'Are you sure you want to delete trigger ' + triggerGroup + '.' + triggerName + '?';
+          this.deletePending = { type: 'trigger', group: triggerGroup, name: triggerName };
+          this.showDeleteConfirm = true;
+        },
+
+        async executeDelete() {
+          if (!this.deletePending) return;
+          this.loading.global = true;
+          try {
+            const { type, group, name } = this.deletePending;
+            const endpoint = type === 'job'
+              ? '/quartz/api/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name)
+              : '/quartz/api/triggers/' + encodeURIComponent(group) + '/' + encodeURIComponent(name);
+
+            const res = await fetch(endpoint, { method: 'DELETE' });
+            if (!res.ok) {
+              const text = await res.text();
+              throw new Error(text || res.statusText);
+            }
+
+            this.showToast((type === 'job' ? 'Job' : 'Trigger') + ' ' + group + '.' + name + ' deleted', 'success');
+            this.showDeleteConfirm = false;
+            this.deletePending = null;
+
+            if (type === 'job') await this.loadJobs();
+            else await this.loadTriggers();
+          } catch (e) {
+            this.showToast('Failed to delete: ' + e.message, 'error');
+          }
+          this.loading.global = false;
+        },
+
+        // ========================= TIMELINE =========================
+        async loadTimeline() {
+          this.loading.timeline = true;
+          try {
+            const data = await this.fetchApi('/quartz/api/timeline');
+            this.timelineEvents = data.slice(0, 50);
+          } catch (e) {
+            console.error('loadTimeline:', e);
+          }
+          this.loading.timeline = false;
+        },
+
+        addTimelineEvent(data) {
+          const evt = {
+            jobKey: data.jobKey || (data.jobName ? data.jobGroup + '.' + data.jobName : ''),
+            triggerKey: data.triggerKey || (data.triggerName ? data.triggerGroup + '.' + data.triggerName : ''),
+            fireTime: data.fireTime,
+            duration: data.duration,
+            durationMs: data.durationMs,
+            success: data.success !== false
+          };
+          this.timelineEvents.unshift(evt);
+          if (this.timelineEvents.length > 50) this.timelineEvents.length = 50;
         },
 
         updateGraphSize() {
           const container = this.$refs && this.$refs.graphContainer;
           if (container) {
             this.graphWidth = Math.max(400, container.clientWidth || 800);
+          }
+          const tlContainer = this.$refs && this.$refs.timelineContainer;
+          if (tlContainer) {
+            this.timelineWidth = Math.max(600, tlContainer.clientWidth - 144 || 800);
+            this.timelineHeight = Math.max(200, tlContainer.clientHeight || 400);
           }
         },
 
@@ -1387,6 +2567,10 @@
           if (page === 'graph') this.loadStats();
           if (page === 'triggers') this.loadTriggers();
           if (page === 'executing') this.loadExecutingJobs();
+          if (page === 'timeline') {
+            this.loadTimeline();
+            this.$nextTick(() => this.updateGraphSize());
+          }
         },
 
         // ========================= AUTO-REFRESH =========================
@@ -1394,6 +2578,11 @@
           if (this.autoRefreshTimer) clearInterval(this.autoRefreshTimer);
           const ms = this.settings.refreshInterval * 1000;
           this.autoRefreshTimer = setInterval(() => {
+            // If SignalR is connected and the page supports real-time, skip polling refresh for those pages
+            if (this.signalRConnected) {
+              // Timeline, executing are real-time via SignalR
+              if (this.currentPage === 'timeline' || this.currentPage === 'executing') return;
+            }
             const page = this.currentPage;
             if (this.settings.autoRefreshPages[page]) {
               this.refreshPage(page);
@@ -1413,25 +2602,33 @@
             case 'executing': await this.loadExecutingJobs(); break;
             case 'history': await this.loadHistory(); break;
             case 'graph': await this.loadStats(); break;
+            case 'timeline': await this.loadTimeline(); break;
           }
         },
 
         // ========================= TOAST =========================
         showToast(msg, type = 'info') {
+          const id = ++this.toastIdCounter;
+          this.toastQueue.push({ id: id, message: msg, type: type });
+          if (this.toastQueue.length > 10) this.toastQueue.shift();
+          // Also keep the legacy toast for backward compatibility
           this.toast = { show: true, message: msg, type };
-          setTimeout(() => this.toast.show = false, 3000);
+          setTimeout(() => {
+            this.toastQueue = this.toastQueue.filter(t => t.id !== id);
+            this.toast.show = false;
+          }, 3000);
         },
 
         // ========================= API =========================
         async fetchApi(path) {
           const res = await fetch(path);
-          if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+          if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
           return res.json();
         },
 
         async postApi(path) {
           const res = await fetch(path, { method: 'POST' });
-          if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+          if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
           return res.json();
         },
 
@@ -1531,40 +2728,40 @@
 
         async triggerJob(group, name) {
           try {
-            await this.postApi(`/quartz/api/jobs/${group}/${name}/trigger`);
-            this.showToast(`Triggered ${group}.${name}`, 'success');
+            await this.postApi('/quartz/api/jobs/' + group + '/' + name + '/trigger');
+            this.showToast('Triggered ' + group + '.' + name, 'success');
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
         },
 
         async pauseJob(group, name) {
           try {
-            await this.postApi(`/quartz/api/jobs/${group}/${name}/pause`);
+            await this.postApi('/quartz/api/jobs/' + group + '/' + name + '/pause');
             await this.loadJobs();
-            this.showToast(`Paused ${group}.${name}`, 'info');
+            this.showToast('Paused ' + group + '.' + name, 'info');
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
         },
 
         async resumeJob(group, name) {
           try {
-            await this.postApi(`/quartz/api/jobs/${group}/${name}/resume`);
+            await this.postApi('/quartz/api/jobs/' + group + '/' + name + '/resume');
             await this.loadJobs();
-            this.showToast(`Resumed ${group}.${name}`, 'success');
+            this.showToast('Resumed ' + group + '.' + name, 'success');
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
         },
 
         async pauseTrigger(group, name) {
           try {
-            await this.postApi(`/quartz/api/triggers/${group}/${name}/pause`);
+            await this.postApi('/quartz/api/triggers/' + group + '/' + name + '/pause');
             await this.loadTriggers();
-            this.showToast(`Paused trigger ${group}.${name}`, 'info');
+            this.showToast('Paused trigger ' + group + '.' + name, 'info');
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
         },
 
         async resumeTrigger(group, name) {
           try {
-            await this.postApi(`/quartz/api/triggers/${group}/${name}/resume`);
+            await this.postApi('/quartz/api/triggers/' + group + '/' + name + '/resume');
             await this.loadTriggers();
-            this.showToast(`Resumed trigger ${group}.${name}`, 'success');
+            this.showToast('Resumed trigger ' + group + '.' + name, 'success');
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
         },
 
