@@ -97,8 +97,17 @@ internal sealed class DashboardJobListener(
         var triggerKey = $"{context.Trigger.Key.Group}.{context.Trigger.Key.Name}";
         logBuffer?.Append(jobKey, $"▶ Executing (trigger: {triggerKey})");
 
-        // Publish trigger event
-        eventBus.Publish(new JobTriggeredEvent(jobKey, triggerKey, context.FireTimeUtc));
+        // Publish trigger event with all fields the executing-jobs card needs
+        eventBus.Publish(new JobTriggeredEvent(
+            jobKey, triggerKey,
+            context.JobDetail.Key.Name,
+            context.JobDetail.Key.Group,
+            context.Trigger.Key.Name,
+            context.Trigger.Key.Group,
+            context.JobDetail.JobType.Name,
+            context.FireInstanceId,
+            context.FireTimeUtc,
+            context.ScheduledFireTimeUtc));
         return Task.CompletedTask;
     }
 
@@ -123,7 +132,7 @@ internal sealed class DashboardJobListener(
             : $"✗ Failed: {jobException?.Message?.Truncate(200) ?? "Unknown error"}");
 
         // Publish to event bus for SignalR
-        eventBus.Publish(new JobExecutedEvent(jobKey, triggerKey, duration, success, context.FireTimeUtc));
+        eventBus.Publish(new JobExecutedEvent(jobKey, triggerKey, context.FireInstanceId, duration, success, context.FireTimeUtc));
         return Task.CompletedTask;
     }
 }

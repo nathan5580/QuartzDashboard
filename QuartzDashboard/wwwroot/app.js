@@ -20,6 +20,7 @@
         toast: { show: false, message: '', type: 'info' },
         autoRefreshTimer: null,
         config: { readOnly: false },
+        currentTick: Date.now(),
 
         // Jobs page
         jobsFilter: '',
@@ -324,6 +325,9 @@
 
           // Setup keyboard shortcuts
           document.addEventListener('keydown', (e) => this.handleKeydown(e));
+
+          // Live-tick every second for executing-job duration display
+          setInterval(() => { this.currentTick = Date.now(); }, 1000);
 
           // Start SignalR connection
           await this.connectSignalR();
