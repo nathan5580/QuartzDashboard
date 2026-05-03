@@ -124,6 +124,8 @@ public static class QuartzDashboardApplicationBuilderExtensions
                 result = await JobHandlers.PauseJob(sched, route[1], route[2], options);
             else if (method == "POST" && route is ["jobs", _, _, "resume"])
                 result = await JobHandlers.ResumeJob(sched, route[1], route[2], options);
+            else if (method == "POST" && route is ["jobs", _, _, "interrupt"])
+                result = await JobHandlers.InterruptJob(sched, route[1], route[2]);
             else if (method == "POST" && route is ["jobs"])
             {
                 var req = await ctx.Request
@@ -200,6 +202,8 @@ public static class QuartzDashboardApplicationBuilderExtensions
                     .GetRequiredService<ExecutionBucketService>();
                 result = await HistoryHandlers.GetStats(sched, bucketService);
             }
+            else if (method == "GET" && route is ["stats", "history"])
+                result = HistoryHandlers.GetHistoryBuckets(ctx);
 
             // -- Timeline --
             else if (method == "GET" && route is ["timeline"])

@@ -463,12 +463,24 @@
                      :class="successRate >= 95 ? 'text-emerald-400' : successRate >= 80 ? 'text-amber-400' : 'text-red-400'">
                   <span x-text="successRate"></span><span class="text-lg">%</span>
                 </div>
+                <div class="sparkline-container" x-show="executionBuckets.length">
+                  <svg width="80" height="24" filter="url(#chartGlow)">
+                    <polyline :points="ChartEngine.sparklinePolyline(executionBuckets, 'successRate', 80, 24)"
+                              fill="none" stroke="#34d399" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
               </div>
               <div class="stat-card">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Failed Executions</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight"
                      :class="failedCount > 0 ? 'text-red-400' : 'text-gray-100'">
                   <span x-text="failedCount"></span>
+                </div>
+                <div class="sparkline-container" x-show="executionBuckets.length">
+                  <svg width="80" height="24" filter="url(#chartGlow)">
+                    <polyline :points="ChartEngine.sparklinePolyline(executionBuckets, 'errorRate', 80, 24)"
+                              fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
                 </div>
               </div>
               <div class="stat-card">
@@ -984,6 +996,15 @@
                           <p class="text-gray-300 text-xs mt-0.5 mono truncate" x-text="(ej.fireInstanceId || '').slice(0, 12) + '...'"></p>
                         </div>
                       </div>
+                      <div x-show="!config.readOnly" class="mt-3 pt-3 border-t border-white/[0.04]">
+                        <button @click="interruptJob(ej.jobGroup, ej.jobName)"
+                                class="btn btn-ghost text-xs text-amber-400 hover:text-amber-300 w-full justify-center">
+                          <svg class="w-3.5 h-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+                          </svg>
+                          Interrupt
+                        </button>
+                      </div>
                     </div>
                   </template>
                 </div>
@@ -1000,7 +1021,7 @@
             <div class="flex items-center justify-between flex-wrap gap-3">
               <div>
                 <h1 class="text-lg font-semibold tracking-tight text-gray-100">Fire History</h1>
-                <p class="text-xs text-gray-500 mt-0.5"><span x-text="filteredHistory.length"></span> of <span x-text="history.length"></span> records</p>
+                <p class="text-xs text-gray-500 mt-0.5"><span x-text="filteredHistory.length"></span> of <span x-text="historyTotal"></span> total</p>
               </div>
               <div class="flex items-center gap-2">
                 <div class="relative">
@@ -1088,6 +1109,11 @@
                     </tbody>
                   </table>
                 </div>
+                <div x-show="history.length < historyTotal" class="pt-3 text-center border-t border-white/[0.04] mt-2">
+                  <button @click="loadMoreHistory()" class="btn btn-ghost text-xs">
+                    Load more <span class="text-gray-500 ml-1" x-text="'(' + (historyTotal - history.length) + ' remaining)'"></span>
+                  </button>
+                </div>
                 <div x-show="!filteredHistory.length && history.length > 0" class="card-gradient text-center py-10">
                   <svg class="w-10 h-10 mx-auto text-gray-600 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -1112,6 +1138,11 @@
                 <p class="text-xs text-gray-500 mt-0.5">Execution rate and duration over time</p>
               </div>
               <div class="flex items-center gap-2">
+                <!-- Live / History view toggle -->
+                <div class="flex rounded-lg bg-gray-900 p-0.5 gap-0.5">
+                  <button @click="graphView = 'live'; graphData = getGraphData()" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', graphView === 'live' ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200']">Live</button>
+                  <button @click="graphView = 'history'; loadGraphHistoryData()" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', graphView === 'history' ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200']">History</button>
+                </div>
                 <!-- Chart mode toggle -->
                 <div class="flex rounded-lg bg-gray-900 p-0.5 gap-0.5">
                   <button @click="graphChartMode = 'line'" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', graphChartMode === 'line' ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200']">Line</button>

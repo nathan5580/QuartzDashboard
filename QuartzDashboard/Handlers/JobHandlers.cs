@@ -287,4 +287,11 @@ internal static class JobHandlers
         }
         return Results.Ok(new { results });
     }
+
+    public static async Task<IResult> InterruptJob(IScheduler sched, string group, string name)
+    {
+        var key = new JobKey(name, group);
+        var interrupted = await sched.Interrupt(key);
+        return Results.Ok(new { interrupted });
+    }
 }

@@ -51,16 +51,21 @@ internal static class HistoryHandlers
         var meta = await sched.GetMetaData();
         var buckets = bucketService.GetBuckets()
             .OrderBy(b => b.Timestamp)
-            .Select(b => new
+            .Select(b =>
             {
-                Minute = b.Timestamp.ToString("HH:mm"),
-                Count = b.ExecutionCount,
-                AvgDurationMs = b.ExecutionCount > 0
-                    ? Math.Round(b.TotalDurationMs / b.ExecutionCount, 1)
-                    : 0,
-                ErrorRate = b.ExecutionCount > 0
+                var errorRate = b.ExecutionCount > 0
                     ? Math.Round((double)b.ErrorCount / b.ExecutionCount * 100, 1)
-                    : 0,
+                    : 0;
+                return new
+                {
+                    Minute = b.Timestamp.ToString("HH:mm"),
+                    Count = b.ExecutionCount,
+                    AvgDurationMs = b.ExecutionCount > 0
+                        ? Math.Round(b.TotalDurationMs / b.ExecutionCount, 1)
+                        : 0,
+                    ErrorRate = errorRate,
+                    SuccessRate = Math.Round(100.0 - errorRate, 1),
+                };
             }).ToList();
 
         return Results.Ok(new
@@ -79,5 +84,39 @@ internal static class HistoryHandlers
                 ? Math.Round(buckets.Average(b => b.AvgDurationMs), 1)
                 : 0,
         });
+    }
+
+    public static IResult GetHistoryBuckets(HttpContext ctx)
+    {
+        var store = ctx.RequestServices.GetRequiredService<IFireHistoryStore>();
+        var records = store.GetRecent(500, 0);
+
+        var buckets = records
+            .GroupBy(r => new {
+                r.FireTime.Year,
+                r.FireTime.Month,
+                r.FireTime.Day,
+                r.FireTime.Hour,
+                r.FireTime.Minute
+            })
+            .Select(g =>
+            {
+                var count = g.Count();
+                var errorCount = g.Count(r => !r.Success);
+                var totalMs = g.Sum(r => r.Duration.TotalMilliseconds);
+                var errorRate = count > 0 ? Math.Round((double)errorCount / count * 100, 1) : 0.0;
+                return new
+                {
+                    minute = new DateTimeOffset(g.Key.Year, g.Key.Month, g.Key.Day, g.Key.Hour, g.Key.Minute, 0, TimeSpan.Zero).ToString("o"),
+                    count,
+                    avgDurationMs = count > 0 ? Math.Round(totalMs / count, 1) : 0.0,
+                    errorRate,
+                    successRate = Math.Round(100.0 - errorRate, 1)
+                };
+            })
+            .OrderBy(b => b.minute)
+            .ToList();
+
+        return Results.Ok(buckets);
     }
 }
