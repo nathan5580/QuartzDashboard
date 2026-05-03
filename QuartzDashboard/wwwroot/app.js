@@ -5,6 +5,10 @@
         sidebarOpen: true,
         lastRefreshed: null,
         loading: { global: false, jobs: false, triggers: false, executing: false, history: false, stats: false, timeline: false },
+        errors: { jobs: null, triggers: null, executing: null, history: null, stats: null, timeline: null },
+        retryCounts: { jobs: 0, triggers: 0, executing: 0, history: 0, stats: 0, timeline: 0 },
+        maxRetries: 3,
+        retryDelay: 3000,
         scheduler: { isStarted: false, isStandbyMode: false, numberOfJobsExecuted: 0 },
         jobs: [],
         triggers: [],
@@ -14,6 +18,7 @@
         executionBuckets: [],
         toast: { show: false, message: '', type: 'info' },
         autoRefreshTimer: null,
+        config: { readOnly: false },
 
         // Jobs page
         jobsFilter: '',
@@ -697,8 +702,12 @@
           try {
             const data = await this.fetchApi('/quartz/api/timeline');
             this.timelineEvents = data.slice(0, 50);
+            this.errors.timeline = null; this.retryCounts.timeline = 0;
           } catch (e) {
             console.error('loadTimeline:', e);
+            this.errors.timeline = e.message;
+            this.showToast('Failed to load timeline: ' + e.message, 'error');
+            this._retryLoad('timeline', () => this.loadTimeline());
           }
           this.loading.timeline = false;
         },
@@ -813,18 +822,22 @@
             this.lastRefreshed = new Date();
           } catch (e) {
             console.error('Refresh error:', e);
+            this.errors.jobs = 'Refresh failed: ' + e.message;
+            this.errors.triggers = 'Refresh failed: ' + e.message;
+            this.errors.executing = 'Refresh failed: ' + e.message;
+            this.showToast('Refresh failed: ' + e.message, 'error');
           }
         },
 
         async loadJobs() {
           this.loading.jobs = true;
-          try { this.jobs = await this.fetchApi('/quartz/api/jobs'); } catch (e) { console.error('loadJobs:', e); }
+          try { this.jobs = await this.fetchApi('/quartz/api/jobs'); this.errors.jobs = null; this.retryCounts.jobs = 0; } catch (e) { console.error('loadJobs:', e); this.errors.jobs = e.message; this.showToast('Failed to load jobs: ' + e.message, 'error'); this._retryLoad('jobs', () => this.loadJobs()); }
           this.loading.jobs = false;
         },
 
         async loadTriggers() {
           this.loading.triggers = true;
-          try { this.triggers = await this.fetchApi('/quartz/api/triggers'); } catch (e) { console.error('loadTriggers:', e); }
+          try { this.triggers = await this.fetchApi('/quartz/api/triggers'); this.errors.triggers = null; this.retryCounts.triggers = 0; } catch (e) { console.error('loadTriggers:', e); this.errors.triggers = e.message; this.showToast('Failed to load triggers: ' + e.message, 'error'); this._retryLoad('triggers', () => this.loadTriggers()); }
           this.loading.triggers = false;
         },
 
@@ -834,7 +847,8 @@
           try {
             this.executingJobs = await this.fetchApi('/quartz/api/executing');
             this.knownExecutingIds = new Set(this.executingJobs.map(ej => ej.fireInstanceId));
-          } catch (e) { console.error('loadExecutingJobs:', e); }
+            this.errors.executing = null; this.retryCounts.executing = 0;
+          } catch (e) { console.error('loadExecutingJobs:', e); this.errors.executing = e.message; this.showToast('Failed to load executing jobs: ' + e.message, 'error'); this._retryLoad('executing', () => this.loadExecutingJobs()); }
           this.loading.executing = false;
         },
 
@@ -848,7 +862,8 @@
               if (d > this.maxHistoryDuration) this.maxHistoryDuration = d;
             }
             if (this.maxHistoryDuration === 0) this.maxHistoryDuration = 5000;
-          } catch (e) { console.error('loadHistory:', e); }
+            this.errors.history = null; this.retryCounts.history = 0;
+          } catch (e) { console.error('loadHistory:', e); this.errors.history = e.message; this.showToast('Failed to load history: ' + e.message, 'error'); this._retryLoad('history', () => this.loadHistory()); }
           this.loading.history = false;
         },
 
@@ -858,7 +873,8 @@
             this.stats = await this.fetchApi('/quartz/api/stats');
             this.executionBuckets = this.stats.executionBuckets || [];
             this.graphData = this.getGraphData();
-          } catch (e) { console.error('loadStats:', e); }
+            this.errors.stats = null; this.retryCounts.stats = 0;
+          } catch (e) { console.error('loadStats:', e); this.errors.stats = e.message; this.showToast('Failed to load stats: ' + e.message, 'error'); this._retryLoad('stats', () => this.loadStats()); }
           this.loading.stats = false;
         },
 
@@ -1106,6 +1122,42 @@
 
         loadGraphData() {
           this.loadStats();
+        },
+
+        // ========================= ERROR RECOVERY =========================
+        async _retryLoad(page, loadFn) {
+          this.retryCounts[page] = (this.retryCounts[page] || 0) + 1;
+          if (this.retryCounts[page] <= this.maxRetries) {
+            await new Promise(r => setTimeout(r, this.retryDelay));
+            try {
+              await loadFn();
+              this.errors[page] = null;
+              this.retryCounts[page] = 0;
+            } catch (e2) {
+              this.errors[page] = 'Retry ' + this.retryCounts[page] + '/' + this.maxRetries + ' failed: ' + e2.message;
+              if (this.retryCounts[page] < this.maxRetries) {
+                await this._retryLoad(page, loadFn);
+              }
+            }
+          }
+        },
+
+        async retryAllFailed() {
+          const pages = ['jobs', 'triggers', 'executing', 'history', 'stats', 'timeline'];
+          for (const page of pages) {
+            if (this.errors[page]) {
+              this.errors[page] = null;
+              this.retryCounts[page] = 0;
+            }
+          }
+          await Promise.all([
+            this.loadJobs(),
+            this.loadTriggers(),
+            this.loadExecutingJobs(),
+            this.loadHistory(),
+            this.loadStats(),
+            this.loadTimeline(),
+          ]);
         },
       }         // closes return object
     }           // closes dashboard()
