@@ -144,7 +144,7 @@
 
         // Health computed
         get failedCount() { return this.history ? this.history.filter(h => h.success === false).length : 0; },
-        get misfiredCount() { return this.triggers ? this.triggers.filter(t => t.state === 'Error').length : 0; },
+        get misfiredCount() { return Array.isArray(this.triggers) ? this.triggers.filter(t => t.state === 'Error').length : 0; },
         get successRate() {
           if (!this.history || !this.history.length) return 100;
           const successes = this.history.filter(h => h.success !== false).length;
@@ -239,7 +239,8 @@
 
         get groupedTriggers() {
           const groups = {};
-          for (const t of this.triggers) {
+          const list = Array.isArray(this.triggers) ? this.triggers : [];
+          for (const t of list) {
             const key = t.jobGroup + '.' + t.jobName;
             if (!groups[key]) groups[key] = { jobName: key, triggers: [] };
             groups[key].triggers.push(t);
@@ -951,9 +952,9 @@
               this.fetchApi('/executing').catch(() => ({ data: this.executingJobs })),
             ]);
             this.scheduler = scheduler;
-            this.jobs = Array.isArray(jobsResp) ? jobsResp : (jobsResp.data || []);
-            this.triggers = Array.isArray(triggersResp) ? triggersResp : (triggersResp.data || []);
-            this.executingJobs = Array.isArray(executingResp) ? executingResp : (executingResp.data || []);
+            this.jobs = Array.isArray(jobsResp) ? jobsResp : (Array.isArray(jobsResp?.data) ? jobsResp.data : []);
+            this.triggers = Array.isArray(triggersResp) ? triggersResp : (Array.isArray(triggersResp?.data) ? triggersResp.data : []);
+            this.executingJobs = Array.isArray(executingResp) ? executingResp : (Array.isArray(executingResp?.data) ? executingResp.data : []);
             this.lastRefreshed = new Date();
           } catch (e) {
             console.error('Refresh error:', e);
@@ -966,17 +967,20 @@
 
         async loadJobs() {
           this.loading.jobs = true;
-          try { const resp = await this.fetchApi('/jobs'); this.jobs = Array.isArray(resp) ? resp : (resp.data || []); this.errors.jobs = null; this.retryCounts.jobs = 0; } catch (e) { console.error('loadJobs:', e); this.errors.jobs = e.message; this.showToast('Failed to load jobs: ' + e.message, 'error'); this._retryLoad('jobs', () => this.loadJobs()); }
+          try { const resp = await this.fetchApi('/jobs'); this.jobs = Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []); this.errors.jobs = null; this.retryCounts.jobs = 0; } catch (e) { console.error('loadJobs:', e); this.errors.jobs = e.message; this.showToast('Failed to load jobs: ' + e.message, 'error'); this._retryLoad('jobs', () => this.loadJobs()); }
           this.loading.jobs = false;
         },
 
         async loadTriggers() {
           this.loading.triggers = true;
-          try { const resp = await this.fetchApi('/triggers'); this.triggers = Array.isArray(resp) ? resp : (resp.data || []); this.errors.triggers = null; this.retryCounts.triggers = 0;
-            // Auto-expand all groups so they're visible without a click
+          try {
+            const resp = await this.fetchApi('/triggers');
+            const list = Array.isArray(resp) ? resp : (resp.data ?? resp ?? []);
+            this.triggers = Array.isArray(list) ? list : [];
+            this.errors.triggers = null; this.retryCounts.triggers = 0;
             const groups = {};
             for (const t of this.triggers) {
-              const key = t.jobGroup + '.' + t.jobName;
+              const key = (t.jobGroup || '') + '.' + (t.jobName || '');
               groups[key] = true;
             }
             this.expandedTriggerGroups = groups;
