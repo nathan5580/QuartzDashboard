@@ -83,15 +83,26 @@ public static class QuartzDashboardApplicationBuilderExtensions
         string path, QuartzDashboardOptions options)
     {
         var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var route = segments.Length > 1 ? segments[1..] : [];
+        // Strip "/api" or "/api/v1" prefix for API versioning support
+        var apiOffset = 1; // skip "api"
+        if (segments.Length > 1 && string.Equals(segments[1], "v1", StringComparison.OrdinalIgnoreCase))
+            apiOffset = 2;
+        var route = segments.Length > apiOffset ? segments[apiOffset..] : [];
         var method = ctx.Request.Method;
 
         object? result = null;
 
         try
         {
+            // -- Health --
+            if (method == "GET" && route is ["health"])
+            {
+                var historyStore = ctx.RequestServices.GetRequiredService<IFireHistoryStore>();
+                result = await HealthHandlers.GetHealth(sched, historyStore);
+            }
+
             // -- Config --
-            if (method == "GET" && route is ["config"])
+            else if (method == "GET" && route is ["config"])
                 result = ConfigHandlers.GetDashboardConfig(ctx, options);
 
             // -- Scheduler --
