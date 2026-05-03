@@ -109,7 +109,7 @@
         async loadJobDetailLogs(group, name) {
           this.jobDetailLogsLoading = true;
           try {
-            const resp = await this.fetchApi(this.api('/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name) + '/logs'));
+            const resp = await this.fetchApi('/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name) + '/logs');
             this.jobDetailLogs = resp.logs || [];
           } catch(e) {
             this.jobDetailLogs = ['Failed to load logs'];
@@ -202,8 +202,8 @@
           { id: 'overview', label: 'Overview', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>' },
           { id: 'jobs', label: 'Jobs', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>' },
           { id: 'triggers', label: 'Triggers', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>' },
-          { id: 'executing', label: 'Executing', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
-          { id: 'history', label: 'History', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
+          { id: 'executing', label: 'Executing', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>' },
+          { id: 'history', label: 'History', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3"/><path d="M3.05 11a9 9 0 1 0 .5-3M3 4v4h4"/></svg>' },
           { id: 'graph', label: 'Graph', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>' },
           { id: 'timeline', label: 'Timeline', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="12" x2="21" y2="12"/><polyline points="8 7 3 12 8 17"/><polyline points="16 7 21 12 16 17"/></svg>' },
           { id: 'health', label: 'Health', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>' },
@@ -353,7 +353,7 @@
         async connectSignalR() {
           try {
             this.connection = new signalR.HubConnectionBuilder()
-              .withUrl('/quartz/hub')
+              .withUrl(this._base() + '/hub')
               .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
               .build();
 
@@ -642,7 +642,7 @@
             if (this.newJob.persistJobDataAfterExecution) body.persistJobDataAfterExecution = true;
             if (this.newJob.disallowConcurrentExecution) body.disallowConcurrentExecution = true;
 
-            const res = await fetch('/quartz/api/jobs', {
+            const res = await fetch(this._api('/jobs'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(body)
@@ -694,7 +694,7 @@
               body.endTimeUtc = d.toISOString();
             }
 
-            const res = await fetch('/quartz/api/triggers', {
+            const res = await fetch(this._api('/triggers'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(body)
@@ -738,10 +738,10 @@
           try {
             const { type, group, name } = this.deletePending;
             const endpoint = type === 'job'
-              ? '/quartz/api/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name)
-              : '/quartz/api/triggers/' + encodeURIComponent(group) + '/' + encodeURIComponent(name);
+              ? '/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name)
+              : '/triggers/' + encodeURIComponent(group) + '/' + encodeURIComponent(name);
 
-            const res = await fetch(endpoint, { method: 'DELETE' });
+            const res = await fetch(this._api(endpoint), { method: 'DELETE' });
             if (!res.ok) {
               const text = await res.text();
               throw new Error(text || res.statusText);
@@ -762,8 +762,7 @@
         // ========================= TIMELINE =========================
         async loadHealth() {
           try {
-            const data = await fetch('/quartz/api/health');
-            if (data.ok) this.healthData = await data.json();
+            this.healthData = await this.fetchApi('/health');
           } catch (e) {
             console.error('loadHealth:', e);
           }
@@ -772,7 +771,7 @@
         async loadTimeline() {
           this.loading.timeline = true;
           try {
-            const data = await this.fetchApi('/quartz/api/timeline');
+            const data = await this.fetchApi('/timeline');
             this.timelineEvents = data.slice(0, 50);
             this.errors.timeline = null; this.retryCounts.timeline = 0;
           } catch (e) {
@@ -868,14 +867,19 @@
         },
 
         // ========================= API =========================
+        _base() { return window.__QUARTZ_BASE || '/quartz'; },
+        _api(path) { return this._base() + '/api' + path; },
+
         async fetchApi(path) {
-          const res = await fetch(path);
+          const url = path.startsWith('http') ? path : this._api(path);
+          const res = await fetch(url);
           if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
           return res.json();
         },
 
         async postApi(path) {
-          const res = await fetch(path, { method: 'POST' });
+          const url = path.startsWith('http') ? path : this._api(path);
+          const res = await fetch(url, { method: 'POST' });
           if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
           return res.json();
         },
@@ -883,10 +887,10 @@
         async refreshAll() {
           try {
             const [scheduler, jobs, triggers, executing] = await Promise.all([
-              this.fetchApi('/quartz/api/scheduler').catch(() => this.scheduler),
-              this.fetchApi('/quartz/api/jobs').catch(() => this.jobs),
-              this.fetchApi('/quartz/api/triggers').catch(() => this.triggers),
-              this.fetchApi('/quartz/api/executing').catch(() => this.executingJobs),
+              this.fetchApi('/scheduler').catch(() => this.scheduler),
+              this.fetchApi('/jobs').catch(() => this.jobs),
+              this.fetchApi('/triggers').catch(() => this.triggers),
+              this.fetchApi('/executing').catch(() => this.executingJobs),
             ]);
             this.scheduler = scheduler;
             this.jobs = jobs;
@@ -904,13 +908,13 @@
 
         async loadJobs() {
           this.loading.jobs = true;
-          try { this.jobs = await this.fetchApi('/quartz/api/jobs'); this.errors.jobs = null; this.retryCounts.jobs = 0; } catch (e) { console.error('loadJobs:', e); this.errors.jobs = e.message; this.showToast('Failed to load jobs: ' + e.message, 'error'); this._retryLoad('jobs', () => this.loadJobs()); }
+          try { this.jobs = await this.fetchApi('/jobs'); this.errors.jobs = null; this.retryCounts.jobs = 0; } catch (e) { console.error('loadJobs:', e); this.errors.jobs = e.message; this.showToast('Failed to load jobs: ' + e.message, 'error'); this._retryLoad('jobs', () => this.loadJobs()); }
           this.loading.jobs = false;
         },
 
         async loadTriggers() {
           this.loading.triggers = true;
-          try { this.triggers = await this.fetchApi('/quartz/api/triggers'); this.errors.triggers = null; this.retryCounts.triggers = 0; } catch (e) { console.error('loadTriggers:', e); this.errors.triggers = e.message; this.showToast('Failed to load triggers: ' + e.message, 'error'); this._retryLoad('triggers', () => this.loadTriggers()); }
+          try { this.triggers = await this.fetchApi('/triggers'); this.errors.triggers = null; this.retryCounts.triggers = 0; } catch (e) { console.error('loadTriggers:', e); this.errors.triggers = e.message; this.showToast('Failed to load triggers: ' + e.message, 'error'); this._retryLoad('triggers', () => this.loadTriggers()); }
           this.loading.triggers = false;
         },
 
@@ -918,7 +922,7 @@
           this.loading.executing = true;
           const prevIds = this.knownExecutingIds;
           try {
-            this.executingJobs = await this.fetchApi('/quartz/api/executing');
+            this.executingJobs = await this.fetchApi('/executing');
             this.knownExecutingIds = new Set(this.executingJobs.map(ej => ej.fireInstanceId));
             this.errors.executing = null; this.retryCounts.executing = 0;
           } catch (e) { console.error('loadExecutingJobs:', e); this.errors.executing = e.message; this.showToast('Failed to load executing jobs: ' + e.message, 'error'); this._retryLoad('executing', () => this.loadExecutingJobs()); }
@@ -928,7 +932,7 @@
         async loadHistory() {
           this.loading.history = true;
           try {
-            this.history = await this.fetchApi('/quartz/api/history');
+            this.history = await this.fetchApi('/history');
             this.maxHistoryDuration = 0;
             for (const h of this.history) {
               const d = h.durationMs || 0;
@@ -943,7 +947,7 @@
         async loadStats() {
           this.loading.stats = true;
           try {
-            this.stats = await this.fetchApi('/quartz/api/stats');
+            this.stats = await this.fetchApi('/stats');
             this.executionBuckets = this.stats.executionBuckets || [];
             this.graphData = this.getGraphData();
             this.errors.stats = null; this.retryCounts.stats = 0;
@@ -964,7 +968,7 @@
         async startScheduler() {
           this.loading.global = true;
           try {
-            await this.postApi('/quartz/api/scheduler/start');
+            await this.postApi('/scheduler/start');
             this.showToast('Scheduler started', 'success');
             await this.refreshAll();
           } catch (e) { this.showToast('Failed to start: ' + e.message, 'error'); }
@@ -974,7 +978,7 @@
         async standbyScheduler() {
           this.loading.global = true;
           try {
-            await this.postApi('/quartz/api/scheduler/standby');
+            await this.postApi('/scheduler/standby');
             this.showToast('Scheduler on standby', 'info');
             await this.refreshAll();
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
@@ -983,14 +987,14 @@
 
         async triggerJob(group, name) {
           try {
-            await this.postApi('/quartz/api/jobs/' + group + '/' + name + '/trigger');
+            await this.postApi('/jobs/' + group + '/' + name + '/trigger');
             this.showToast('Triggered ' + group + '.' + name, 'success');
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
         },
 
         async pauseJob(group, name) {
           try {
-            await this.postApi('/quartz/api/jobs/' + group + '/' + name + '/pause');
+            await this.postApi('/jobs/' + group + '/' + name + '/pause');
             await this.loadJobs();
             this.showToast('Paused ' + group + '.' + name, 'info');
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
@@ -998,7 +1002,7 @@
 
         async resumeJob(group, name) {
           try {
-            await this.postApi('/quartz/api/jobs/' + group + '/' + name + '/resume');
+            await this.postApi('/jobs/' + group + '/' + name + '/resume');
             await this.loadJobs();
             this.showToast('Resumed ' + group + '.' + name, 'success');
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
@@ -1006,7 +1010,7 @@
 
         async pauseTrigger(group, name) {
           try {
-            await this.postApi('/quartz/api/triggers/' + group + '/' + name + '/pause');
+            await this.postApi('/triggers/' + group + '/' + name + '/pause');
             await this.loadTriggers();
             this.showToast('Paused trigger ' + group + '.' + name, 'info');
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
@@ -1014,7 +1018,7 @@
 
         async resumeTrigger(group, name) {
           try {
-            await this.postApi('/quartz/api/triggers/' + group + '/' + name + '/resume');
+            await this.postApi('/triggers/' + group + '/' + name + '/resume');
             await this.loadTriggers();
             this.showToast('Resumed trigger ' + group + '.' + name, 'success');
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }

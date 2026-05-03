@@ -64,7 +64,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
                 }
 
                 // --- SPA static files ---
-                await ServeStaticFile(ctx, path);
+                await ServeStaticFile(ctx, path, basePath);
             });
         });
 
@@ -269,7 +269,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
 
     // ============= Static File Serving =============
 
-    private static async Task ServeStaticFile(HttpContext ctx, string path)
+    private static async Task ServeStaticFile(HttpContext ctx, string path, string basePath)
     {
         var relativePath = path.TrimStart('/');
         if (string.IsNullOrEmpty(relativePath))
@@ -287,13 +287,33 @@ public static class QuartzDashboardApplicationBuilderExtensions
             ctx.Response.Headers.CacheControl = filePath == "index.html"
                 ? "no-cache"
                 : "public, max-age=86400";
+
+            if (filePath == "index.html")
+            {
+                await ServeIndexHtml(ctx, basePath);
+                return;
+            }
+
             await ctx.Response.SendFileAsync(fileInfo);
         }
         else
         {
             ctx.Response.ContentType = "text/html; charset=utf-8";
             ctx.Response.Headers.CacheControl = "no-cache";
-            await ctx.Response.SendFileAsync(EmbeddedFiles.GetFileInfo("index.html"));
+            await ServeIndexHtml(ctx, basePath);
         }
+    }
+
+    private static async Task ServeIndexHtml(HttpContext ctx, string basePath)
+    {
+        var fileInfo = EmbeddedFiles.GetFileInfo("index.html");
+        using var stream = fileInfo.CreateReadStream();
+        using var reader = new System.IO.StreamReader(stream);
+        var html = await reader.ReadToEndAsync();
+
+        html = html.Replace("'__QUARTZ_BASE__'", $"'{basePath}'");
+
+        ctx.Response.ContentType = "text/html; charset=utf-8";
+        await ctx.Response.WriteAsync(html);
     }
 }
