@@ -7,6 +7,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8/dist/browser/signalr.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="charts.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -663,6 +664,9 @@
 </head>
 <body class="bg-gray-950 text-gray-200 antialiased" x-data="dashboard()" x-init="init()">
 
+  <!-- ChartEngine filters and gradients -->
+  <svg height="0" width="0" style="position:absolute" x-html="ChartEngine.gradientDefs('chart')"></svg>
+
   <!-- Toast queue -->
   <div class="fixed bottom-12 right-4 z-50 flex flex-col-reverse gap-2 pointer-events-none" style="z-index: 55;">
     <template x-for="(t, idx) in toastQueue.slice(0, 3)" :key="t.id">
@@ -963,8 +967,9 @@
                   <span x-show="!statsLoading" x-text="jobs.length"></span>
                 </div>
                 <div class="sparkline-container" x-show="executionBuckets.length">
-                  <svg width="80" height="30" class="overflow-visible">
-                    <polyline :points="sparklinePoints('count')" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <svg width="80" height="24" filter="url(#chartGlow)">
+                    <polyline :points="ChartEngine.sparklinePolyline(executionBuckets, 'count', 80, 24)"
+                              fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                 </div>
               </div>
@@ -975,8 +980,9 @@
                   <span x-show="!statsLoading" x-text="triggers.length"></span>
                 </div>
                 <div class="sparkline-container" x-show="executionBuckets.length">
-                  <svg width="80" height="30" class="overflow-visible">
-                    <polyline :points="sparklinePoints('count')" fill="none" stroke="#34d399" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <svg width="80" height="24" filter="url(#chartGlow)">
+                    <polyline :points="ChartEngine.sparklinePolyline(executionBuckets, 'count', 80, 24)"
+                              fill="none" stroke="#34d399" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                 </div>
               </div>
@@ -987,8 +993,9 @@
                   <span x-show="!statsLoading" x-text="executingJobs.length" :class="executingJobs.length > 0 ? 'text-emerald-400' : 'text-gray-100'"></span>
                 </div>
                 <div class="sparkline-container" x-show="executionBuckets.length">
-                  <svg width="80" height="30" class="overflow-visible">
-                    <polyline :points="sparklinePoints('count')" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <svg width="80" height="24" filter="url(#chartGlow)">
+                    <polyline :points="ChartEngine.sparklinePolyline(executionBuckets, 'count', 80, 24)"
+                              fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                 </div>
               </div>
@@ -999,8 +1006,9 @@
                   <span x-show="!statsLoading" x-text="scheduler.numberOfJobsExecuted || 0"></span>
                 </div>
                 <div class="sparkline-container" x-show="executionBuckets.length">
-                  <svg width="80" height="30" class="overflow-visible">
-                    <polyline :points="sparklinePoints('count')" fill="none" stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <svg width="80" height="24" filter="url(#chartGlow)">
+                    <polyline :points="ChartEngine.sparklinePolyline(executionBuckets, 'count', 80, 24)"
+                              fill="none" stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                 </div>
               </div>
@@ -1494,19 +1502,39 @@
         </div>
       </template>
 
-      <!-- ===================== GRAPH PAGE ===================== -->
+      <!-- ===================== GRAPH PAGE (ChartEngine) ===================== -->
       <template x-if="currentPage === 'graph'">
         <div x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
           <div class="space-y-4">
+            <!-- Header -->
             <div class="flex items-center justify-between">
               <div>
                 <h1 class="text-lg font-semibold tracking-tight text-gray-100">Execution Graph</h1>
                 <p class="text-xs text-gray-500 mt-0.5">Execution rate and duration over time</p>
               </div>
               <div class="flex items-center gap-2">
-                <button @click="graphView = 'live'" :class="['btn', graphView === 'live' ? 'btn-primary' : 'btn-ghost']">Last 5 min</button>
-                <button @click="graphView = 'hour'" :class="['btn', graphView === 'hour' ? 'btn-primary' : 'btn-ghost']">All</button>
-                <button @click="loadStats()" class="btn btn-ghost">
+                <!-- Chart mode toggle -->
+                <div class="flex rounded-lg bg-gray-900 p-0.5 gap-0.5">
+                  <button @click="graphChartMode = 'line'" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', graphChartMode === 'line' ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200']">Line</button>
+                  <button @click="graphChartMode = 'bar'" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', graphChartMode === 'bar' ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200']">Bar</button>
+                  <button @click="graphChartMode = 'heatmap'" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', graphChartMode === 'heatmap' ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200']">Heat</button>
+                </div>
+                <!-- Time range buttons -->
+                <div class="flex rounded-lg bg-gray-900 p-0.5 gap-0.5">
+                  <button @click="graphTimeRange = 5; loadGraphData()" :class="['px-2 py-1 text-[10px] font-medium rounded-md transition-colors', graphTimeRange === 5 ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']">5m</button>
+                  <button @click="graphTimeRange = 15; loadGraphData()" :class="['px-2 py-1 text-[10px] font-medium rounded-md transition-colors', graphTimeRange === 15 ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']">15m</button>
+                  <button @click="graphTimeRange = 30; loadGraphData()" :class="['px-2 py-1 text-[10px] font-medium rounded-md transition-colors', graphTimeRange === 30 ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']">30m</button>
+                  <button @click="graphTimeRange = 60; loadGraphData()" :class="['px-2 py-1 text-[10px] font-medium rounded-md transition-colors', graphTimeRange === 60 ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']">1h</button>
+                  <button @click="graphTimeRange = 360; loadGraphData()" :class="['px-2 py-1 text-[10px] font-medium rounded-md transition-colors', graphTimeRange === 360 ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']">6h</button>
+                </div>
+                <!-- Download PNG -->
+                <button @click="ChartEngine.exportPNG($refs.graphSvg, 'quartz-graph.png')" class="btn btn-ghost" title="Download PNG">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </button>
+                <!-- Refresh -->
+                <button @click="loadGraphData()" class="btn btn-ghost">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
                 </button>
               </div>
@@ -1528,80 +1556,121 @@
             <!-- Graph -->
             <template x-if="!loading.stats">
               <div class="card-gradient">
-                <div class="relative" x-ref="graphContainer">
-                  <svg :width="graphWidth" :height="graphHeight" class="w-full" :viewBox="'0 0 ' + graphWidth + ' ' + graphHeight" preserveAspectRatio="xMidYMid meet">
-                    <!-- Grid lines -->
-                    <template x-for="i in 5" :key="'grid-' + i">
-                      <line :x1="graphMargin.left" :y1="graphMargin.top + (graphHeight - graphMargin.top - graphMargin.bottom) * i / 5"
-                            :x2="graphWidth - graphMargin.right" :y2="graphMargin.top + (graphHeight - graphMargin.top - graphMargin.bottom) * i / 5"
-                            stroke="#1f2937" stroke-width="0.5" stroke-dasharray="4,4"/>
+                <div class="relative" x-ref="graphContainer" @mousemove="onGraphMouseMove($event)" @mouseleave="graphCrosshair.show = false">
+                  <svg :width="graphWidth" :height="graphHeight" class="w-full" :viewBox="'0 0 ' + graphWidth + ' ' + graphHeight" preserveAspectRatio="xMidYMid meet"
+                       x-ref="graphSvg" style="overflow: visible;">
+                    <!-- Defs from ChartEngine -->
+                    <defs x-html="graphGradientDefs"></defs>
+
+                    <!-- Grid lines via ChartEngine -->
+                    <g x-html="graphGridLines"></g>
+
+                    <!-- Y-axis labels via ChartEngine (left) -->
+                    <g>
+                      <template x-for="tick in graphYTicks" :key="'yt-' + tick.value">
+                        <text :x="graphMargin.left - 8" :y="tick.y + 3"
+                              text-anchor="end" class="fill-gray-500 text-[9px] font-mono" x-text="tick.label"></text>
+                      </template>
+                    </g>
+
+                    <!-- X-axis labels via ChartEngine -->
+                    <g>
+                      <template x-for="label in graphXLabels" :key="'xl-' + label.index">
+                        <text :x="label.x" :y="graphHeight - graphMargin.bottom + 14"
+                              text-anchor="middle" class="fill-gray-500 text-[8px] font-mono" x-text="label.label"></text>
+                      </template>
+                    </g>
+
+                    <!-- LINE MODE: Smooth curves with area fill -->
+                    <template x-if="graphChartMode === 'line'">
+                      <g>
+                        <!-- Area fill -->
+                        <template x-if="graphSeries.count">
+                          <path :d="graphCountAreaPath" fill="url(#graphcountGrad)"/>
+                        </template>
+                        <!-- Count line -->
+                        <template x-if="graphSeries.count">
+                          <path :d="graphCountLinePath" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#chartGlow)"/>
+                        </template>
+                        <!-- Duration line -->
+                        <template x-if="graphSeries.avgDuration">
+                          <path :d="graphDurationLinePath" fill="none" stroke="#34d399" stroke-width="2" stroke-dasharray="6,3" stroke-linecap="round" stroke-linejoin="round"/>
+                        </template>
+                        <!-- Error rate line -->
+                        <template x-if="graphSeries.errorRate">
+                          <path :d="graphErrorLinePath" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3,2"/>
+                        </template>
+                        <!-- Data point dots on hover -->
+                        <template x-for="(bucket, idx) in graphData" :key="'pt-' + idx">
+                          <circle :cx="graphX(idx)" :cy="graphY(bucket.count, graphMaxCount || 10)" r="2.5"
+                                  fill="#818cf8" stroke="#030712" stroke-width="1" class="cursor-pointer"
+                                  @mouseenter="graphCrosshair = { show: true, x: graphX(idx), data: bucket }"
+                                  @mouseleave="graphCrosshair.show = false"/>
+                        </template>
+                      </g>
                     </template>
-                    <!-- Y axis labels (count) left -->
-                    <template x-for="i in 5" :key="'ycount-' + i">
-                      <text :x="graphMargin.left - 8" :y="graphMargin.top + (graphHeight - graphMargin.top - graphMargin.bottom) * i / 5 + 3"
-                            text-anchor="end" class="fill-gray-600 text-[9px] font-mono">
-                        <tspan x-text="Math.round((graphMaxCount || 10) * (1 - i / 5))"></tspan>
-                      </text>
+
+                    <!-- BAR MODE -->
+                    <template x-if="graphChartMode === 'bar'">
+                      <g>
+                        <template x-for="(rect, idx) in graphBarRects" :key="'bar-' + idx">
+                          <rect :x="rect.x" :y="rect.y" :width="rect.width" :height="rect.height"
+                                rx="2" fill="#818cf8" fill-opacity="0.7" class="cursor-pointer"
+                                @mouseenter="graphCrosshair = { show: true, x: rect.x + rect.width / 2, data: rect.data }"
+                                @mouseleave="graphCrosshair.show = false">
+                            <animate attributeName="height" :from="0" :to="rect.height" dur="0.3s" fill="freeze"/>
+                            <animate attributeName="y" :from="graphHeight - graphMargin.bottom" :to="rect.y" dur="0.3s" fill="freeze"/>
+                          </rect>
+                        </template>
+                      </g>
                     </template>
-                    <!-- Y axis labels (duration) right -->
-                    <template x-for="i in 4" :key="'ydur-' + i">
-                      <text :x="graphWidth - graphMargin.right + 8" :y="graphMargin.top + (graphHeight - graphMargin.top - graphMargin.bottom) * i / 4 + 3"
-                            text-anchor="start" class="fill-gray-600 text-[9px] font-mono">
-                        <tspan x-text="Math.round((graphMaxDuration || 1000) * (1 - i / 4)) + 'ms'"></tspan>
-                      </text>
+
+                    <!-- HEATMAP MODE -->
+                    <template x-if="graphChartMode === 'heatmap'">
+                      <g>
+                        <template x-for="(cell, idx) in graphHeatCells" :key="'hc-' + idx">
+                          <rect :x="cell.x" :y="cell.y" :width="cell.width" :height="cell.height"
+                                :fill="cell.fill" rx="1" class="cursor-pointer"
+                                @mouseenter="graphCrosshair = { show: true, x: cell.x + cell.width / 2, data: cell.data }"
+                                @mouseleave="graphCrosshair.show = false">
+                          </rect>
+                        </template>
+                      </g>
                     </template>
-                    <!-- X axis labels -->
-                    <template x-for="(bucket, idx) in graphData" :key="'xlabel-' + idx">
-                      <text x-if="idx % Math.max(1, Math.floor(graphData.length / 6)) === 0"
-                            :x="graphX(idx)" :y="graphHeight - graphMargin.bottom + 14"
-                            text-anchor="middle" class="fill-gray-600 text-[8px] font-mono"
-                            x-text="formatTimeShort(bucket.minute)"></text>
-                    </template>
-                    <!-- Gradients -->
-                    <defs>
-                      <linearGradient id="countGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="#818cf8" stop-opacity="0.25"/>
-                        <stop offset="100%" stop-color="#818cf8" stop-opacity="0.01"/>
-                      </linearGradient>
-                      <linearGradient id="durationGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="#34d399" stop-opacity="0.18"/>
-                        <stop offset="100%" stop-color="#34d399" stop-opacity="0.01"/>
-                      </linearGradient>
-                    </defs>
-                    <!-- Area fill for count -->
-                    <polygon :points="countAreaPoints()" fill="url(#countGradient)"/>
-                    <!-- Count line -->
-                    <polyline :points="graphLinePoints('count')" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <!-- Duration line -->
-                    <polyline :points="graphLinePoints('avgDurationMs')" fill="none" stroke="#34d399" stroke-width="2" stroke-dasharray="6,3" stroke-linecap="round" stroke-linejoin="round"/>
-                    <!-- Data points -->
-                    <template x-for="(bucket, idx) in graphData" :key="'pt-' + idx">
-                      <circle :cx="graphX(idx)" :cy="graphY(bucket.count, graphMaxCount || 10)" r="3" fill="#818cf8" class="cursor-pointer"
-                              @mouseenter="graphTooltip = { show: true, x: graphX(idx), y: graphY(bucket.count, graphMaxCount || 10) - 10, bucket: bucket }"
-                              @mouseleave="graphTooltip.show = false"/>
-                    </template>
+
                     <!-- Legend -->
-                    <line x1="16" :y1="graphHeight - graphMargin.bottom + 34" x2="36" :y2="graphHeight - graphMargin.bottom + 34" stroke="#818cf8" stroke-width="2"/>
-                    <text x="40" :y="graphHeight - graphMargin.bottom + 37" class="fill-gray-400 text-[9px] font-medium">Executions</text>
-                    <line x1="16" :y1="graphHeight - graphMargin.bottom + 48" x2="36" :y2="graphHeight - graphMargin.bottom + 48" stroke="#34d399" stroke-width="2" stroke-dasharray="6,3"/>
-                    <text x="40" :y="graphHeight - graphMargin.bottom + 51" class="fill-gray-400 text-[9px] font-medium">Avg Duration</text>
-                    <!-- Hover vertical rule -->
-                    <line x-show="graphTooltip.show" :x1="graphTooltip.x" y1="0" :y2="graphHeight" stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="3,3" style="display: none;"/>
+                    <g>
+                      <line x1="16" :y1="graphHeight - graphMargin.bottom + 34" x2="36" :y2="graphHeight - graphMargin.bottom + 34" stroke="#818cf8" stroke-width="2"/>
+                      <text x="40" :y="graphHeight - graphMargin.bottom + 37" class="fill-gray-400 text-[9px] font-medium">Count</text>
+                      <line x1="100" :y1="graphHeight - graphMargin.bottom + 34" x2="120" :y2="graphHeight - graphMargin.bottom + 34" stroke="#34d399" stroke-width="2" stroke-dasharray="6,3"/>
+                      <text x="124" :y="graphHeight - graphMargin.bottom + 37" class="fill-gray-400 text-[9px] font-medium">Avg Dur</text>
+                      <line x1="190" :y1="graphHeight - graphMargin.bottom + 34" x2="210" :y2="graphHeight - graphMargin.bottom + 34" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,2"/>
+                      <text x="214" :y="graphHeight - graphMargin.bottom + 37" class="fill-gray-400 text-[9px] font-medium">Errors</text>
+                    </g>
+
+                    <!-- Crosshair vertical line -->
+                    <line x-show="graphCrosshair.show" :x1="graphCrosshair.x" y1="0" :x2="graphCrosshair.x" :y2="graphHeight"
+                          stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="3,3" style="display: none;"/>
                   </svg>
-                  <!-- Tooltip -->
-                  <div x-show="graphTooltip.show" :style="'left: ' + graphTooltip.x + 'px;'" class="graph-tooltip" style="display: none;">
-                    <div class="text-gray-200 font-medium text-xs mb-1" x-text="'Minute: ' + formatTimeShort(graphTooltip.bucket.minute)"></div>
-                    <div class="flex items-center gap-2 text-xs">
-                      <span class="w-2 h-2 rounded-full bg-quartz-400"></span>
-                      <span x-text="'Executions: ' + graphTooltip.bucket.count"></span>
-                    </div>
-                    <div class="flex items-center gap-2 text-xs mt-0.5">
-                      <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                      <span x-text="'Avg Duration: ' + Math.round(graphTooltip.bucket.avgDurationMs || 0) + 'ms'"></span>
-                    </div>
-                    <div x-show="graphTooltip.bucket.errorRate !== undefined" class="flex items-center gap-2 text-xs mt-0.5 text-red-400">
-                      <span class="w-2 h-2 rounded-full bg-red-400"></span>
-                      <span x-text="'Error Rate: ' + (graphTooltip.bucket.errorRate * 100).toFixed(1) + '%'"></span>
+
+                  <!-- Tooltip overlay -->
+                  <div x-show="graphCrosshair.show" 
+                       :style="'left: ' + Math.min(graphCrosshair.x + 12, graphWidth - 180) + 'px; top: 12px;'"
+                       class="absolute z-20 pointer-events-none" style="display: none;">
+                    <div class="bg-gray-900/95 backdrop-blur-sm border border-white/[0.08] rounded-lg px-3 py-2 shadow-xl min-w-[130px]">
+                      <div class="text-xs font-medium text-gray-200 mb-1" x-text="graphTooltipTime"></div>
+                      <div class="flex items-center gap-2 text-[11px]">
+                        <span class="w-1.5 h-1.5 rounded-full bg-quartz-400"></span>
+                        <span x-text="'Count: ' + (graphCrosshair.data ? graphCrosshair.data.count : '\\u2014')" class="text-gray-300"></span>
+                      </div>
+                      <div class="flex items-center gap-2 text-[11px]">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        <span x-text="'Dur: ' + (graphCrosshair.data ? Math.round(graphCrosshair.data.avgDurationMs || 0) + 'ms' : '\\u2014')" class="text-gray-300"></span>
+                      </div>
+                      <div x-show="graphCrosshair.data && graphCrosshair.data.errorRate !== undefined" class="flex items-center gap-2 text-[11px]">
+                        <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                        <span x-text="'Err: ' + (graphCrosshair.data ? (graphCrosshair.data.errorRate * 100).toFixed(1) + '%' : '\\u2014')" class="text-red-300"></span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1883,6 +1952,10 @@
         graphMaxCount: 10,
         graphMaxDuration: 1000,
         graphData: [],
+        graphChartMode: 'line',
+        graphTimeRange: 15,
+        graphSeries: { count: true, avgDuration: true, errorRate: true },
+        graphCrosshair: { show: false, x: 0, data: null },
 
         // Sparklines
         sparklineW: 80,
@@ -2834,23 +2907,7 @@
           return dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
         },
 
-        // ========================= SPARKLINE =========================
-        sparklinePoints(field) {
-          const buckets = this.executionBuckets || [];
-          if (!buckets.length) return '';
-          const w = this.sparklineW;
-          const h = this.sparklineH;
-          const values = buckets.map(b => b[field] || 0);
-          const maxVal = Math.max(...values, 1);
-          const stepX = w / Math.max(values.length - 1, 1);
-          return values.map((v, i) => {
-            const x = i * stepX;
-            const y = h - (v / maxVal) * (h - 2) - 1;
-            return x + ',' + y;
-          }).join(' ');
-        },
-
-        // ========================= GRAPH =========================
+        // ========================= CHART ENGINE - COMPUTED PROPERTIES =========================
         graphX(idx) {
           const margin = this.graphMargin;
           const data = this.graphData;
@@ -2865,44 +2922,105 @@
           return margin.top + h - (val / max) * h;
         },
 
-        graphLinePoints(field) {
-          const data = this.graphData;
-          if (!data.length) return '';
-          const fieldValues = data.map(b => b[field] || 0);
-          const maxVal = Math.max(...fieldValues, 1);
-          if (field === 'avgDurationMs') {
-            this.graphMaxDuration = maxVal;
-          } else {
-            this.graphMaxCount = maxVal;
-          }
-          const margin = this.graphMargin;
-          const w = this.graphWidth - margin.left - margin.right;
-          const h = this.graphHeight - margin.top - margin.bottom;
-          return data.map((b, i) => {
-            const x = margin.left + (i / Math.max(data.length - 1, 1)) * w;
-            const y = margin.top + h - ((b[field] || 0) / maxVal) * h;
-            return x + ',' + y;
-          }).join(' ');
+        get graphGradientDefs() {
+          return ChartEngine.gradientDefs('graph');
         },
 
-        countAreaPoints() {
-          const data = this.graphData;
-          if (!data.length) return '';
+        get graphYTicks() {
+          const maxVal = Math.max(...this.graphData.map(b => b.count || 0), 10);
+          if (maxVal > this.graphMaxCount) this.graphMaxCount = maxVal;
+          return ChartEngine.yAxisTicks(maxVal, this.graphHeight, this.graphMargin, 5);
+        },
+
+        get graphXLabels() {
+          return ChartEngine.xAxisTimeLabels(this.graphData, 'minute', this.graphWidth, this.graphMargin, 8).map(l => ({
+            ...l,
+            label: this.formatTimeShort(l.label)
+          }));
+        },
+
+        get graphGridLines() {
+          const maxVal = Math.max(...this.graphData.map(b => b.count || 0), 10);
+          const ticks = ChartEngine.yAxisTicks(maxVal, this.graphHeight, this.graphMargin, 5);
+          return ChartEngine.gridLines(ticks, this.graphWidth, this.graphMargin);
+        },
+
+        get graphCountLinePath() {
+          if (!this.graphData || this.graphData.length < 2) return '';
+          const maxVal = Math.max(...this.graphData.map(b => b.count || 0), 1);
+          this.graphMaxCount = maxVal;
+          const xScale = ChartEngine.scaleLinear(this.graphMargin.left, this.graphWidth - this.graphMargin.right, 0, this.graphData.length - 1);
+          const yScale = ChartEngine.scaleLinear(this.graphHeight - this.graphMargin.bottom, this.graphMargin.top, 0, maxVal);
+          return ChartEngine.smoothPath(this.graphData, null, 'count', xScale, yScale);
+        },
+
+        get graphCountAreaPath() {
+          if (!this.graphData || this.graphData.length < 2) return '';
+          const maxVal = Math.max(...this.graphData.map(b => b.count || 0), 1);
+          const xScale = ChartEngine.scaleLinear(this.graphMargin.left, this.graphWidth - this.graphMargin.right, 0, this.graphData.length - 1);
+          const yScale = ChartEngine.scaleLinear(this.graphHeight - this.graphMargin.bottom, this.graphMargin.top, 0, maxVal);
+          return ChartEngine.areaPath(this.graphData, null, 'count', xScale, yScale, this.graphHeight - this.graphMargin.bottom);
+        },
+
+        get graphDurationLinePath() {
+          if (!this.graphData || this.graphData.length < 2) return '';
+          const maxVal = Math.max(...this.graphData.map(b => b.avgDurationMs || 0), 1);
+          this.graphMaxDuration = maxVal;
+          const xScale = ChartEngine.scaleLinear(this.graphMargin.left, this.graphWidth - this.graphMargin.right, 0, this.graphData.length - 1);
+          const yScale = ChartEngine.scaleLinear(this.graphHeight - this.graphMargin.bottom, this.graphMargin.top, 0, maxVal);
+          return ChartEngine.smoothPath(this.graphData, null, 'avgDurationMs', xScale, yScale);
+        },
+
+        get graphErrorLinePath() {
+          if (!this.graphData || this.graphData.length < 2) return '';
+          const maxVal = Math.max(...this.graphData.map(b => b.errorRate || 0), 0.01);
+          const xScale = ChartEngine.scaleLinear(this.graphMargin.left, this.graphWidth - this.graphMargin.right, 0, this.graphData.length - 1);
+          const yScale = ChartEngine.scaleLinear(this.graphHeight - this.graphMargin.bottom, this.graphMargin.top, 0, maxVal);
+          return ChartEngine.smoothPath(this.graphData, null, 'errorRate', xScale, yScale);
+        },
+
+        get graphBarRects() {
+          if (!this.graphData || !this.graphData.length) return [];
+          const maxVal = Math.max(...this.graphData.map(b => b.count || 0), 1);
+          this.graphMaxCount = maxVal;
+          return ChartEngine.barRects(this.graphData, 'count', this.graphWidth, this.graphHeight, this.graphMargin);
+        },
+
+        get graphHeatCells() {
+          if (!this.graphData || !this.graphData.length) return [];
+          const rows = 8;
+          const cols = Math.min(this.graphData.length, 60);
+          return ChartEngine.heatmapCells(this.graphData, 'count', this.graphWidth, this.graphHeight, this.graphMargin, rows, cols);
+        },
+
+        get graphTooltipTime() {
+          if (!this.graphCrosshair || !this.graphCrosshair.data) return '';
+          return this.formatTimeShort(this.graphCrosshair.data.minute);
+        },
+
+        // ========================= GRAPH EVENT HANDLERS =========================
+        onGraphMouseMove(event) {
+          const container = this.$refs && this.$refs.graphContainer;
+          if (!container) return;
+          const rect = container.getBoundingClientRect();
+          const svgX = event.clientX - rect.left;
           const margin = this.graphMargin;
-          const w = this.graphWidth - margin.left - margin.right;
-          const h = this.graphHeight - margin.top - margin.bottom;
-          const values = data.map(b => b.count || 0);
-          const maxVal = Math.max(...values, 1);
-          const bottom = margin.top + h;
-          let points = margin.left + ',' + bottom;
-          data.forEach((b, i) => {
-            const x = margin.left + (i / Math.max(data.length - 1, 1)) * w;
-            const y = margin.top + h - ((b.count || 0) / maxVal) * h;
-            points += ' ' + x + ',' + y;
-          });
-          points += ' ' + (margin.left + w) + ',' + bottom;
-          return points;
-        }       // closes countAreaPoints
+          const data = this.graphData;
+          if (!data || data.length < 2) return;
+          const chartW = this.graphWidth - margin.left - margin.right;
+          const normalizedX = (svgX - margin.left) / chartW;
+          const idx = Math.round(normalizedX * (data.length - 1));
+          const clampedIdx = Math.max(0, Math.min(data.length - 1, idx));
+          this.graphCrosshair = {
+            show: true,
+            x: margin.left + (clampedIdx / Math.max(data.length - 1, 1)) * chartW,
+            data: Object.assign({}, data[clampedIdx])
+          };
+        },
+
+        loadGraphData() {
+          this.loadStats();
+        },
       }         // closes return object
     }           // closes dashboard()
     window.dashboard = dashboard;
