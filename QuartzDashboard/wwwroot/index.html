@@ -272,7 +272,7 @@
         </div>
         <span x-show="sidebarOpen" class="font-semibold text-sm text-gray-100 whitespace-nowrap overflow-hidden">
           Quartz<span class="text-quartz-400">Dash</span>
-          <span class="ml-1 text-[10px] text-gray-600 font-mono">v0.2</span>
+          <span class="ml-1 text-[10px] text-gray-600 font-mono">v2.0</span>
         </span>
       </div>
 
@@ -434,7 +434,127 @@
         </div>
       </template>
       <template x-if="currentPage === 'health'">
-        <div>HEALTH PAGE</div>
+        <div x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+          <div class="space-y-6">
+            <!-- Header -->
+            <div class="flex items-center justify-between">
+              <div>
+                <h1 class="text-lg font-semibold tracking-tight text-gray-100">Health</h1>
+                <p class="text-xs text-gray-500 mt-0.5">Scheduler health check and diagnostics</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="flex items-center gap-1.5 text-xs text-gray-500">
+                  <span :class="['status-dot', healthData?.status === 'healthy' ? 'status-dot-running' : 'status-dot-stopped']"></span>
+                  <span x-text="healthData?.status || 'unknown'" class="capitalize"></span>
+                </span>
+                <button @click="loadHealth(); loadStats()" class="btn btn-ghost">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            <!-- Stat cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="stat-card">
+                <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Success Rate</div>
+                <div class="text-3xl font-bold tabular-nums tracking-tight"
+                     :class="successRate >= 95 ? 'text-emerald-400' : successRate >= 80 ? 'text-amber-400' : 'text-red-400'">
+                  <span x-text="successRate"></span><span class="text-lg">%</span>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Failed Executions</div>
+                <div class="text-3xl font-bold tabular-nums tracking-tight"
+                     :class="failedCount > 0 ? 'text-red-400' : 'text-gray-100'">
+                  <span x-text="failedCount"></span>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Pool Utilization</div>
+                <div class="text-3xl font-bold tabular-nums tracking-tight"
+                     :class="poolUtilization > 80 ? 'text-amber-400' : 'text-gray-100'">
+                  <span x-text="poolUtilization.toFixed(0)"></span><span class="text-lg">%</span>
+                </div>
+                <div class="text-[10px] text-gray-600 mt-1">
+                  <span x-text="executingJobs.length"></span> active / <span x-text="scheduler.threadPoolSize || 10"></span> threads
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Misfired Triggers</div>
+                <div class="text-3xl font-bold tabular-nums tracking-tight"
+                     :class="misfiredCount > 0 ? 'text-red-400' : 'text-gray-100'">
+                  <span x-text="misfiredCount"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Scheduler Diagnostics -->
+            <div class="card-gradient">
+              <h2 class="text-sm font-semibold text-gray-200 mb-4">Scheduler Diagnostics</h2>
+              <div class="grid grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
+                <div>
+                  <span class="text-[11px] font-medium uppercase tracking-wider text-gray-500">Status</span>
+                  <p class="text-sm mt-0.5">
+                    <span :class="scheduler.isStandbyMode ? 'badge badge-paused' : (scheduler.isStarted ? 'badge badge-running' : 'badge badge-error')"
+                          x-text="scheduler.isStandbyMode ? 'Standby' : (scheduler.isStarted ? 'Running' : 'Stopped')"></span>
+                  </p>
+                </div>
+                <div>
+                  <span class="text-[11px] font-medium uppercase tracking-wider text-gray-500">Total Executions</span>
+                  <p class="text-sm text-gray-200 mt-0.5 font-medium" x-text="scheduler.numberOfJobsExecuted || 0"></p>
+                </div>
+                <div>
+                  <span class="text-[11px] font-medium uppercase tracking-wider text-gray-500">History Records</span>
+                  <p class="text-sm text-gray-200 mt-0.5" x-text="history.length"></p>
+                </div>
+                <div>
+                  <span class="text-[11px] font-medium uppercase tracking-wider text-gray-500">Thread Pool Size</span>
+                  <p class="text-sm text-gray-200 mt-0.5" x-text="scheduler.threadPoolSize || '—'"></p>
+                </div>
+                <div>
+                  <span class="text-[11px] font-medium uppercase tracking-wider text-gray-500">Job Store</span>
+                  <p class="text-sm text-gray-200 mt-0.5 mono text-xs" x-text="scheduler.jobStoreType || '—'"></p>
+                </div>
+                <div>
+                  <span class="text-[11px] font-medium uppercase tracking-wider text-gray-500">Thread Pool</span>
+                  <p class="text-sm text-gray-200 mt-0.5 mono text-xs" x-text="scheduler.threadPoolType || '—'"></p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Failed Jobs List -->
+            <template x-if="failedHistory.length > 0">
+              <div class="card-gradient">
+                <h2 class="text-sm font-semibold text-gray-200 mb-3">Recent Failures</h2>
+                <div class="space-y-2 max-h-64 overflow-y-auto scrollbar-thin">
+                  <template x-for="h in failedHistory.slice(0, 20)" :key="h.fireInstanceId || $index">
+                    <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-red-500/5 border border-red-500/10">
+                      <div class="flex-1 min-w-0">
+                        <p class="text-sm text-gray-200 truncate" x-text="h.jobKey || 'Unknown'"></p>
+                        <p class="text-xs text-gray-500" x-text="formatDate(h.fireTime)"></p>
+                      </div>
+                      <span class="badge badge-error text-[10px]">Failed</span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <!-- All clear -->
+            <template x-if="failedHistory.length === 0 && history.length > 0">
+              <div class="card-gradient flex items-center gap-3 py-6">
+                <div class="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
+                <div>
+                  <p class="text-sm text-gray-200 font-medium">All Clear</p>
+                  <p class="text-xs text-gray-500">No execution failures recorded in recent history.</p>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
       </template>
 
 

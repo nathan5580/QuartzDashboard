@@ -10,6 +10,7 @@
         maxRetries: 3,
         retryDelay: 3000,
         scheduler: { isStarted: false, isStandbyMode: false, numberOfJobsExecuted: 0 },
+        healthData: null,
         jobs: [],
         triggers: [],
         executingJobs: [],
@@ -759,6 +760,15 @@
         },
 
         // ========================= TIMELINE =========================
+        async loadHealth() {
+          try {
+            const data = await fetch('/quartz/api/health');
+            if (data.ok) this.healthData = await data.json();
+          } catch (e) {
+            console.error('loadHealth:', e);
+          }
+        },
+
         async loadTimeline() {
           this.loading.timeline = true;
           try {
@@ -840,6 +850,7 @@
             case 'history': await this.loadHistory(); break;
             case 'graph': await this.loadStats(); break;
             case 'timeline': await this.loadTimeline(); break;
+            case 'health': await this.loadHealth(); break;
           }
         },
 
