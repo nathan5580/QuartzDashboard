@@ -11,6 +11,7 @@ public abstract record DashboardEvent
 public sealed record JobExecutedEvent(
     string JobKey,
     string TriggerKey,
+    string FireInstanceId,
     TimeSpan Duration,
     bool Success,
     DateTimeOffset FireTime
@@ -19,7 +20,14 @@ public sealed record JobExecutedEvent(
 public sealed record JobTriggeredEvent(
     string JobKey,
     string TriggerKey,
-    DateTimeOffset FireTime
+    string JobName,
+    string JobGroup,
+    string TriggerName,
+    string TriggerGroup,
+    string JobType,
+    string FireInstanceId,
+    DateTimeOffset FireTime,
+    DateTimeOffset? ScheduledFireTime
 ) : DashboardEvent;
 
 public sealed record SchedulerStatusEvent(

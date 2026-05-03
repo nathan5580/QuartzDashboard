@@ -950,11 +950,11 @@
                       <div class="mb-4">
                         <div class="flex justify-between text-[11px] text-gray-500 mb-1.5">
                           <span>Duration</span>
-                          <span class="font-medium text-gray-300" x-text="formatDuration(ej.duration)"></span>
+                          <span class="font-medium text-gray-300" x-text="formatDuration(currentTick - new Date(ej.fireTime).getTime())"></span>
                         </div>
                         <div class="w-full h-1.5 bg-gray-700/40 rounded-full overflow-hidden">
                           <div class="h-full rounded-full bg-quartz-500 duration-bar"
-                               :style="'width: ' + Math.min(Math.round((ej.durationMs || 0) / 60000 * 100), 100) + '%'"></div>
+                               :style="'width: ' + Math.min(Math.round((currentTick - new Date(ej.fireTime).getTime()) / 60000 * 100), 100) + '%'"></div>
                         </div>
                       </div>
                       <!-- Details grid -->

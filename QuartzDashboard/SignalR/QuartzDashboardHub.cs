@@ -26,6 +26,7 @@ public class QuartzDashboardHub : Hub
 internal sealed record ExecutedEvent(
     string JobKey,
     string TriggerKey,
+    string FireInstanceId,
     double Duration,
     bool Success,
     DateTimeOffset FireTime
@@ -34,7 +35,14 @@ internal sealed record ExecutedEvent(
 internal sealed record TriggeredEvent(
     string JobKey,
     string TriggerKey,
-    DateTimeOffset FireTime
+    string JobName,
+    string JobGroup,
+    string TriggerName,
+    string TriggerGroup,
+    string JobType,
+    string FireInstanceId,
+    DateTimeOffset FireTime,
+    DateTimeOffset? ScheduledFireTime
 );
 
 /// <summary>
@@ -59,6 +67,7 @@ internal sealed class DashboardSignalRBridge(
             if (!_channel.Writer.TryWrite(new ExecutedEvent(
                 JobKey: e.JobKey,
                 TriggerKey: e.TriggerKey,
+                FireInstanceId: e.FireInstanceId,
                 Duration: e.Duration.TotalMilliseconds,
                 Success: e.Success,
                 FireTime: e.FireTime
@@ -73,7 +82,14 @@ internal sealed class DashboardSignalRBridge(
             if (!_channel.Writer.TryWrite(new TriggeredEvent(
                 JobKey: e.JobKey,
                 TriggerKey: e.TriggerKey,
-                FireTime: e.FireTime
+                JobName: e.JobName,
+                JobGroup: e.JobGroup,
+                TriggerName: e.TriggerName,
+                TriggerGroup: e.TriggerGroup,
+                JobType: e.JobType,
+                FireInstanceId: e.FireInstanceId,
+                FireTime: e.FireTime,
+                ScheduledFireTime: e.ScheduledFireTime
             )))
             {
                 logger.LogWarning("Channel full, dropping jobTriggered event");
@@ -137,7 +153,9 @@ internal sealed class DashboardSignalRBridge(
                             {
                                 jobKey = ee.JobKey,
                                 triggerKey = ee.TriggerKey,
+                                fireInstanceId = ee.FireInstanceId,
                                 duration = ee.Duration,
+                                durationMs = ee.Duration,
                                 success = ee.Success,
                                 fireTime = ee.FireTime,
                             });
@@ -147,7 +165,14 @@ internal sealed class DashboardSignalRBridge(
                             {
                                 jobKey = te.JobKey,
                                 triggerKey = te.TriggerKey,
+                                jobName = te.JobName,
+                                jobGroup = te.JobGroup,
+                                triggerName = te.TriggerName,
+                                triggerGroup = te.TriggerGroup,
+                                jobType = te.JobType,
+                                fireInstanceId = te.FireInstanceId,
                                 fireTime = te.FireTime,
+                                scheduledFireTime = te.ScheduledFireTime,
                             });
                             break;
                     }
@@ -163,10 +188,10 @@ internal sealed class DashboardSignalRBridge(
                         switch (item)
                         {
                             case ExecutedEvent ee:
-                                executed.Add(new { jobKey = ee.JobKey, triggerKey = ee.TriggerKey, duration = ee.Duration, success = ee.Success, fireTime = ee.FireTime });
+                                executed.Add(new { jobKey = ee.JobKey, triggerKey = ee.TriggerKey, fireInstanceId = ee.FireInstanceId, duration = ee.Duration, durationMs = ee.Duration, success = ee.Success, fireTime = ee.FireTime });
                                 break;
                             case TriggeredEvent te:
-                                triggered.Add(new { jobKey = te.JobKey, triggerKey = te.TriggerKey, fireTime = te.FireTime });
+                                triggered.Add(new { jobKey = te.JobKey, triggerKey = te.TriggerKey, jobName = te.JobName, jobGroup = te.JobGroup, triggerName = te.TriggerName, triggerGroup = te.TriggerGroup, jobType = te.JobType, fireInstanceId = te.FireInstanceId, fireTime = te.FireTime, scheduledFireTime = te.ScheduledFireTime });
                                 break;
                         }
                         if (executed.Count + triggered.Count >= 64) break;
