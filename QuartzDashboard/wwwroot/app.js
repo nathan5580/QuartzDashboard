@@ -67,6 +67,13 @@
           }
         },
 
+        // ========================= JOB DETAIL MODAL STATE =========================
+        showJobDetailModal: false,
+        jobDetailData: null,
+        jobDetailTab: 'metadata',
+        jobDetailLogs: [],
+        jobDetailLogsLoading: false,
+
         // ========================= SIGNALR / CONNECTION =========================
         // Debounce utility
         _debounceTimers: {},
@@ -86,7 +93,61 @@
         toastQueue: [],
         toastIdCounter: 0,
 
+        // ========================= JOB DETAIL MODAL METHODS =========================
+        openJobDetail(job) {
+          this.jobDetailData = job;
+          this.jobDetailTab = 'metadata';
+          this.showJobDetailModal = true;
+          this.loadJobDetailLogs(job.group, job.name);
+        },
+        closeJobDetail() {
+          this.showJobDetailModal = false;
+          this.jobDetailData = null;
+          this.jobDetailLogs = [];
+        },
+        async loadJobDetailLogs(group, name) {
+          this.jobDetailLogsLoading = true;
+          try {
+            const resp = await this.fetchApi(this.api('/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name) + '/logs'));
+            this.jobDetailLogs = resp.logs || [];
+          } catch(e) {
+            this.jobDetailLogs = ['Failed to load logs'];
+          }
+          this.jobDetailLogsLoading = false;
+        },
+        copyJobJson() {
+          if (!this.jobDetailData) return;
+          const json = JSON.stringify(this.jobDetailData, null, 2);
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(json).then(() => this.showToast('Job definition copied', 'success'));
+          }
+        },
+        triggerJobFromModal() {
+          if (this.jobDetailData) this.triggerJob(this.jobDetailData.group, this.jobDetailData.name);
+        },
+
+        // Health computed
+        get failedCount() { return this.history ? this.history.filter(h => h.success === false).length : 0; },
+        get misfiredCount() { return this.triggers ? this.triggers.filter(t => t.state === 'Error').length : 0; },
+        get successRate() {
+          if (!this.history || !this.history.length) return 100;
+          const successes = this.history.filter(h => h.success !== false).length;
+          return Math.round(successes / this.history.length * 100);
+        },
+        get failedHistory() { return this.history ? this.history.filter(h => h.success === false) : []; },
+        get poolUtilization() {
+          const poolSize = this.scheduler.threadPoolSize || 10;
+          const active = this.executingJobs.length;
+          return poolSize > 0 ? (active / poolSize) * 100 : 0;
+        },
+
         // ========================= COMMAND PALETTE =========================
+        showJobDetailModal: false,
+        jobDetailData: null,
+        jobDetailTab: 'metadata',
+        jobDetailLogs: [],
+        jobDetailLogsLoading: false,
+
         showCommandPalette: false,
         commandPaletteQuery: '',
         commandPaletteIndex: 0,
@@ -144,7 +205,8 @@
           { id: 'history', label: 'History', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
           { id: 'graph', label: 'Graph', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>' },
           { id: 'timeline', label: 'Timeline', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="12" x2="21" y2="12"/><polyline points="8 7 3 12 8 17"/><polyline points="16 7 21 12 16 17"/></svg>' },
-          { id: 'settings', label: 'Settings', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>' },
+          { id: 'health', label: 'Health', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>' },
+        { id: 'settings', label: 'Settings', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>' },
         ],
 
         // ========================= COMPUTED =========================
