@@ -121,11 +121,11 @@ public class SchedulerHandlerTests : IClassFixture<QuartzTestFixture>
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        Assert.True(root.TryGetProperty("TotalExecutions", out _));
-        Assert.True(root.TryGetProperty("UptimeMinutes", out _));
-        Assert.True(root.TryGetProperty("SchedulerVersion", out _));
-        Assert.True(root.TryGetProperty("ThreadPoolSize", out _));
-        Assert.True(root.TryGetProperty("ExecutionBuckets", out _));
+        Assert.True(root.TryGetProperty("totalExecutions", out _));
+        Assert.True(root.TryGetProperty("uptimeMinutes", out _));
+        Assert.True(root.TryGetProperty("schedulerVersion", out _));
+        Assert.True(root.TryGetProperty("threadPoolSize", out _));
+        Assert.True(root.TryGetProperty("executionBuckets", out _));
     }
 
     [Fact]

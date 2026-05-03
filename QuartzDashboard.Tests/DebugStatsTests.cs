@@ -37,10 +37,10 @@ public class DebugStatsTests : IClassFixture<QuartzTestFixture>
         }
 
         // Now test assertions
-        Assert.True(root.TryGetProperty("TotalExecutions", out _), "Missing 'TotalExecutions'");
-        Assert.True(root.TryGetProperty("UptimeMinutes", out _), "Missing 'UptimeMinutes'");
-        Assert.True(root.TryGetProperty("SchedulerVersion", out _), "Missing 'SchedulerVersion'");
-        Assert.True(root.TryGetProperty("ThreadPoolSize", out _), "Missing 'ThreadPoolSize'");
-        Assert.True(root.TryGetProperty("ExecutionBuckets", out _), "Missing 'ExecutionBuckets'");
+        Assert.True(root.TryGetProperty("totalExecutions", out _), "Missing 'totalExecutions'");
+        Assert.True(root.TryGetProperty("uptimeMinutes", out _), "Missing 'uptimeMinutes'");
+        Assert.True(root.TryGetProperty("schedulerVersion", out _), "Missing 'schedulerVersion'");
+        Assert.True(root.TryGetProperty("threadPoolSize", out _), "Missing 'threadPoolSize'");
+        Assert.True(root.TryGetProperty("executionBuckets", out _), "Missing 'executionBuckets'");
     }
 }
