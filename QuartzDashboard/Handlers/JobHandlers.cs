@@ -34,8 +34,39 @@ internal static class JobHandlers
                 var detail = await sched.GetJobDetail(key);
                 if (detail == null) continue;
 
-                var triggers = await sched.GetTriggersOfJob(key);
+                var rawTriggers = await sched.GetTriggersOfJob(key);
                 var isExecuting = executingKeys.Contains(key);
+
+                var triggerData = new List<object>();
+                var allPaused = rawTriggers.Any();
+                DateTimeOffset? nearestNextFire = null;
+
+                foreach (var t in rawTriggers)
+                {
+                    var state = await sched.GetTriggerState(t.Key);
+                    if (state != TriggerState.Paused) allPaused = false;
+                    var nft = t.GetNextFireTimeUtc();
+                    if (nft.HasValue && (!nearestNextFire.HasValue || nft < nearestNextFire))
+                        nearestNextFire = nft;
+
+                    triggerData.Add(new
+                    {
+                        Name = t.Key.Name,
+                        Group = t.Key.Group,
+                        Type = t.GetType().Name.Replace("Impl", ""),
+                        State = state.ToString(),
+                        NextFireTime = nft,
+                        LastFireTime = t.GetPreviousFireTimeUtc(),
+                        ScheduleDescription = ScheduleHelper.GetScheduleDescription(t),
+                    });
+                }
+
+                var hasTriggers = triggerData.Count > 0;
+                var status = isExecuting ? "Executing"
+                    : hasTriggers && allPaused ? "Paused"
+                    : hasTriggers ? "Scheduled"
+                    : detail.Durable ? "Durable"
+                    : "Idle";
 
                 allJobs.Add(new
                 {
@@ -44,17 +75,11 @@ internal static class JobHandlers
                     Description = detail.Description ?? "",
                     JobType = detail.JobType.Name,
                     IsDurable = detail.Durable,
+                    Status = status,
+                    NextFireTime = nearestNextFire,
                     PersistJobDataAfterExecution = detail.PersistJobDataAfterExecution,
                     ConcurrentExecutionDisallowed = detail.ConcurrentExecutionDisallowed,
-                    Triggers = triggers.Select(t => new
-                    {
-                        Name = t.Key.Name,
-                        Group = t.Key.Group,
-                        Type = t.GetType().Name.Replace("Impl", ""),
-                        State = "?",
-                        NextFireTime = t.GetNextFireTimeUtc(),
-                        ScheduleDescription = ScheduleHelper.GetScheduleDescription(t),
-                    }),
+                    Triggers = triggerData,
                     IsExecuting = isExecuting,
                     JobDataMap = detail.JobDataMap.WrappedMap
                         .ToDictionary(k => k.Key.ToString(), k => k.Value?.ToString() ?? ""),

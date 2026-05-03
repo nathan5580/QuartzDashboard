@@ -8,7 +8,7 @@
 
     <!-- NuGet packaging -->
     <PackageId>Dot.QuartzDashboard</PackageId>
-    <Version>2.0.3</Version>
+    <Version>2.0.4</Version>
     <Authors>n8</Authors>
     <Description>A clean, minimal Quartz.NET scheduler dashboard with Tailwind CSS and Alpine.js. View jobs, triggers, executing tasks, and control the scheduler from a polished SPA.</Description>
     <PackageTags>quartz;dashboard;scheduler;admin</PackageTags>
