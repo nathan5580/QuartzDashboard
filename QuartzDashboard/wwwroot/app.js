@@ -209,7 +209,8 @@
         timelineEvents: [],
         timelineWidth: 800,
         timelineHeight: 400,
-        timelineTooltip: { show: false, event: null, x: 0, y: 0 },
+        timelineRange: 60,
+        timelineTooltip: { show: false, event: null, x: 0, y: 0, screenX: 0, screenY: 0 },
         timelineNowInterval: null,
         timelineAnimFrame: null,
 
@@ -293,27 +294,71 @@
         },
 
         get now() {
-          return Date.now();
+          return this.currentTick;
         },
 
-        timelineRowCenter(idx) {
-          const rowH = Math.max(40, (this.timelineHeight - 30) / Math.max(this.timelineYLabels.length, 1));
-          return (idx + 0.5) * rowH;
+        get timelineRangeMs() {
+          return this.timelineRange * 60 * 1000;
+        },
+
+        get timelineVisibleEvents() {
+          const cutoff = this.now - this.timelineRangeMs;
+          return this.timelineEvents.filter(e => new Date(e.fireTime).getTime() >= cutoff);
+        },
+
+        get timelineVisibleLabels() {
+          const labels = [];
+          for (const evt of this.timelineVisibleEvents) {
+            if (!labels.includes(evt.jobKey)) labels.push(evt.jobKey);
+          }
+          return labels;
+        },
+
+        get timelineLabelWidth() { return 160; },
+        get timelineRowHeight() { return 52; },
+        get timelineAxisHeight() { return 32; },
+        get timelineChartHeight() {
+          return Math.max(120, this.timelineVisibleLabels.length * this.timelineRowHeight + this.timelineAxisHeight + 16);
+        },
+          return 8 + idx * this.timelineRowHeight;
         },
 
         timelineXForTime(timeMs) {
-          const now = Date.now();
-          const range = 60000; // 60 seconds visible
-          const leftTime = now - range;
-          const w = this.timelineWidth - 10;
-          const frac = (timeMs - leftTime) / range;
-          return Math.max(0, Math.min(w, frac * w + 5));
+          const w = this.timelineWidth - 16;
+          const leftTime = this.now - this.timelineRangeMs;
+          const frac = (timeMs - leftTime) / this.timelineRangeMs;
+          return Math.max(0, Math.min(w, frac * w + 8));
+        },
+
+        timelineBarWidth(durationMs) {
+          const w = this.timelineWidth - 16;
+          return Math.max(4, (durationMs / this.timelineRangeMs) * w);
         },
 
         timelineYForJob(jobKey) {
-          const idx = this.timelineYLabels.indexOf(jobKey);
+          const idx = this.timelineVisibleLabels.indexOf(jobKey);
           if (idx === -1) return 20;
-          return this.timelineRowCenter(idx);
+          return this.timelineRowY(idx) + this.timelineRowHeight / 2;
+        },
+
+        get timelineGridLines() {
+          const ticks = 8;
+          const lines = [];
+          for (let i = 0; i <= ticks; i++) {
+            const t = this.now - this.timelineRangeMs + (i / ticks) * this.timelineRangeMs;
+            const x = this.timelineXForTime(t);
+            const dt = new Date(t);
+            lines.push({ x, label: dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: ticks <= 4 ? '2-digit' : undefined }) });
+          }
+          return lines;
+        },
+
+        get timelineStats() {
+          const evts = this.timelineVisibleEvents;
+          const total = evts.length;
+          const success = evts.filter(e => e.success).length;
+          const avgDur = total ? (evts.reduce((a, e) => a + (e.duration || 0), 0) / total) : 0;
+          return { total, success, failed: total - success, avgDur };
         },
 
         // ========================= INIT =========================
@@ -358,13 +403,8 @@
           }
           window.addEventListener('resize', () => this.updateGraphSize());
 
-          // Start timeline now ticker
-          this.timelineNowInterval = setInterval(() => {
-            if (this.currentPage === 'timeline') {
-              // Force re-render by touching a watched property
-              this.timelineWidth = this.timelineWidth + 0.01;
-            }
-          }, 1000);
+          // Start timeline now ticker (currentTick already ticks every 1s above)
+          this.timelineNowInterval = setInterval(() => {}, 1000); // kept for cleanup compat
         },
 
         // ========================= SIGNALR =========================

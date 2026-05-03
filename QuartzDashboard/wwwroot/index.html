@@ -1360,98 +1360,227 @@
       <template x-if="currentPage === 'timeline'">
         <div x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
           <div class="space-y-4">
-            <div class="flex items-center justify-between">
+
+            <!-- Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h1 class="text-lg font-semibold tracking-tight text-gray-100">Timeline</h1>
-                <p class="text-xs text-gray-500 mt-0.5">Last 50 fire events in real-time</p>
+                <h1 class="text-lg font-semibold tracking-tight text-gray-100">Execution Timeline</h1>
+                <p class="text-xs text-gray-500 mt-0.5">Gantt view of job executions — hover for details</p>
               </div>
-              <button @click="loadTimeline()" class="btn btn-ghost">
-                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
-                Refresh
-              </button>
+              <div class="flex items-center gap-2">
+                <!-- Range picker -->
+                <div class="flex items-center bg-gray-900 border border-white/[0.06] rounded-lg p-0.5 gap-0.5">
+                  <template x-for="r in [10, 30, 60, 180]" :key="r">
+                    <button @click="timelineRange = r"
+                            :class="timelineRange === r ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'"
+                            class="px-2.5 py-1 rounded text-xs font-medium transition-all"
+                            x-text="r < 60 ? r + 'm' : (r/60) + 'h'">
+                    </button>
+                  </template>
+                </div>
+                <button @click="loadTimeline()" class="btn btn-ghost">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                  Refresh
+                </button>
+              </div>
             </div>
 
-            <div class="card-gradient">
-              <div class="relative overflow-x-auto" x-ref="timelineContainer" style="height: 400px;">
-                <template x-if="loading.timeline">
-                  <div class="flex flex-col items-center justify-center h-full gap-3">
-                    <div class="spinner w-6 h-6"></div>
-                    <span class="text-sm text-gray-500">Loading timeline...</span>
+            <!-- Stats strip -->
+            <div class="grid grid-cols-4 gap-2">
+              <div class="card-gradient px-3 py-2.5 text-center">
+                <div class="text-xl font-bold text-gray-100 tabular-nums" x-text="timelineStats.total"></div>
+                <div class="text-[10px] text-gray-500 mt-0.5">Executions</div>
+              </div>
+              <div class="card-gradient px-3 py-2.5 text-center">
+                <div class="text-xl font-bold text-emerald-400 tabular-nums" x-text="timelineStats.success"></div>
+                <div class="text-[10px] text-gray-500 mt-0.5">Succeeded</div>
+              </div>
+              <div class="card-gradient px-3 py-2.5 text-center">
+                <div class="text-xl font-bold tabular-nums" :class="timelineStats.failed > 0 ? 'text-red-400' : 'text-gray-500'" x-text="timelineStats.failed"></div>
+                <div class="text-[10px] text-gray-500 mt-0.5">Failed</div>
+              </div>
+              <div class="card-gradient px-3 py-2.5 text-center">
+                <div class="text-xl font-bold text-quartz-400 tabular-nums" x-text="timelineStats.avgDur > 0 ? timelineStats.avgDur.toFixed(1) + 'ms' : '—'"></div>
+                <div class="text-[10px] text-gray-500 mt-0.5">Avg Duration</div>
+              </div>
+            </div>
+
+            <!-- Gantt Chart -->
+            <div class="card-gradient overflow-hidden">
+              <template x-if="loading.timeline">
+                <div class="flex items-center justify-center py-16 gap-3">
+                  <div class="spinner w-5 h-5"></div>
+                  <span class="text-sm text-gray-500">Loading timeline...</span>
+                </div>
+              </template>
+
+              <template x-if="!loading.timeline && !timelineVisibleEvents.length">
+                <div class="flex flex-col items-center justify-center py-16 gap-4">
+                  <svg class="w-10 h-10 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                    <rect x="3" y="4" width="18" height="16" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/>
+                  </svg>
+                  <div class="text-center">
+                    <p class="text-sm text-gray-400 font-medium">No executions in this range</p>
+                    <p class="text-xs text-gray-600 mt-1">Try a wider range or trigger a job</p>
                   </div>
-                </template>
-                <template x-if="!loading.timeline && !timelineEvents.length">
-                  <div class="flex flex-col items-center justify-center h-full text-sm text-gray-500 gap-4">
-                    <svg class="w-12 h-12 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-                      <line x1="3" y1="12" x2="21" y2="12"/><polyline points="8 7 3 12 8 17"/><polyline points="16 7 21 12 16 17"/>
-                    </svg>
-                    <div class="text-center">
-                      <p class="text-sm text-gray-400 mb-1">No timeline events yet</p>
-                      <p class="text-xs text-gray-500">Execution events will appear here in real-time</p>
-                    </div>
-                  </div>
-                </template>
-                <template x-if="!loading.timeline && timelineEvents.length">
-                  <div class="relative" :style="'height: ' + timelineHeight + 'px; min-width: 100%; width: ' + timelineWidth + 'px'">
-                    <!-- Y-axis labels (job names) -->
-                    <div class="absolute left-0 top-0 bottom-8 w-36 flex flex-col justify-around pointer-events-none z-10">
-                      <template x-for="(jobName, idx) in timelineYLabels" :key="jobName">
-                        <div class="text-[10px] text-gray-500 truncate px-2 leading-none" 
-                             :style="'position: absolute; top: ' + (timelineRowCenter(idx)) + 'px; transform: translateY(-50%)'"
-                             x-text="jobName"></div>
-                      </template>
-                    </div>
-                    <!-- SVG area -->
-                    <svg :width="timelineWidth" :height="timelineHeight" class="absolute left-36 top-0 overflow-visible">
-                      <!-- Grid lines (vertical, time markers) -->
-                      <template x-for="i in 6" :key="'tgrid-' + i">
-                        <line :x1="timelineXForTime(now - (60000/6) * i)" y1="0" 
-                              :x2="timelineXForTime(now - (60000/6) * i)" :y2="timelineHeight - 30"
-                              stroke="rgba(255,255,255,0.04)" stroke-width="0.5" stroke-dasharray="2,3"/>
-                      </template>
-                      <!-- Time labels -->
-                      <template x-for="i in 6" :key="'tlabel-' + i">
-                        <text :x="timelineXForTime(now - (60000/6) * i)" :y="timelineHeight - 12"
-                              text-anchor="middle" class="fill-gray-600 text-[8px] font-mono">
-                          <tspan x-text="formatTimeShort(new Date(now - (60000/6) * i))"></tspan>
+                </div>
+              </template>
+
+              <template x-if="!loading.timeline && timelineVisibleEvents.length">
+                <div class="relative" x-ref="timelineContainer"
+                     @mousemove="
+                       const rect = $el.getBoundingClientRect();
+                       timelineTooltip.screenX = $event.clientX - rect.left;
+                       timelineTooltip.screenY = $event.clientY - rect.top;
+                     ">
+                  <svg :width="timelineWidth" :height="timelineChartHeight" class="w-full overflow-visible" style="display:block"
+                       x-init="$nextTick(() => { timelineWidth = $el.parentElement.clientWidth || 800 })">
+
+                    <!-- Row backgrounds -->
+                    <template x-for="(label, idx) in timelineVisibleLabels" :key="'bg-' + label">
+                      <rect x="0" :y="timelineRowY(idx)" :width="timelineWidth" :height="timelineRowHeight - 1"
+                            :fill="idx % 2 === 0 ? 'rgba(255,255,255,0.012)' : 'rgba(0,0,0,0.0)'"/>
+                    </template>
+
+                    <!-- Label area -->
+                    <rect x="0" y="0" :width="timelineLabelWidth" :height="timelineChartHeight - timelineAxisHeight" fill="rgba(0,0,0,0.25)"/>
+                    <template x-for="(label, idx) in timelineVisibleLabels" :key="'lbl-' + label">
+                      <g>
+                        <text :y="timelineRowY(idx) + timelineRowHeight / 2 + 1"
+                              x="8" dominant-baseline="middle"
+                              class="fill-gray-400 text-[11px] font-medium" style="font-size:11px;font-family:ui-monospace,monospace">
+                          <tspan x-text="label.split('.').pop()"></tspan>
                         </text>
+                        <text :y="timelineRowY(idx) + timelineRowHeight / 2 + 14"
+                              x="8" dominant-baseline="middle"
+                              class="fill-gray-600" style="font-size:9px;font-family:ui-monospace,monospace">
+                          <tspan x-text="label.split('.')[0]"></tspan>
+                        </text>
+                      </g>
+                    </template>
+
+                    <!-- Chart area clip -->
+                    <defs>
+                      <clipPath id="tl-clip">
+                        <rect :x="timelineLabelWidth + 4" y="0" :width="timelineWidth - timelineLabelWidth - 4" :height="timelineChartHeight - timelineAxisHeight"/>
+                      </clipPath>
+                    </defs>
+
+                    <g clip-path="url(#tl-clip)">
+                      <!-- Vertical grid lines -->
+                      <template x-for="(gl, i) in timelineGridLines" :key="'vg-' + i">
+                        <line :x1="timelineLabelWidth + 4 + (gl.x / (timelineWidth - 16)) * (timelineWidth - timelineLabelWidth - 4)"
+                              y1="0"
+                              :x2="timelineLabelWidth + 4 + (gl.x / (timelineWidth - 16)) * (timelineWidth - timelineLabelWidth - 4)"
+                              :y2="timelineChartHeight - timelineAxisHeight"
+                              stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="2,3"/>
                       </template>
-                      <!-- Horizontal separator lines -->
-                      <template x-for="(jobName, idx) in timelineYLabels" :key="'hline-' + idx">
-                        <line x1="0" :y1="timelineRowCenter(idx)" 
-                              :x2="timelineWidth" :y2="timelineRowCenter(idx)"
-                              stroke="rgba(255,255,255,0.03)" stroke-width="0.5"/>
-                      </template>
-                      <!-- Current time indicator line -->
-                      <line :x1="timelineXForTime(now)" y1="0" :x2="timelineXForTime(now)" :y2="timelineHeight - 30"
-                            stroke="#6366f1" stroke-width="2" stroke-dasharray="4,4" opacity="0.8">
-                        <animate attributeName="opacity" values="0.8;0.3;0.8" dur="2s" repeatCount="indefinite"/>
-                      </line>
-                      <!-- Event dots -->
-                      <template x-for="(evt, idx) in timelineEvents" :key="evt.fireTime + '-' + evt.jobKey + '-' + idx">
+
+                      <!-- Execution bars -->
+                      <template x-for="(evt, idx) in timelineVisibleEvents" :key="evt.fireTime + '-' + evt.jobKey + '-' + idx">
                         <g>
-                          <circle :cx="timelineXForTime(new Date(evt.fireTime).getTime())"
-                                  :cy="timelineYForJob(evt.jobKey)"
-                                  r="5"
-                                  :class="'timeline-dot ' + (evt.success ? 'timeline-dot-success' : 'timeline-dot-error')"
-                                  @mouseenter="timelineTooltip = { show: true, event: evt, x: timelineXForTime(new Date(evt.fireTime).getTime()) - 18, y: timelineYForJob(evt.jobKey) - 14 }"
-                                  @mouseleave="timelineTooltip.show = false">
-                          </circle>
+                          <rect
+                            :x="timelineLabelWidth + 4 + (timelineXForTime(new Date(evt.fireTime).getTime()) / (timelineWidth - 16)) * (timelineWidth - timelineLabelWidth - 4)"
+                            :y="timelineYForJob(evt.jobKey) - 11"
+                            :width="timelineBarWidth(evt.duration || 0)"
+                            height="22"
+                            rx="3"
+                            :fill="evt.success ? 'rgba(52,211,153,0.85)' : 'rgba(248,113,113,0.85)'"
+                            :stroke="evt.success ? 'rgba(52,211,153,1)' : 'rgba(248,113,113,1)'"
+                            stroke-width="0.5"
+                            class="cursor-pointer"
+                            @mouseenter="timelineTooltip = { show: true, event: evt }"
+                            @mouseleave="timelineTooltip.show = false"
+                          />
                         </g>
                       </template>
-                    </svg>
-                    <!-- Tooltip -->
-                    <div x-show="timelineTooltip.show" 
-                         :style="'left: ' + timelineTooltip.x + 'px; top: ' + timelineTooltip.y + 'px;'" 
-                         class="timeline-tooltip" style="display: none;">
-                      <div class="text-gray-200 font-medium text-xs" x-text="timelineTooltip.event.jobKey"></div>
-                      <div class="text-[10px] text-gray-400" x-text="'Trigger: ' + timelineTooltip.event.triggerKey"></div>
-                      <div class="text-[10px] text-gray-400" x-text="'Duration: ' + formatDuration(timelineTooltip.event.duration)"></div>
-                      <div class="text-[10px] mt-0.5" :class="timelineTooltip.event.success ? 'text-emerald-400' : 'text-red-400'" x-text="timelineTooltip.event.success ? 'Success' : 'Error'"></div>
-                    </div>
+                    </g>
+
+                    <!-- Now line -->
+                    <line
+                      :x1="timelineLabelWidth + 4 + (timelineXForTime(now) / (timelineWidth - 16)) * (timelineWidth - timelineLabelWidth - 4)"
+                      y1="0"
+                      :x2="timelineLabelWidth + 4 + (timelineXForTime(now) / (timelineWidth - 16)) * (timelineWidth - timelineLabelWidth - 4)"
+                      :y2="timelineChartHeight - timelineAxisHeight"
+                      stroke="#6366f1" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.7"/>
+
+                    <!-- Separator line above axis -->
+                    <line x1="0" :y1="timelineChartHeight - timelineAxisHeight" :x2="timelineWidth" :y2="timelineChartHeight - timelineAxisHeight"
+                          stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+
+                    <!-- Time axis labels -->
+                    <template x-for="(gl, i) in timelineGridLines" :key="'axl-' + i">
+                      <text
+                        :x="timelineLabelWidth + 4 + (gl.x / (timelineWidth - 16)) * (timelineWidth - timelineLabelWidth - 4)"
+                        :y="timelineChartHeight - timelineAxisHeight + 18"
+                        text-anchor="middle"
+                        class="fill-gray-600" style="font-size:9px;font-family:ui-monospace,monospace">
+                        <tspan x-text="gl.label"></tspan>
+                      </text>
+                    </template>
+                  </svg>
+
+                  <!-- Floating tooltip -->
+                  <div x-show="timelineTooltip.show && timelineTooltip.event"
+                       :style="'left:' + Math.min(timelineTooltip.screenX + 12, timelineWidth - 180) + 'px;top:' + Math.max(0, timelineTooltip.screenY - 80) + 'px'"
+                       class="absolute z-20 bg-gray-900 border border-white/10 rounded-lg px-3 py-2.5 shadow-xl pointer-events-none min-w-[160px]"
+                       style="display:none">
+                    <template x-if="timelineTooltip.event">
+                      <div class="space-y-1">
+                        <div class="flex items-center gap-1.5">
+                          <span class="w-2 h-2 rounded-full flex-shrink-0"
+                                :class="timelineTooltip.event.success ? 'bg-emerald-400' : 'bg-red-400'"></span>
+                          <span class="text-xs font-semibold text-gray-100" x-text="timelineTooltip.event.jobKey ? timelineTooltip.event.jobKey.split('.').pop() : ''"></span>
+                        </div>
+                        <div class="text-[10px] text-gray-500" x-text="timelineTooltip.event.jobKey ? timelineTooltip.event.jobKey.split('.')[0] + ' group' : ''"></div>
+                        <div class="border-t border-white/[0.06] pt-1 mt-1 space-y-0.5">
+                          <div class="flex justify-between gap-4 text-[10px]">
+                            <span class="text-gray-500">Duration</span>
+                            <span class="text-gray-200 font-mono" x-text="timelineTooltip.event.duration ? timelineTooltip.event.duration.toFixed(1) + 'ms' : '—'"></span>
+                          </div>
+                          <div class="flex justify-between gap-4 text-[10px]">
+                            <span class="text-gray-500">Fired</span>
+                            <span class="text-gray-200 font-mono" x-text="timelineTooltip.event.fireTime ? new Date(timelineTooltip.event.fireTime).toLocaleTimeString() : '—'"></span>
+                          </div>
+                          <div class="flex justify-between gap-4 text-[10px]">
+                            <span class="text-gray-500">Status</span>
+                            <span :class="timelineTooltip.event.success ? 'text-emerald-400' : 'text-red-400'" class="font-medium"
+                                  x-text="timelineTooltip.event.success ? 'Success' : 'Failed'"></span>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
                   </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- Recent executions table -->
+            <div class="card-gradient">
+              <div class="flex items-center justify-between px-4 pt-4 pb-3 border-b border-white/[0.04]">
+                <h2 class="text-sm font-semibold text-gray-200">Recent Executions</h2>
+                <span class="text-xs text-gray-600" x-text="timelineVisibleEvents.length + ' in range'"></span>
+              </div>
+              <div class="divide-y divide-white/[0.04]">
+                <template x-for="(evt, idx) in timelineVisibleEvents.slice(0, 20)" :key="evt.fireTime + '-' + idx">
+                  <div class="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.02] transition-colors">
+                    <span class="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-0.5"
+                          :class="evt.success ? 'bg-emerald-400' : 'bg-red-400'"></span>
+                    <div class="flex-1 min-w-0">
+                      <span class="text-xs font-medium text-gray-200 truncate" x-text="evt.jobKey ? evt.jobKey.split('.').pop() : evt.jobKey"></span>
+                      <span class="text-[10px] text-gray-600 ml-1.5" x-text="evt.jobKey ? evt.jobKey.split('.')[0] : ''"></span>
+                    </div>
+                    <span class="text-[10px] text-gray-500 font-mono tabular-nums" x-text="evt.duration ? evt.duration.toFixed(1) + 'ms' : '—'"></span>
+                    <span class="text-[10px] text-gray-600 font-mono tabular-nums w-16 text-right"
+                          x-text="evt.fireTime ? new Date(evt.fireTime).toLocaleTimeString() : '—'"></span>
+                  </div>
+                </template>
+                <template x-if="timelineVisibleEvents.length === 0 && !loading.timeline">
+                  <div class="px-4 py-6 text-center text-xs text-gray-600">No executions in selected range</div>
                 </template>
               </div>
             </div>
+
           </div>
         </div>
       </template>
@@ -1462,88 +1591,223 @@
           <div class="space-y-4">
             <div>
               <h1 class="text-lg font-semibold tracking-tight text-gray-100">Settings</h1>
-              <p class="text-xs text-gray-500 mt-0.5">Configure dashboard behavior</p>
+              <p class="text-xs text-gray-500 mt-0.5">Dashboard preferences and configuration</p>
             </div>
 
-            <div class="card-gradient space-y-6">
-              <!-- Refresh Interval -->
-              <div>
-                <div class="flex items-center justify-between mb-3">
-                  <h2 class="text-sm font-semibold text-gray-200">Refresh Interval</h2>
-                  <span class="text-sm font-mono text-quartz-400 tabular-nums font-medium" x-text="settings.refreshInterval + 's'"></span>
+            <!-- Refresh interval -->
+            <div class="card-gradient space-y-4">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-quartz-500/15 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4 text-quartz-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 </div>
-                <input type="range" x-model="settings.refreshInterval" min="1" max="60" step="1" class="w-full max-w-md">
-                <p class="text-xs text-gray-500 mt-1.5">How often the dashboard auto-refreshes data (1-60 seconds).</p>
+                <div>
+                  <h2 class="text-sm font-semibold text-gray-100">Refresh Interval</h2>
+                  <p class="text-xs text-gray-500">How often the dashboard auto-refreshes data</p>
+                </div>
+                <div class="ml-auto">
+                  <span class="text-2xl font-bold text-quartz-400 tabular-nums" x-text="settings.refreshInterval"></span>
+                  <span class="text-sm text-gray-500">s</span>
+                </div>
               </div>
+              <!-- Presets -->
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-600 mr-1">Quick:</span>
+                <template x-for="preset in [3, 5, 10, 15, 30, 60]" :key="preset">
+                  <button @click="settings.refreshInterval = preset"
+                          :class="settings.refreshInterval == preset ? 'bg-quartz-600 text-white border-quartz-500' : 'bg-white/[0.03] text-gray-400 border-white/[0.08] hover:bg-white/[0.06] hover:text-gray-200'"
+                          class="px-2.5 py-1 rounded-md text-xs font-mono border transition-all"
+                          x-text="preset + 's'">
+                  </button>
+                </template>
+              </div>
+              <input type="range" x-model="settings.refreshInterval" min="1" max="120" step="1"
+                     class="w-full accent-quartz-500">
+              <div class="flex justify-between text-[10px] text-gray-700 -mt-2 px-0.5">
+                <span>1s</span><span>30s</span><span>60s</span><span>120s</span>
+              </div>
+            </div>
 
-              <div class="border-t border-white/[0.04]"></div>
+            <!-- Auto-refresh by page -->
+            <div class="card-gradient space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                </div>
+                <div>
+                  <h2 class="text-sm font-semibold text-gray-100">Auto-Refresh by Page</h2>
+                  <p class="text-xs text-gray-500">Enable or disable auto-refresh per section</p>
+                </div>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                <template x-for="item in navItems" :key="item.id">
+                  <label @click.prevent="toggleAutoRefresh(item.id)"
+                         class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-white/[0.03] cursor-pointer transition-colors">
+                    <div class="flex items-center gap-2.5">
+                      <span x-html="item.icon" class="w-4 h-4 flex-shrink-0"
+                            :class="settings.autoRefreshPages[item.id] ? 'text-gray-300' : 'text-gray-600'"></span>
+                      <span class="text-sm" :class="settings.autoRefreshPages[item.id] ? 'text-gray-300' : 'text-gray-600'" x-text="item.label"></span>
+                    </div>
+                    <div :class="['toggle', settings.autoRefreshPages[item.id] ? 'toggle-on' : 'toggle-off']">
+                      <div :class="['toggle-knob', settings.autoRefreshPages[item.id] ? 'toggle-knob-on' : 'toggle-knob-off']"></div>
+                    </div>
+                  </label>
+                </template>
+              </div>
+            </div>
 
-              <!-- Auto-refresh per page -->
-              <div>
-                <h2 class="text-sm font-semibold text-gray-200 mb-3">Auto-Refresh by Page</h2>
-                <div class="space-y-1">
-                  <template x-for="item in navItems" :key="item.id">
-                    <label class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-white/[0.02] cursor-pointer transition-colors">
-                      <div class="flex items-center gap-3">
-                        <span x-html="item.icon" class="w-4 h-4 text-gray-500 flex-shrink-0"></span>
-                        <span class="text-sm text-gray-300" x-text="item.label"></span>
-                      </div>
-                      <div @click="toggleAutoRefresh(item.id)"
-                           :class="['toggle', settings.autoRefreshPages[item.id] ? 'toggle-on' : 'toggle-off']">
-                        <div :class="['toggle-knob', settings.autoRefreshPages[item.id] ? 'toggle-knob-on' : 'toggle-knob-off']"></div>
-                      </div>
-                    </label>
+            <!-- Appearance -->
+            <div class="card-gradient space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                </div>
+                <div>
+                  <h2 class="text-sm font-semibold text-gray-100">Appearance</h2>
+                  <p class="text-xs text-gray-500">Customize the dashboard look</p>
+                </div>
+              </div>
+              <label @click.prevent="toggleLightMode()"
+                     class="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-white/[0.03] cursor-pointer transition-colors border border-white/[0.04]">
+                <div class="flex items-center gap-3">
+                  <template x-if="!lightMode">
+                    <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+                    </svg>
                   </template>
-                </div>
-                <p class="text-xs text-gray-500 mt-2">Enable or disable auto-refresh for each page individually.</p>
-              </div>
-
-              <div class="border-t border-white/[0.04]"></div>
-
-              <!-- Light mode -->
-              <div>
-                <div class="flex items-center justify-between mb-3">
-                  <h2 class="text-sm font-semibold text-gray-200">Appearance</h2>
-                </div>
-                <label class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-white/[0.02] cursor-pointer transition-colors">
-                  <div class="flex items-center gap-3">
-                    <svg class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <template x-if="lightMode">
+                    <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                       <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
                     </svg>
-                    <span class="text-sm text-gray-300">Light Mode</span>
+                  </template>
+                  <div>
+                    <span class="text-sm text-gray-200" x-text="lightMode ? 'Light Mode' : 'Dark Mode'"></span>
+                    <span class="text-xs text-gray-600 block" x-text="lightMode ? 'Click to switch to dark' : 'Click to switch to light'"></span>
                   </div>
-                  <div @click="toggleLightMode()"
-                       :class="['toggle', lightMode ? 'toggle-on' : 'toggle-off']">
-                    <div :class="['toggle-knob', lightMode ? 'toggle-knob-on' : 'toggle-knob-off']"></div>
-                  </div>
-                </label>
-                <p class="text-xs text-gray-500 mt-2">Toggle between dark and light appearance.</p>
-              </div>
+                </div>
+                <div :class="['toggle', lightMode ? 'toggle-on' : 'toggle-off']">
+                  <div :class="['toggle-knob', lightMode ? 'toggle-knob-on' : 'toggle-knob-off']"></div>
+                </div>
+              </label>
+            </div>
 
-              <div class="border-t border-white/[0.04]"></div>
-
-              <!-- Connection info -->
-              <div>
-                <h2 class="text-sm font-semibold text-gray-200 mb-3">Connection</h2>
-                <div class="text-xs text-gray-500 space-y-1.5">
-                  <p>Status: <span class="font-medium" :class="signalRConnected ? 'text-emerald-400' : signalRPolling ? 'text-amber-400' : 'text-gray-400'" x-text="connectionStatus"></span></p>
-                  <p>Hub: <code class="mono text-quartz-400 bg-quartz-500/10 px-1.5 py-0.5 rounded text-[11px]">/quartz/hub</code></p>
+            <!-- Keyboard shortcuts -->
+            <div class="card-gradient space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+                </div>
+                <div>
+                  <h2 class="text-sm font-semibold text-gray-100">Keyboard Shortcuts</h2>
+                  <p class="text-xs text-gray-500">Navigate faster with the keyboard</p>
                 </div>
               </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                <template x-for="sc in [
+                  { keys: ['⌘', 'K'], desc: 'Command palette' },
+                  { keys: ['R'], desc: 'Refresh current page' },
+                  { keys: ['/'], desc: 'Focus search' },
+                  { keys: ['1',' – ','9'], desc: 'Switch to page N' },
+                  { keys: ['Esc'], desc: 'Close modal / palette' },
+                ]" :key="sc.desc">
+                  <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02]">
+                    <span class="text-xs text-gray-400" x-text="sc.desc"></span>
+                    <div class="flex items-center gap-0.5">
+                      <template x-for="(k, ki) in sc.keys" :key="ki">
+                        <kbd class="px-1.5 py-0.5 text-[10px] font-mono rounded bg-gray-800 border border-white/10 text-gray-300" x-text="k"></kbd>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
 
-              <div class="border-t border-white/[0.04]"></div>
-
-              <!-- About -->
-              <div>
-                <h2 class="text-sm font-semibold text-gray-200 mb-3">About</h2>
-                <div class="text-xs text-gray-500 space-y-1.5">
-                  <p>Quartz Dashboard <span class="text-gray-400">v0.2</span></p>
-                  <p>Built with Alpine.js 3.x + Tailwind CSS v4 + SignalR</p>
-                  <p>Single-file SPA \u2014 no build step required</p>
-                  <p class="mt-3">API endpoints: <code class="mono text-quartz-400 bg-quartz-500/10 px-1.5 py-0.5 rounded text-[11px]">/quartz/api/*</code></p>
+            <!-- Connection -->
+            <div class="card-gradient space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                     :class="signalRConnected ? 'bg-emerald-500/10' : 'bg-amber-500/10'">
+                  <svg class="w-4 h-4" :class="signalRConnected ? 'text-emerald-400' : 'text-amber-400'"
+                       viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M1 6l5 5 3-3 7 7 3-3 4 4"/><path d="M21 3h-6M21 3v6"/>
+                  </svg>
+                </div>
+                <div>
+                  <h2 class="text-sm font-semibold text-gray-100">Connection</h2>
+                  <p class="text-xs" :class="signalRConnected ? 'text-emerald-400' : 'text-amber-400'" x-text="connectionStatus"></p>
+                </div>
+                <div class="ml-auto flex items-center gap-1.5">
+                  <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
+                          :class="signalRConnected ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2"
+                          :class="signalRConnected ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                  </span>
+                </div>
+              </div>
+              <div class="space-y-2 text-xs">
+                <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02]">
+                  <span class="text-gray-500">Transport</span>
+                  <span class="font-medium" :class="signalRConnected ? 'text-emerald-400' : 'text-amber-400'"
+                        x-text="signalRConnected ? 'SignalR (WebSocket)' : 'Polling fallback'"></span>
+                </div>
+                <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02]">
+                  <span class="text-gray-500">Hub endpoint</span>
+                  <code class="text-quartz-400 font-mono text-[10px] bg-quartz-500/10 px-1.5 py-0.5 rounded">/quartz/hub</code>
+                </div>
+                <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02]">
+                  <span class="text-gray-500">API base</span>
+                  <code class="text-quartz-400 font-mono text-[10px] bg-quartz-500/10 px-1.5 py-0.5 rounded">/quartz/api</code>
+                </div>
+                <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02]">
+                  <span class="text-gray-500">Last refresh</span>
+                  <span class="text-gray-300 font-mono text-[10px]" x-text="lastRefreshed ? formatDate(lastRefreshed) : '—'"></span>
                 </div>
               </div>
             </div>
+
+            <!-- About -->
+            <div class="card-gradient space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-gray-700/40 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </div>
+                <div>
+                  <h2 class="text-sm font-semibold text-gray-100">About</h2>
+                  <p class="text-xs text-gray-500">Dot.QuartzDashboard — open source by n8</p>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="py-2 px-3 rounded-lg bg-white/[0.02]">
+                  <span class="text-gray-600 block">Package</span>
+                  <span class="text-gray-300 font-mono mt-0.5 block">Dot.QuartzDashboard</span>
+                </div>
+                <div class="py-2 px-3 rounded-lg bg-white/[0.02]">
+                  <span class="text-gray-600 block">Version</span>
+                  <span class="text-gray-300 font-mono mt-0.5 block">2.0.9</span>
+                </div>
+                <div class="py-2 px-3 rounded-lg bg-white/[0.02]">
+                  <span class="text-gray-600 block">UI Framework</span>
+                  <span class="text-gray-300 mt-0.5 block">Alpine.js + Tailwind v4</span>
+                </div>
+                <div class="py-2 px-3 rounded-lg bg-white/[0.02]">
+                  <span class="text-gray-600 block">Real-time</span>
+                  <span class="text-gray-300 mt-0.5 block">SignalR / Polling</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 pt-1">
+                <a href="https://github.com/nathan5580/QuartzDashboard" target="_blank"
+                   class="flex items-center gap-1.5 text-xs text-quartz-400 hover:text-quartz-300 transition-colors">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+                  GitHub
+                </a>
+                <a href="https://n8.lu" target="_blank"
+                   class="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                  n8.lu
+                </a>
+              </div>
+            </div>
+
           </div>
         </div>
       </template>
