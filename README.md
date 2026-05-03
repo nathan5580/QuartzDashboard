@@ -51,7 +51,10 @@ Open **`/quartz`** in your browser.
 | **Executing** | Currently running jobs with animated duration bars |
 | **History** | Last 100 fire events with relative duration bars, job filter |
 | **Graph** | Dual-line SVG chart: execution count + avg duration, zoom toggles |
-| **Settings** | Refresh interval slider, per-page auto-refresh toggles |
+| **Timeline** | Color-coded execution dots with tooltips, real-time now-line |
+| **Health** | Success rate, failed executions, pool utilization, scheduler diagnostics, failure list |
+| **Calendars** | Quartz calendars list with type badges and description |
+| **Settings** | Refresh interval slider, per-page auto-refresh toggles, data management |
 
 Auto-refreshes every 5 seconds. Dark theme, responsive, collapsible sidebar.
 
