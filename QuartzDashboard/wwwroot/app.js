@@ -15,6 +15,9 @@
         triggers: [],
         executingJobs: [],
         history: [],
+        historyTotal: 0,
+        historyOffset: 0,
+        historyLimit: 50,
         stats: {},
         executionBuckets: [],
         toast: { show: false, message: '', type: 'info' },
@@ -38,6 +41,7 @@
 
         // Graph page
         graphView: 'live',
+        graphHistoryData: [],
         graphWidth: 800,
         graphHeight: 320,
         graphMargin: { top: 20, right: 60, bottom: 30, left: 40 },
@@ -954,16 +958,31 @@
         async loadHistory() {
           this.loading.history = true;
           try {
-            this.history = await this.fetchApi('/history');
+            this.historyOffset = 0;
+            const resp = await this.fetchApi('/history?limit=' + this.historyLimit + '&offset=0');
+            this.history = resp.data || [];
+            this.historyTotal = resp.total || 0;
             this.maxHistoryDuration = 0;
             for (const h of this.history) {
-              const d = h.durationMs || 0;
+              const d = h.duration || 0;
               if (d > this.maxHistoryDuration) this.maxHistoryDuration = d;
             }
             if (this.maxHistoryDuration === 0) this.maxHistoryDuration = 5000;
             this.errors.history = null; this.retryCounts.history = 0;
           } catch (e) { console.error('loadHistory:', e); this.errors.history = e.message; this.showToast('Failed to load history: ' + e.message, 'error'); this._retryLoad('history', () => this.loadHistory()); }
           this.loading.history = false;
+        },
+
+        async loadMoreHistory() {
+          const nextOffset = this.historyOffset + this.historyLimit;
+          if (nextOffset >= this.historyTotal) return;
+          try {
+            const resp = await this.fetchApi('/history?limit=' + this.historyLimit + '&offset=' + nextOffset);
+            this.history = this.history.concat(resp.data || []);
+            this.historyTotal = resp.total || 0;
+            this.historyOffset = nextOffset;
+            this.errors.history = null;
+          } catch (e) { this.showToast('Failed to load more history: ' + e.message, 'error'); }
         },
 
         async loadStats() {
@@ -979,11 +998,18 @@
 
         getGraphData() {
           const buckets = this.executionBuckets || [];
-          if (!buckets.length) return [];
           if (this.graphView === 'live') {
             return buckets.slice(-Math.max(this.graphTimeRange, 1));
           }
-          return buckets;
+          // 'history' view — return cached historical data (loaded separately)
+          return this.graphHistoryData || [];
+        },
+
+        async loadGraphHistoryData() {
+          try {
+            this.graphHistoryData = await this.fetchApi('/stats/history');
+            this.graphData = this.getGraphData();
+          } catch (e) { this.showToast('Failed to load history graph: ' + e.message, 'error'); }
         },
 
         // ========================= JOB ACTIONS =========================
@@ -1028,6 +1054,17 @@
             await this.loadJobs();
             this.showToast('Resumed ' + group + '.' + name, 'success');
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
+        async interruptJob(group, name) {
+          try {
+            const res = await this.postApi('/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name) + '/interrupt');
+            if (res?.interrupted) {
+              this.showToast(group + '.' + name + ' interrupted', 'success');
+            } else {
+              this.showToast(group + '.' + name + ' does not implement IInterruptableJob', 'warning');
+            }
+          } catch (e) { this.showToast('Failed to interrupt: ' + e.message, 'error'); }
         },
 
         async pauseTrigger(group, name) {
