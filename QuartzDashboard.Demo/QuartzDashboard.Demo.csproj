@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- Reference v2.0.0 of Dot.QuartzDashboard (project reference for development, NuGet for consumers) -->
   <ItemGroup>
     <ProjectReference Include="..\QuartzDashboard\QuartzDashboard.csproj" />
   </ItemGroup>
