@@ -904,16 +904,16 @@
 
         async refreshAll() {
           try {
-            const [scheduler, jobs, triggers, executing] = await Promise.all([
+            const [scheduler, jobsResp, triggersResp, executingResp] = await Promise.all([
               this.fetchApi('/scheduler').catch(() => this.scheduler),
-              this.fetchApi('/jobs').catch(() => this.jobs),
-              this.fetchApi('/triggers').catch(() => this.triggers),
-              this.fetchApi('/executing').catch(() => this.executingJobs),
+              this.fetchApi('/jobs').catch(() => ({ data: this.jobs })),
+              this.fetchApi('/triggers').catch(() => ({ data: this.triggers })),
+              this.fetchApi('/executing').catch(() => ({ data: this.executingJobs })),
             ]);
             this.scheduler = scheduler;
-            this.jobs = jobs;
-            this.triggers = triggers;
-            this.executingJobs = executing;
+            this.jobs = Array.isArray(jobsResp) ? jobsResp : (jobsResp.data || []);
+            this.triggers = Array.isArray(triggersResp) ? triggersResp : (triggersResp.data || []);
+            this.executingJobs = Array.isArray(executingResp) ? executingResp : (executingResp.data || []);
             this.lastRefreshed = new Date();
           } catch (e) {
             console.error('Refresh error:', e);
@@ -926,13 +926,13 @@
 
         async loadJobs() {
           this.loading.jobs = true;
-          try { this.jobs = await this.fetchApi('/jobs'); this.errors.jobs = null; this.retryCounts.jobs = 0; } catch (e) { console.error('loadJobs:', e); this.errors.jobs = e.message; this.showToast('Failed to load jobs: ' + e.message, 'error'); this._retryLoad('jobs', () => this.loadJobs()); }
+          try { const resp = await this.fetchApi('/jobs'); this.jobs = Array.isArray(resp) ? resp : (resp.data || []); this.errors.jobs = null; this.retryCounts.jobs = 0; } catch (e) { console.error('loadJobs:', e); this.errors.jobs = e.message; this.showToast('Failed to load jobs: ' + e.message, 'error'); this._retryLoad('jobs', () => this.loadJobs()); }
           this.loading.jobs = false;
         },
 
         async loadTriggers() {
           this.loading.triggers = true;
-          try { this.triggers = await this.fetchApi('/triggers'); this.errors.triggers = null; this.retryCounts.triggers = 0;
+          try { const resp = await this.fetchApi('/triggers'); this.triggers = Array.isArray(resp) ? resp : (resp.data || []); this.errors.triggers = null; this.retryCounts.triggers = 0;
             // Auto-expand all groups so they're visible without a click
             const groups = {};
             for (const t of this.triggers) {
@@ -948,7 +948,8 @@
           this.loading.executing = true;
           const prevIds = this.knownExecutingIds;
           try {
-            this.executingJobs = await this.fetchApi('/executing');
+            const resp = await this.fetchApi('/executing');
+            this.executingJobs = Array.isArray(resp) ? resp : (resp.data || []);
             this.knownExecutingIds = new Set(this.executingJobs.map(ej => ej.fireInstanceId));
             this.errors.executing = null; this.retryCounts.executing = 0;
           } catch (e) { console.error('loadExecutingJobs:', e); this.errors.executing = e.message; this.showToast('Failed to load executing jobs: ' + e.message, 'error'); this._retryLoad('executing', () => this.loadExecutingJobs()); }

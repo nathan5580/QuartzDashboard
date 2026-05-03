@@ -39,33 +39,70 @@ public static class QuartzDashboardApplicationBuilderExtensions
 
         var basePath = options.Path.TrimEnd('/');
 
-        // app.Map() creates a branch that runs BEFORE endpoint routing middleware.
-        // This is critical — it prevents MapFallbackToFile from catching our routes.
-        app.Map(basePath, branch =>
+        // Use app.Use() instead of app.Map() so that /hub/* requests can pass through
+        // to the MapHub endpoint registered below in the outer endpoint routing pipeline.
+        app.Use(async (ctx, next) =>
         {
-            // Plan B: Optional auth middleware
-            if (options.RequireAuthentication)
+            var reqPath = ctx.Request.Path;
+
+            // Only handle requests that start with our base path
+            if (!reqPath.StartsWithSegments(basePath, out var suffix))
             {
-                branch.UseAuthentication();
-                branch.UseMiddleware<QuartzDashboardAuthMiddleware>(options);
+                await next(ctx);
+                return;
             }
 
-            branch.Run(async ctx =>
-            {
-                var path = ctx.Request.Path.Value ?? "";
+            var suffixStr = suffix.Value ?? "";
 
-                // --- API endpoints ---
-                if (path.StartsWith("/api", StringComparison.OrdinalIgnoreCase))
+            // Let SignalR hub negotiate/connect pass through to MapHub endpoint routing
+            if (suffixStr.StartsWith("/hub", StringComparison.OrdinalIgnoreCase))
+            {
+                await next(ctx);
+                return;
+            }
+
+            // Optional auth check
+            if (options.RequireAuthentication)
+            {
+                if (ctx.User.Identity?.IsAuthenticated != true)
                 {
-                    var schedFactory = app.ApplicationServices
-                        .GetRequiredService<ISchedulerFactory>();
-                    await HandleApi(ctx, await schedFactory.GetScheduler(), path, options);
+                    ctx.Response.StatusCode = 401;
+                    ctx.Response.ContentType = "application/json";
+                    await ctx.Response.WriteAsync("{\"error\":\"Authentication required\"}");
                     return;
                 }
 
-                // --- SPA static files ---
-                await ServeStaticFile(ctx, path, basePath);
-            });
+                if (!string.IsNullOrWhiteSpace(options.RequiredPolicy))
+                {
+                    var authService = ctx.RequestServices.GetRequiredService<Microsoft.AspNetCore.Authorization.IAuthorizationService>();
+                    var result = await authService.AuthorizeAsync(ctx.User, null, options.RequiredPolicy);
+                    if (!result.Succeeded)
+                    {
+                        ctx.Response.StatusCode = 403;
+                        ctx.Response.ContentType = "application/json";
+                        await ctx.Response.WriteAsync("{\"error\":\"Insufficient permissions\"}");
+                        return;
+                    }
+                }
+                else if (options.AllowedRoles.Length > 0 && !options.AllowedRoles.Any(r => ctx.User.IsInRole(r)))
+                {
+                    ctx.Response.StatusCode = 403;
+                    ctx.Response.ContentType = "application/json";
+                    await ctx.Response.WriteAsync("{\"error\":\"Insufficient role\"}");
+                    return;
+                }
+            }
+
+            // --- API endpoints ---
+            if (suffixStr.StartsWith("/api", StringComparison.OrdinalIgnoreCase))
+            {
+                var schedFactory = app.ApplicationServices.GetRequiredService<ISchedulerFactory>();
+                await HandleApi(ctx, await schedFactory.GetScheduler(), suffixStr, options);
+                return;
+            }
+
+            // --- SPA static files (and root /quartz/ → index.html) ---
+            await ServeStaticFile(ctx, suffixStr, basePath);
         });
 
         // Map SignalR hub (outside Map() branch for endpoint routing)
