@@ -127,6 +127,16 @@
           if (this.jobDetailData) this.triggerJob(this.jobDetailData.group, this.jobDetailData.name);
         },
 
+        jobStatusBadge(status) {
+          switch (status) {
+            case 'Executing': return 'badge badge-running';
+            case 'Scheduled': return 'badge badge-normal';
+            case 'Paused':    return 'badge badge-paused';
+            case 'Durable':   return 'badge badge-idle';
+            default:          return 'badge badge-idle';
+          }
+        },
+
         // Health computed
         get failedCount() { return this.history ? this.history.filter(h => h.success === false).length : 0; },
         get misfiredCount() { return this.triggers ? this.triggers.filter(t => t.state === 'Error').length : 0; },
@@ -914,7 +924,15 @@
 
         async loadTriggers() {
           this.loading.triggers = true;
-          try { this.triggers = await this.fetchApi('/triggers'); this.errors.triggers = null; this.retryCounts.triggers = 0; } catch (e) { console.error('loadTriggers:', e); this.errors.triggers = e.message; this.showToast('Failed to load triggers: ' + e.message, 'error'); this._retryLoad('triggers', () => this.loadTriggers()); }
+          try { this.triggers = await this.fetchApi('/triggers'); this.errors.triggers = null; this.retryCounts.triggers = 0;
+            // Auto-expand all groups so they're visible without a click
+            const groups = {};
+            for (const t of this.triggers) {
+              const key = t.jobGroup + '.' + t.jobName;
+              groups[key] = true;
+            }
+            this.expandedTriggerGroups = groups;
+          } catch (e) { console.error('loadTriggers:', e); this.errors.triggers = e.message; this.showToast('Failed to load triggers: ' + e.message, 'error'); this._retryLoad('triggers', () => this.loadTriggers()); }
           this.loading.triggers = false;
         },
 
@@ -959,7 +977,7 @@
           const buckets = this.executionBuckets || [];
           if (!buckets.length) return [];
           if (this.graphView === 'live') {
-            return buckets.slice(-5);
+            return buckets.slice(-Math.max(this.graphTimeRange, 1));
           }
           return buckets;
         },
