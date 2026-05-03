@@ -1904,6 +1904,13 @@
         },
 
         // ========================= SIGNALR / CONNECTION =========================
+        // Debounce utility
+        _debounceTimers: {},
+        debounce(fn, key, ms) {
+          if (this._debounceTimers[key]) clearTimeout(this._debounceTimers[key]);
+          this._debounceTimers[key] = setTimeout(() => { delete this._debounceTimers[key]; fn(); }, ms);
+        },
+
         signalRConnected: false,
         signalRPolling: false,
         connection: null,
@@ -2123,12 +2130,12 @@
               .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
               .build();
 
-            this.connection.on('jobExecuted', (data) => {
-              this.handleJobExecuted(data);
+            this.connection.on('jobExecutedBatch', (events) => {
+              events.forEach(e => this.handleJobExecuted(e));
             });
 
-            this.connection.on('jobTriggered', (data) => {
-              this.handleJobTriggered(data);
+            this.connection.on('jobTriggeredBatch', (events) => {
+              events.forEach(e => this.handleJobTriggered(e));
             });
 
             this.connection.on('schedulerStatus', (data) => {
@@ -2895,9 +2902,10 @@
           });
           points += ' ' + (margin.left + w) + ',' + bottom;
           return points;
-        }
-      }
-    }
+        }       // closes countAreaPoints
+      }         // closes return object
+    }           // closes dashboard()
+    window.dashboard = dashboard;
   </script>
 </body>
 </html>

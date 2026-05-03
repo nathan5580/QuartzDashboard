@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Quartz;
 using QuartzDashboard.Internal;
+using QuartzDashboard.Services;
 
 namespace QuartzDashboard;
 
@@ -21,6 +22,17 @@ public static class QuartzDashboardServiceCollectionExtensions
         var options = new QuartzDashboardOptions();
         configure?.Invoke(options);
         services.AddSingleton(options);
+
+        // Fire history store
+        services.AddSingleton<IFireHistoryStore>(_ => new InMemoryFireHistoryStore(options.MaxFireHistory));
+
+        // Execution log buffer
+        services.AddSingleton(_ => new ExecutionLogBuffer(options.MaxExecutionLogsPerJob));
+
+        // Execution bucket service (thread-safe performance stats)
+        services.AddSingleton<ExecutionBucketService>();
+
+        // Event bus
         services.AddSingleton<DashboardEventBus>();
 
         if (options.UseSignalR)
@@ -48,6 +60,9 @@ internal sealed class DashboardListenerAttacher(
     ISchedulerFactory schedulerFactory,
     DashboardEventBus eventBus,
     ISchedulerListener schedulerListener,
+    IFireHistoryStore fireHistoryStore,
+    ExecutionLogBuffer? logBuffer,
+    ExecutionBucketService? bucketService,
     ILogger<DashboardListenerAttacher> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken ct)
@@ -55,7 +70,7 @@ internal sealed class DashboardListenerAttacher(
         try
         {
             var scheduler = await schedulerFactory.GetScheduler(ct);
-            scheduler.ListenerManager.AddJobListener(new DashboardJobListener(eventBus));
+            scheduler.ListenerManager.AddJobListener(new DashboardJobListener(eventBus, fireHistoryStore, logBuffer, bucketService));
             scheduler.ListenerManager.AddSchedulerListener(schedulerListener);
             logger.LogDebug("QuartzDashboard listeners attached");
         }
@@ -68,10 +83,25 @@ internal sealed class DashboardListenerAttacher(
     public Task StopAsync(CancellationToken ct) => Task.CompletedTask;
 }
 
-internal sealed class DashboardJobListener(DashboardEventBus eventBus) : IJobListener
+internal sealed class DashboardJobListener(
+    DashboardEventBus eventBus,
+    IFireHistoryStore fireHistoryStore,
+    ExecutionLogBuffer? logBuffer,
+    ExecutionBucketService? bucketService) : IJobListener
 {
     public string Name => "QuartzDashboardListener";
-    public Task JobToBeExecuted(IJobExecutionContext context, CancellationToken ct) => Task.CompletedTask;
+
+    public Task JobToBeExecuted(IJobExecutionContext context, CancellationToken ct)
+    {
+        var jobKey = $"{context.JobDetail.Key.Group}.{context.JobDetail.Key.Name}";
+        var triggerKey = $"{context.Trigger.Key.Group}.{context.Trigger.Key.Name}";
+        logBuffer?.Append(jobKey, $"▶ Executing (trigger: {triggerKey})");
+
+        // Publish trigger event
+        eventBus.Publish(new JobTriggeredEvent(jobKey, triggerKey, context.FireTimeUtc));
+        return Task.CompletedTask;
+    }
+
     public Task JobExecutionVetoed(IJobExecutionContext context, CancellationToken ct) => Task.CompletedTask;
 
     public Task JobWasExecuted(IJobExecutionContext context, JobExecutionException? jobException, CancellationToken ct)
@@ -81,11 +111,28 @@ internal sealed class DashboardJobListener(DashboardEventBus eventBus) : IJobLis
         var duration = DateTimeOffset.UtcNow - context.FireTimeUtc;
         var success = jobException == null;
 
-        // Update in-memory stats
-        QuartzDashboardApplicationBuilderExtensions.RecordFire(jobKey, triggerKey, context.FireTimeUtc, duration);
+        // Record to fire history store
+        fireHistoryStore.RecordFire(jobKey, triggerKey, context.FireTimeUtc, duration, success);
+
+        // Update in-memory execution stats (buckets)
+        bucketService?.Record(duration, success);
+
+        // Log execution
+        logBuffer?.Append(jobKey, success
+            ? $"✓ Completed in {duration.TotalMilliseconds:F0}ms"
+            : $"✗ Failed: {jobException?.Message?.Truncate(200) ?? "Unknown error"}");
 
         // Publish to event bus for SignalR
         eventBus.Publish(new JobExecutedEvent(jobKey, triggerKey, duration, success, context.FireTimeUtc));
         return Task.CompletedTask;
     }
+}
+
+/// <summary>
+/// Extension helper to truncate strings safely
+/// </summary>
+internal static class StringExtensions
+{
+    public static string Truncate(this string? value, int maxLength) =>
+        string.IsNullOrEmpty(value) ? "" : (value.Length <= maxLength ? value : value[..maxLength] + "...");
 }

@@ -1,10 +1,10 @@
-# QuartzDashboard v1.0
+# QuartzDashboard v2.0
 
 A beautiful, self-contained **Quartz.NET scheduler dashboard** — drop it into any ASP.NET Core app with two lines of code.
 
 ![Dark UI](https://img.shields.io/badge/UI-Dark_Alpine.js_Tailwind-6366f1)
 ![.NET](https://img.shields.io/badge/.NET-8.0%20|%209.0%20|%2010.0-512BD4)
-![NuGet](https://img.shields.io/badge/NuGet-N8.QuartzDashboard-004880)
+![NuGet](https://img.shields.io/badge/NuGet-Dot.QuartzDashboard-004880)
 
 ## What it does
 
@@ -12,12 +12,13 @@ A beautiful, self-contained **Quartz.NET scheduler dashboard** — drop it into 
 - **Control** the scheduler — start, standby, trigger jobs, pause/resume jobs and triggers
 - **Track** execution history with per-minute bucketed stats and live SVG charts
 - **Monitor** execution rate, average duration, and error trends in real time
+- **Secure** your dashboard with authentication, role-based access, and authorization policies
 - **Zero build step** — single HTML SPA with Alpine.js + Tailwind CDN
 
 ## Quick Start
 
 ```bash
-dotnet add package N8.QuartzDashboard
+dotnet add package Dot.QuartzDashboard
 ```
 
 ```csharp
@@ -113,6 +114,66 @@ All endpoints under `{basePath}/api/` (default: `/quartz/api/`).
 builder.Services.AddQuartzDashboard(options =>
 {
     options.Path = "/admin/scheduler";  // default: "/quartz"
+    options.ReadOnly = false;           // disable trigger/start/stop buttons
+    options.UseSignalR = true;          // real-time updates via SignalR
+
+    // --- New in v2.0 ---
+
+    options.Enabled = true;             // set to false to completely disable the dashboard
+                                        // (UseQuartzDashboard() becomes a no-op)
+
+    options.RequireAuthentication = true;  // require authenticated users
+    options.AllowedRoles = ["Admin"];       // restrict to specific roles
+    options.RequiredPolicy = "CanViewDashboard";  // or use a named authorization policy
+
+    options.MaxFireHistory = 100;        // max fire history records (default: 100)
+    options.MaxExecutionLogsPerJob = 50; // max execution log entries per job (default: 50)
+});
+```
+
+### Feature Gating with `Enabled`
+
+When `Enabled` is set to `false`, the dashboard is completely disabled at the middleware level.
+`UseQuartzDashboard()` becomes a no-op — no routes are registered, no resources used.
+
+Useful for feature flags or environment-based gating:
+
+```csharp
+builder.Services.AddQuartzDashboard(options =>
+{
+    options.Enabled = IsProduction || featureFlags.IsDashboardEnabled;
+});
+```
+
+### Authentication & Authorization
+
+Three levels of access control (checked in order):
+
+1. **`RequireAuthentication`** — unauthenticated requests get 401
+2. **`RequiredPolicy`** — if set, uses `IAuthorizationService` to check a named policy (403 on failure)
+3. **`AllowedRoles`** — if set (and no policy), user must be in one of the listed roles (403 on failure)
+
+```csharp
+// Example: only users with the "Admin" role can access
+builder.Services.AddQuartzDashboard(options =>
+{
+    options.RequireAuthentication = true;
+    options.AllowedRoles = ["Admin"];
+});
+
+// Example: use a custom authorization policy
+builder.Services.AddQuartzDashboard(options =>
+{
+    options.RequireAuthentication = true;
+    options.RequiredPolicy = "RequireDashboardAccess";
+});
+
+// With ASP.NET Core auth configured
+builder.Services.AddAuthentication().AddCookie();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("RequireDashboardAccess", policy =>
+        policy.RequireRole("Admin", "Operator"));
 });
 ```
 
@@ -129,13 +190,27 @@ Request → app.Map("/quartz", branch)
 - **Frontend**: Single HTML file (~65KB) with Alpine.js 3.x + Tailwind CSS v4 CDN
 - **Target frameworks**: `net8.0`, `net9.0`, `net10.0`
 - **Dependencies**: `Quartz` 3.18.0, `Quartz.Extensions.DependencyInjection` 3.18.0
+- **Strong-named**: Assembly is signed for GAC/strong-name scenarios
 
 ## Demo
 
 ```bash
 cd QuartzDashboard.Demo
+
+# Run with default settings (port 5190)
 dotnet run
-# Open http://localhost:5190/quartz
+
+# Run on a custom port
+dotnet run -- -p 8080
+
+# Enable authentication mode (requires cookie auth — useful for testing access control)
+dotnet run -- --auth
+
+# Enable read-only mode (disables trigger/start/stop/delete actions)
+dotnet run -- --readonly
+
+# Combine flags
+dotnet run -- -p 5000 --auth --readonly
 ```
 
 The demo registers 5 jobs with different schedules:
@@ -156,7 +231,25 @@ The demo registers 5 jobs with different schedules:
 
 No external storage — all data is in-memory, ~7KB for 120 buckets.
 
+The history buffer size and per-job log limits can be configured via `QuartzDashboardOptions`:
+
+```csharp
+builder.Services.AddQuartzDashboard(options =>
+{
+    options.MaxFireHistory = 200;       // keep up to 200 fire records
+    options.MaxExecutionLogsPerJob = 100; // keep up to 100 log lines per job
+});
+```
+
 ## Changelog
+
+### v2.0.0 (2026-05-03)
+- Breaking: `QuartzDashboardOptions` now has: `Enabled`, `RequireAuthentication`, `AllowedRoles`, `RequiredPolicy`, `MaxFireHistory`, `MaxExecutionLogsPerJob`
+- `UseQuartzDashboard()` is a no-op when `Enabled=false`
+- Authentication support with role-based and policy-based authorization
+- Strong-named assembly for GAC/enterprise scenarios
+- Package icon and SourceLink support
+- New demo CLI flags: `-p` for port, `--auth` for auth mode, `--readonly` for read-only mode
 
 ### v1.0.0 (2026-05-02)
 - Complete UI/UX overhaul: glassmorphism, collapsible sidebar, animations, responsive

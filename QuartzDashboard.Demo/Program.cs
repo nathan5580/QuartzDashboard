@@ -1,6 +1,39 @@
 using Quartz;
 using QuartzDashboard;
 
+// ===== CLI Argument Parsing =====
+var port = 5190;
+var authMode = false;
+var readOnlyMode = false;
+
+for (var i = 0; i < args.Length; i++)
+{
+    switch (args[i])
+    {
+        case "-p" when i + 1 < args.Length:
+            port = int.Parse(args[++i]);
+            break;
+        case "--auth":
+            authMode = true;
+            break;
+        case "--readonly":
+            readOnlyMode = true;
+            break;
+        case "--help" or "-h":
+            Console.WriteLine("""
+                QuartzDashboard Demo v2.0.0
+                Usage: dotnet run [options]
+                
+                Options:
+                  -p <port>       Port to listen on (default: 5190)
+                  --auth          Enable authentication mode
+                  --readonly      Enable read-only mode
+                  --help, -h      Show this help
+                """);
+            return;
+    }
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add Quartz with a diverse set of demo jobs
@@ -51,10 +84,16 @@ builder.Services.AddQuartz(q =>
 
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
-// Add the Quartz Dashboard (with fire history enabled)
+// Add the Quartz Dashboard with options based on CLI flags
 builder.Services.AddQuartzDashboard(options =>
 {
     options.Path = "/quartz";
+    options.ReadOnly = readOnlyMode;
+    if (authMode)
+    {
+        options.RequireAuthentication = true;
+        options.AllowedRoles = ["Admin"];
+    }
 });
 builder.Services.AddQuartzDashboardHistory();
 
@@ -63,11 +102,14 @@ var app = builder.Build();
 app.UseRouting();
 app.UseQuartzDashboard();
 
-app.MapGet("/", () => "Quartz Dashboard Demo v1.0 — go to <a href='/quartz'>/quartz</a>");
+app.MapGet("/", () => $"Quartz Dashboard Demo v2.0 — go to <a href='/quartz'>/quartz</a>");
 
 Console.WriteLine("╔══════════════════════════════════════════════╗");
-Console.WriteLine("║  QuartzDashboard Demo v1.0                  ║");
-Console.WriteLine("║  Open http://localhost:5190/quartz           ║");
+Console.WriteLine("║  QuartzDashboard Demo v2.0                  ║");
+Console.WriteLine($"║  Open http://localhost:{port}/quartz          ║");
+Console.WriteLine("║  Flags:                                     ║");
+Console.WriteLine($"║   ├─ Auth: {(authMode ? "enabled" : "disabled").PadRight(29)}║");
+Console.WriteLine($"║   └─ Read-only: {(readOnlyMode ? "yes" : "no").PadRight(26)}║");
 Console.WriteLine("║                                              ║");
 Console.WriteLine("║  Jobs:                                       ║");
 Console.WriteLine("║   ├─ HealthCheck         (every 15s, 300ms)  ║");
@@ -76,7 +118,7 @@ Console.WriteLine("║   ├─ ReportGeneration    (every 2min, 5s)    ║");
 Console.WriteLine("║   ├─ DataSync            (CRON 0/30)         ║");
 Console.WriteLine("║   └─ ManualNotification  (trigger via UI)    ║");
 Console.WriteLine("╚══════════════════════════════════════════════╝");
-app.Run("http://localhost:5190");
+app.Run($"http://localhost:{port}");
 
 // ===== Demo Jobs =====
 
