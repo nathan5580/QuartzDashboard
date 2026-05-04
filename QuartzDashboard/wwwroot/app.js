@@ -322,21 +322,27 @@
           return list;
         },
 
-        // jobGroupList: used by the tbody-per-group template
-        // Returns array of { name, jobs, collapsed } — collapsed is reactive via collapsedGroups
-        get jobGroupList() {
-          const sourceJobs = this.jobsFilter ? this.filteredJobs : (this.jobs || []);
+        // Flat list: header items + job items interleaved.
+        // Single x-for in template — avoids nested template x-for scope chain issues in Alpine.js.
+        get jobRows() {
+          const jobs = this.jobsFilter ? this.filteredJobs : (this.jobs || []);
           const groups = {};
-          sourceJobs.forEach(j => {
+          jobs.forEach(j => {
             const g = j.group || 'Default';
             if (!groups[g]) groups[g] = [];
             groups[g].push(j);
           });
-          return Object.entries(groups).map(([name, jobs]) => ({
-            name,
-            jobs,
-            collapsed: !!this.collapsedGroups[name]
-          }));
+          const result = [];
+          for (const [name, groupJobs] of Object.entries(groups)) {
+            const isCollapsed = !!this.collapsedGroups[name];
+            result.push({ key: '__h__' + name, isHeader: true, groupName: name, count: groupJobs.length, isCollapsed });
+            if (!isCollapsed) {
+              for (const job of groupJobs) {
+                result.push({ key: job.group + '.' + job.name, isHeader: false, groupName: name, isCollapsed: false, count: 0, job });
+              }
+            }
+          }
+          return result;
         },
 
         get statsLoading() {
