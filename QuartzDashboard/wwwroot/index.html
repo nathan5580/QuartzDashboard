@@ -1708,12 +1708,14 @@
                        x-effect="timelineEvents.length + '|' + timelineRange && updateTimelineChart()">
                   </div>
 
-                  <!-- Floating tooltip -->
-                  <div x-show="timelineTooltip.show && timelineTooltip.event"
-                       :style="'left:' + Math.min(timelineTooltip.screenX + 14, timelineWidth - 220) + 'px;top:' + Math.max(4, timelineTooltip.screenY - 110) + 'px'"
-                       class="absolute z-20 bg-gray-900/95 border border-white/10 rounded-xl px-3.5 py-3 shadow-2xl pointer-events-none min-w-[200px] backdrop-blur-sm"
+                  <!-- Floating tooltip: single :style handles both visibility and position to avoid x-show/:style conflict -->
+                  <div x-ref="timelineTooltipEl"
+                       :style="(timelineTooltip.show && timelineTooltip.event && timelineTooltip.event.jobKey)
+                         ? 'display:block;position:absolute;z-index:30;left:' + Math.min(timelineTooltip.screenX + 14, timelineWidth - 220) + 'px;top:' + Math.max(4, timelineTooltip.screenY - 110) + 'px'
+                         : 'display:none'"
+                       class="bg-gray-900/95 border border-white/10 rounded-xl px-3.5 py-3 shadow-2xl pointer-events-none min-w-[200px] backdrop-blur-sm"
                        style="display:none">
-                    <template x-if="timelineTooltip.event">
+                    <template x-if="timelineTooltip.show && timelineTooltip.event && timelineTooltip.event.jobKey">
                       <div class="space-y-2">
                         <!-- Job name + status indicator -->
                         <div class="flex items-start justify-between gap-2">
