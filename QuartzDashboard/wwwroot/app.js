@@ -630,7 +630,10 @@
             if (saved.graphChartMode) this.graphChartMode = saved.graphChartMode;
             if (saved.refreshInterval) this.settings.refreshInterval = saved.refreshInterval;
             if (saved.historyLimit) this.historyLimit = saved.historyLimit;
-            if (saved.collapsedGroups) this.collapsedGroups = saved.collapsedGroups;
+            if (saved.collapsedGroups && Object.values(saved.collapsedGroups).some(v => !v)) {
+              // Only restore if at least one group is NOT collapsed (avoid all-collapsed corrupted state)
+              this.collapsedGroups = saved.collapsedGroups;
+            }
           } catch(_) {}
 
           // Setup keyboard shortcuts
