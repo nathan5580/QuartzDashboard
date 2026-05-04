@@ -101,6 +101,13 @@ public static class QuartzDashboardApplicationBuilderExtensions
                 return;
             }
 
+            // Redirect /quartz → /quartz/ so relative asset URLs resolve correctly
+            if (suffixStr == "" && !(ctx.Request.Path.Value ?? "").EndsWith('/'))
+            {
+                ctx.Response.Redirect(basePath + "/", permanent: false);
+                return;
+            }
+
             // --- SPA static files (and root /quartz/ → index.html) ---
             await ServeStaticFile(ctx, suffixStr, basePath);
         });
