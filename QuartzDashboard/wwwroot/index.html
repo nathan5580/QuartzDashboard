@@ -1678,8 +1678,8 @@
                        const rect = $el.getBoundingClientRect();
                        timelineTooltip.screenX = $event.clientX - rect.left;
                        timelineTooltip.screenY = $event.clientY - rect.top;
-                       const bar = $event.target && $event.target.closest ? $event.target.closest('[data-row]') : null;
-                       if (bar && bar.dataset) {
+                       const bar = $event.target && $event.target.closest ? $event.target.closest('.tl-bar') : null;
+                       if (bar && bar.dataset && bar.dataset.key) {
                          timelineTooltip.show = true;
                          timelineHoverRow = parseInt(bar.dataset.row);
                          timelineTooltip.event = {
