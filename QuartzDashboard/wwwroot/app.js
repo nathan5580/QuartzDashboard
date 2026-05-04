@@ -239,6 +239,7 @@
         timelineHeight: 400,
         timelineRange: 10,
         timelineTooltip: { show: false, event: null, x: 0, y: 0, screenX: 0, screenY: 0 },
+        timelineHoverRow: -1,
         timelineNowInterval: null,
         timelineAnimFrame: null,
 
@@ -413,51 +414,94 @@
           const rangeMs = this.timelineRangeMs;
           const leftTime = now - rangeMs;
 
+          // Per-job color palette
+          const colorPalette = ['#818cf8','#34d399','#fbbf24','#f87171','#c084fc','#38bdf8','#fb923c'];
+          const jobColors = {};
+          labels.forEach((lbl, i) => { jobColors[lbl] = colorPalette[i % colorPalette.length]; });
+
+          // Count executions per job in visible range
+          const jobCounts = {};
+          for (const evt of evts) { jobCounts[evt.jobKey] = (jobCounts[evt.jobKey] || 0) + 1; }
+
           const rowBg = labels.map((label, idx) => {
             const y = 8 + idx * rowH;
-            return `<rect x="0" y="${y}" width="${w}" height="${rowH - 1}" fill="${idx % 2 === 0 ? 'rgba(255,255,255,0.012)' : 'rgba(0,0,0,0)'}"/>`;
+            return `<rect x="0" y="${y}" width="${w}" height="${rowH - 1}" fill="${idx % 2 === 0 ? 'rgba(255,255,255,0.014)' : 'rgba(0,0,0,0)'}"/>`;
           }).join('');
 
           const rowLabels = labels.map((label, idx) => {
             const y = 8 + idx * rowH;
+            const color = jobColors[label] || '#818cf8';
             const jobName = label.split('.').pop();
             const groupName = label.split('.')[0];
-            return `<text x="8" y="${y + rowH / 2 - 4}" dominant-baseline="middle" fill="rgba(156,163,175,1)" font-size="11" font-family="ui-monospace,monospace">${jobName}</text>
-                    <text x="8" y="${y + rowH / 2 + 10}" dominant-baseline="middle" fill="rgba(75,85,99,1)" font-size="9" font-family="ui-monospace,monospace">${groupName}</text>`;
+            const count = jobCounts[label] || 0;
+            const truncated = jobName.length > 16 ? jobName.slice(0, 15) + '…' : jobName;
+            return `
+              <rect x="3" y="${y + 10}" width="3" height="${rowH - 20}" rx="1.5" fill="${color}" fill-opacity="0.85"/>
+              <text x="12" y="${y + rowH / 2 - 5}" dominant-baseline="middle" fill="rgba(209,213,219,1)" font-size="11" font-family="ui-monospace,monospace">${truncated}</text>
+              <text x="12" y="${y + rowH / 2 + 9}" dominant-baseline="middle" fill="rgba(75,85,99,1)" font-size="9" font-family="ui-monospace,monospace">${groupName}</text>
+              <text x="${labelW - 6}" y="${y + rowH / 2 + 1}" text-anchor="end" dominant-baseline="middle" fill="${color}" font-size="9" font-family="ui-monospace,monospace" opacity="0.9">${count}×</text>`;
           }).join('');
 
           const vGridLines = gridLines.map(gl =>
             `<line x1="${labelW + gl.x}" y1="0" x2="${labelW + gl.x}" y2="${chartH - axisH}" stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="2,3"/>`
           ).join('');
 
+          // Build gradient defs per job
+          const gradDefs = labels.map(lbl => {
+            const color = jobColors[lbl];
+            const id = 'tl-grad-' + lbl.replace(/[^a-zA-Z0-9]/g, '_');
+            return `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="${color}" stop-opacity="0.95"/>
+              <stop offset="100%" stop-color="${color}" stop-opacity="0.65"/>
+            </linearGradient>`;
+          }).join('');
+
           const bars = evts.map(evt => {
             const t = new Date(evt.fireTime).getTime();
             const frac = (t - leftTime) / rangeMs;
-            const barX = labelW + Math.max(0, Math.min(chartWidth, frac * chartWidth));
-            const barWidth = Math.max(16, ((evt.duration || 0) / rangeMs) * chartWidth);
+            const barX = labelW + Math.max(0, Math.min(chartWidth - 4, frac * chartWidth));
+            const rawW = Math.max(8, ((evt.duration || 0) / rangeMs) * chartWidth);
+            const barWidth = Math.min(rawW, chartWidth - (frac * chartWidth));
             const jobIdx = labels.indexOf(evt.jobKey);
             if (jobIdx === -1) return '';
             const barY = 8 + jobIdx * rowH;
-            const fill = evt.success ? '#10b981' : '#ef4444';
-            const stroke = evt.success ? '#34d399' : '#f87171';
-            const dur = evt.duration ? (evt.duration < 1000 ? Math.round(evt.duration * 10) / 10 + 'ms' : (evt.duration / 1000).toFixed(1) + 's') : '';
-            return `<rect x="${barX}" y="${barY + 6}" width="${barWidth}" height="${rowH - 12}" rx="3" fill="${fill}" fill-opacity="0.9" stroke="${stroke}" stroke-width="1" class="tl-bar" data-key="${evt.jobKey}" data-time="${evt.fireTime}" data-dur="${evt.duration||0}" data-success="${evt.success}"/>`;
+            const color = jobColors[evt.jobKey] || '#818cf8';
+            const gradId = 'tl-grad-' + evt.jobKey.replace(/[^a-zA-Z0-9]/g, '_');
+            const errorAttr = evt.errorMessage ? ` data-error="${evt.errorMessage.replace(/"/g, '&quot;')}"` : '';
+            const durFmt = evt.duration < 1000 ? evt.duration.toFixed(1) + 'ms' : (evt.duration / 1000).toFixed(2) + 's';
+            return `<rect x="${barX}" y="${barY + 8}" width="${barWidth}" height="${rowH - 16}" rx="3"
+              fill="url(#${gradId})"
+              stroke="${color}" stroke-width="0.8" stroke-opacity="0.4"
+              style="cursor:pointer"
+              class="tl-bar"
+              data-key="${evt.jobKey}"
+              data-trigger="${evt.triggerKey || ''}"
+              data-time="${evt.fireTime}"
+              data-dur="${evt.duration || 0}"
+              data-success="${evt.success}"
+              data-row="${jobIdx}"${errorAttr}/>`;
           }).join('');
 
-          const nowX = labelW + Math.max(0, Math.min(chartWidth, chartWidth));
-          const nowLine = `<line x1="${nowX}" y1="0" x2="${nowX}" y2="${chartH - axisH}" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.8"/>`;
+          const nowX = labelW + chartWidth;
+          const nowLine = `<line x1="${nowX}" y1="0" x2="${nowX}" y2="${chartH - axisH}" stroke="#6366f1" stroke-width="2" stroke-dasharray="4,3" opacity="0.9"/>
+            <text x="${nowX - 3}" y="${chartH - axisH - 4}" text-anchor="end" fill="#818cf8" font-size="8" font-family="ui-monospace,monospace" opacity="0.8">now</text>`;
 
           const axisLabels = gridLines.map(gl =>
             `<text x="${labelW + gl.x}" y="${chartH - axisH + 18}" text-anchor="middle" fill="rgba(75,85,99,1)" font-size="9" font-family="ui-monospace,monospace">${gl.label}</text>`
           ).join('');
 
+          // Separator line between label panel and chart area
+          const separator = `<line x1="${labelW}" y1="0" x2="${labelW}" y2="${chartH - axisH}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
+
           el.innerHTML = `<svg width="${w}" height="${chartH}" style="width:100%;display:block;overflow:visible">
             <defs>
               <clipPath id="tl-clip"><rect x="${labelW}" y="0" width="${chartWidth}" height="${chartH - axisH}"/></clipPath>
+              ${gradDefs}
             </defs>
             ${rowBg}
-            <rect x="0" y="0" width="${labelW}" height="${chartH - axisH}" fill="rgba(0,0,0,0.25)"/>
+            <rect x="0" y="0" width="${labelW}" height="${chartH - axisH}" fill="rgba(0,0,0,0.2)"/>
             ${rowLabels}
+            ${separator}
             <g clip-path="url(#tl-clip)">
               ${vGridLines}
               ${bars}
@@ -955,7 +999,8 @@
             fireTime: data.fireTime,
             duration: data.duration,
             durationMs: data.durationMs,
-            success: data.success !== false
+            success: data.success !== false,
+            errorMessage: data.errorMessage || data.exceptionMessage || null,
           };
           this.timelineEvents.unshift(evt);
           if (this.timelineEvents.length > 50) this.timelineEvents.length = 50;
@@ -1323,6 +1368,7 @@
         },
 
         // Render entire graph chart via innerHTML (bypasses Alpine SVG namespace issues)
+        // Uses incremental update (only replaces data group) to eliminate flicker on refresh.
         updateGraphChart() {
           const el = this.$refs && this.$refs.graphChartWrap;
           if (!el) return;
@@ -1341,14 +1387,13 @@
           try { xLabels = ChartEngine.xAxisTimeLabels(data, 'minute', w, margin, 8); } catch(_){}
 
           const xScale = ChartEngine.scaleLinear(margin.left, w - margin.right, 0, data.length - 1);
-          const yScale = ChartEngine.scaleLinear(h - margin.bottom, margin.top, 0, maxValAxis);
 
           const gridLines = yTicks.map(t =>
-            `<line x1="${margin.left}" y1="${t.y}" x2="${w - margin.right}" y2="${t.y}" stroke="rgba(255,255,255,0.04)" stroke-width="0.5" stroke-dasharray="3,3"/>`
+            `<line x1="${margin.left}" y1="${t.y.toFixed(1)}" x2="${w - margin.right}" y2="${t.y.toFixed(1)}" stroke="rgba(255,255,255,0.04)" stroke-width="0.5" stroke-dasharray="3,3"/>`
           ).join('');
 
           const yLabels = yTicks.map(t =>
-            `<text x="${margin.left - 8}" y="${t.y + 4}" text-anchor="end" fill="rgba(107,114,128,1)" font-size="9" font-family="ui-monospace,monospace">${t.label}</text>`
+            `<text x="${margin.left - 8}" y="${(t.y + 4).toFixed(1)}" text-anchor="end" fill="rgba(107,114,128,1)" font-size="9" font-family="ui-monospace,monospace">${t.label}</text>`
           ).join('');
 
           const xLabelsSvg = xLabels.map(l => {
@@ -1357,39 +1402,34 @@
               const dt = new Date(label);
               if (!isNaN(dt.getTime())) label = dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
             } catch(_) {}
-            return `<text x="${l.x}" y="${h - margin.bottom + 14}" text-anchor="middle" fill="rgba(107,114,128,1)" font-size="8" font-family="ui-monospace,monospace">${label}</text>`;
+            return `<text x="${l.x.toFixed(1)}" y="${h - margin.bottom + 14}" text-anchor="middle" fill="rgba(107,114,128,1)" font-size="8" font-family="ui-monospace,monospace">${label}</text>`;
           }).join('');
 
-          let dataSeries = '';
-          if (mode === 'line' || mode === 'area') {
-            const yScaleCount = ChartEngine.scaleLinear(h - margin.bottom, margin.top, 0, maxVal > 0 ? maxVal : 1);
-            if (data.length >= 2) {
-              const countPath = ChartEngine.smoothPath(data, null, 'count', xScale, yScaleCount);
-              const countArea = ChartEngine.areaPath(data, null, 'count', xScale, yScaleCount, h - margin.bottom);
-              const maxDur = Math.max(...data.map(b => b.avgDurationMs || 0), 1);
-              const yScaleDur = ChartEngine.scaleLinear(h - margin.bottom, margin.top, 0, maxDur);
-              const durPath = ChartEngine.smoothPath(data, null, 'avgDurationMs', xScale, yScaleDur);
-              dataSeries = `
-                <path d="${countArea}" fill="url(#gcCountGrad)"/>
-                <path d="${countPath}" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#gcGlow)"/>
-                <path d="${durPath}" fill="none" stroke="#34d399" stroke-width="2" stroke-dasharray="6,3" stroke-linecap="round" stroke-linejoin="round"/>`;
-            }
-          } else if (mode === 'bar') {
-            const barRects = ChartEngine.barRects(data, 'count', w, h, margin);
-            dataSeries = barRects.map(r =>
-              `<rect x="${r.x}" y="${r.y}" width="${r.width}" height="${r.height}" rx="2" fill="#818cf8" fill-opacity="0.7"/>`
-            ).join('');
-          } else if (mode === 'heatmap') {
-            const cells = ChartEngine.heatmapCells(data, 'count', w, h, margin, 8, Math.min(data.length, 60));
-            dataSeries = cells.map(c =>
-              `<rect x="${c.x}" y="${c.y}" width="${c.width}" height="${c.height}" fill="${c.fill}" rx="1"/>`
-            ).join('');
-          }
+          const dataSeries = this._buildGraphSeries(data, mode, w, h, margin, maxVal, maxValAxis, xScale);
 
           const legendY = h - margin.bottom + 34;
           const legendTextY = h - margin.bottom + 37;
 
-          el.innerHTML = `<svg width="${w}" height="${h + 50}" viewBox="0 0 ${w} ${h + 50}" style="width:100%;display:block;overflow:visible">
+          // Incremental update: only replace data group when SVG structure is compatible
+          const existingSvg = el.querySelector('svg.gc-svg');
+          if (existingSvg &&
+              existingSvg.dataset.dataLen === String(data.length) &&
+              existingSvg.dataset.mode === mode) {
+            const seriesG = existingSvg.querySelector('.gc-series');
+            const yAxisG  = existingSvg.querySelector('.gc-yaxis');
+            const xAxisG  = existingSvg.querySelector('.gc-xaxis');
+            const gridG   = existingSvg.querySelector('.gc-grid');
+            if (seriesG) seriesG.innerHTML = dataSeries;
+            if (yAxisG)  yAxisG.innerHTML  = yLabels;
+            if (xAxisG)  xAxisG.innerHTML  = xLabelsSvg;
+            if (gridG)   gridG.innerHTML   = gridLines;
+            return;
+          }
+
+          // Full rebuild (first render or structure change)
+          el.innerHTML = `<svg class="gc-svg" width="${w}" height="${h + 50}" viewBox="0 0 ${w} ${h + 50}"
+            style="width:100%;display:block;overflow:visible"
+            data-data-len="${data.length}" data-mode="${mode}">
             <defs>
               <linearGradient id="gcCountGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stop-color="#818cf8" stop-opacity="0.18"/>
@@ -1400,11 +1440,11 @@
                 <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
               </filter>
             </defs>
-            <g>${gridLines}</g>
-            <g>${yLabels}</g>
-            <g>${xLabelsSvg}</g>
+            <g class="gc-grid">${gridLines}</g>
+            <g class="gc-yaxis">${yLabels}</g>
+            <g class="gc-xaxis">${xLabelsSvg}</g>
             <line x1="${margin.left}" y1="${h - margin.bottom}" x2="${w - margin.right}" y2="${h - margin.bottom}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
-            <g>${dataSeries}</g>
+            <g class="gc-series">${dataSeries}</g>
             <g>
               <line x1="16" y1="${legendY}" x2="36" y2="${legendY}" stroke="#818cf8" stroke-width="2"/>
               <text x="40" y="${legendTextY}" fill="rgba(156,163,175,1)" font-size="9">Count</text>
@@ -1414,6 +1454,37 @@
               <text x="214" y="${legendTextY}" fill="rgba(156,163,175,1)" font-size="9">Errors</text>
             </g>
           </svg>`;
+        },
+
+        _buildGraphSeries(data, mode, w, h, margin, maxVal, maxValAxis, xScale) {
+          if (mode === 'line' || mode === 'area') {
+            if (data.length < 2) return '';
+            const yScaleCount = ChartEngine.scaleLinear(h - margin.bottom, margin.top, 0, maxVal > 0 ? maxVal : 1);
+            const countPath = ChartEngine.smoothPath(data, null, 'count', xScale, yScaleCount);
+            const countArea = ChartEngine.areaPath(data, null, 'count', xScale, yScaleCount, h - margin.bottom);
+            const maxDur = Math.max(...data.map(b => b.avgDurationMs || 0), 1);
+            const yScaleDur = ChartEngine.scaleLinear(h - margin.bottom, margin.top, 0, maxDur);
+            const durPath = ChartEngine.smoothPath(data, null, 'avgDurationMs', xScale, yScaleDur);
+            const maxErr = Math.max(...data.map(b => b.errorRate || 0), 0.001);
+            const yScaleErr = ChartEngine.scaleLinear(h - margin.bottom, margin.top, 0, maxErr);
+            const errPath = ChartEngine.smoothPath(data, null, 'errorRate', xScale, yScaleErr);
+            return `
+              <path d="${countArea}" fill="url(#gcCountGrad)"/>
+              <path d="${countPath}" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#gcGlow)"/>
+              <path d="${durPath}" fill="none" stroke="#34d399" stroke-width="1.5" stroke-dasharray="6,3" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="${errPath}" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>`;
+          } else if (mode === 'bar') {
+            const barRects = ChartEngine.barRects(data, 'count', w, h, margin);
+            return barRects.map(r =>
+              `<rect x="${r.x}" y="${r.y}" width="${r.width}" height="${r.height}" rx="2" fill="#818cf8" fill-opacity="0.7"/>`
+            ).join('');
+          } else if (mode === 'heatmap') {
+            const cells = ChartEngine.heatmapCells(data, 'count', w, h, margin, 8, Math.min(data.length, 60));
+            return cells.map(c =>
+              `<rect x="${c.x}" y="${c.y}" width="${c.width}" height="${c.height}" fill="${c.fill}" rx="1"/>`
+            ).join('');
+          }
+          return '';
         },
 
         get graphTooltipTime() {
