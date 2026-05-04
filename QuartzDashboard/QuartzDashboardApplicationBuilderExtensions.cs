@@ -361,6 +361,9 @@ public static class QuartzDashboardApplicationBuilderExtensions
         }
     }
 
+    private static readonly string AssemblyVersion =
+        ThisAssembly.GetName().Version?.ToString(3) ?? "0";
+
     private static async Task ServeIndexHtml(HttpContext ctx, string basePath)
     {
         var fileInfo = EmbeddedFiles.GetFileInfo("index.html");
@@ -369,6 +372,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
         var html = await reader.ReadToEndAsync();
 
         html = html.Replace("'__QUARTZ_BASE__'", $"'{basePath}'");
+        html = html.Replace("__QUARTZ_VERSION__", AssemblyVersion);
 
         ctx.Response.ContentType = "text/html; charset=utf-8";
         await ctx.Response.WriteAsync(html);
