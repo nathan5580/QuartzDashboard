@@ -413,7 +413,7 @@
 
         timelineBarWidth(durationMs) {
           const chartWidth = Math.max(1, this.timelineWidth - this.timelineLabelWidth);
-          return Math.max(16, (durationMs / this.timelineRangeMs) * chartWidth);
+          return Math.max(4, (durationMs / this.timelineRangeMs) * chartWidth);
         },
 
         timelineYForJob(jobKey) {
@@ -505,22 +505,37 @@
             </linearGradient>`;
           }).join('');
 
+          const MIN_BAR_PX = 4; // minimum visible bar width in pixels
           const bars = evts.map(evt => {
-            const t = new Date(evt.fireTime).getTime();
-            const frac = (t - leftTime) / rangeMs;
-            const barX = labelW + Math.max(0, Math.min(chartWidth - 4, frac * chartWidth));
-            const rawW = Math.max(8, ((evt.duration || 0) / rangeMs) * chartWidth);
-            const barWidth = Math.min(rawW, chartWidth - (frac * chartWidth));
             const jobIdx = labels.indexOf(evt.jobKey);
             if (jobIdx === -1) return '';
-            const barY = 8 + jobIdx * rowH;
-            const color = jobColors[evt.jobKey] || '#818cf8';
+
+            const t = new Date(evt.fireTime).getTime();
+            const durationMs = evt.duration || 0;
+
+            // Compute raw chart-space positions (0 = left edge, chartWidth = "now")
+            const rawStart = ((t - leftTime) / rangeMs) * chartWidth;
+            const rawEnd   = rawStart + (durationMs / rangeMs) * chartWidth;
+
+            // Clamp to visible area
+            const clampedStart = Math.max(0, rawStart);
+            const clampedEnd   = Math.min(chartWidth, rawEnd);
+
+            // Skip bars entirely outside the visible window
+            if (clampedStart >= chartWidth || clampedEnd <= 0) return '';
+
+            // Ensure a minimum visible width; never push bar off the right edge
+            const rawWidth   = clampedEnd - clampedStart;
+            const barWidth   = Math.min(chartWidth - clampedStart, Math.max(MIN_BAR_PX, rawWidth));
+            const barX       = labelW + clampedStart;
+            const barY       = 8 + jobIdx * rowH;
+
+            const color  = jobColors[evt.jobKey] || '#818cf8';
             const gradId = 'tl-grad-' + evt.jobKey.replace(/[^a-zA-Z0-9]/g, '_');
             const errorAttr = evt.errorMessage ? ` data-error="${evt.errorMessage.replace(/"/g, '&quot;')}"` : '';
-            const durFmt = evt.duration < 1000 ? evt.duration.toFixed(1) + 'ms' : (evt.duration / 1000).toFixed(2) + 's';
-            return `<rect x="${barX}" y="${barY + 8}" width="${barWidth}" height="${rowH - 16}" rx="3"
-              fill="url(#${gradId})"
-              stroke="${color}" stroke-width="0.8" stroke-opacity="0.4"
+            const successStroke = evt.success ? '' : ` stroke="#f87171" stroke-width="1.5" stroke-opacity="0.9"`;
+            return `<rect x="${barX.toFixed(1)}" y="${barY + 8}" width="${barWidth.toFixed(1)}" height="${rowH - 16}" rx="3"
+              fill="url(#${gradId})"${successStroke}
               style="cursor:pointer"
               class="tl-bar"
               data-key="${evt.jobKey}"
