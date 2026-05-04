@@ -209,7 +209,7 @@
         timelineEvents: [],
         timelineWidth: 800,
         timelineHeight: 400,
-        timelineRange: 60,
+        timelineRange: 10,
         timelineTooltip: { show: false, event: null, x: 0, y: 0, screenX: 0, screenY: 0 },
         timelineNowInterval: null,
         timelineAnimFrame: null,
@@ -321,19 +321,21 @@
         get timelineChartHeight() {
           return Math.max(120, this.timelineVisibleLabels.length * this.timelineRowHeight + this.timelineAxisHeight + 16);
         },
+
+        timelineRowY(idx) {
           return 8 + idx * this.timelineRowHeight;
         },
 
         timelineXForTime(timeMs) {
-          const w = this.timelineWidth - 16;
+          const chartWidth = Math.max(1, this.timelineWidth - this.timelineLabelWidth);
           const leftTime = this.now - this.timelineRangeMs;
           const frac = (timeMs - leftTime) / this.timelineRangeMs;
-          return Math.max(0, Math.min(w, frac * w + 8));
+          return Math.max(0, Math.min(chartWidth, frac * chartWidth));
         },
 
         timelineBarWidth(durationMs) {
-          const w = this.timelineWidth - 16;
-          return Math.max(4, (durationMs / this.timelineRangeMs) * w);
+          const chartWidth = Math.max(1, this.timelineWidth - this.timelineLabelWidth);
+          return Math.max(16, (durationMs / this.timelineRangeMs) * chartWidth);
         },
 
         timelineYForJob(jobKey) {
@@ -345,11 +347,13 @@
         get timelineGridLines() {
           const ticks = 8;
           const lines = [];
+          const chartWidth = Math.max(1, this.timelineWidth - this.timelineLabelWidth);
           for (let i = 0; i <= ticks; i++) {
             const t = this.now - this.timelineRangeMs + (i / ticks) * this.timelineRangeMs;
-            const x = this.timelineXForTime(t);
+            const x = (i / ticks) * chartWidth;
             const dt = new Date(t);
-            lines.push({ x, label: dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: ticks <= 4 ? '2-digit' : undefined }) });
+            const showSec = this.timelineRange <= 5;
+            lines.push({ x, label: dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: showSec ? '2-digit' : undefined }) });
           }
           return lines;
         },
@@ -360,6 +364,80 @@
           const success = evts.filter(e => e.success).length;
           const avgDur = total ? (evts.reduce((a, e) => a + (e.duration || 0), 0) / total) : 0;
           return { total, success, failed: total - success, avgDur };
+        },
+
+        // Render timeline Gantt chart via innerHTML (bypasses Alpine SVG namespace issues)
+        updateTimelineChart() {
+          const el = this.$refs && this.$refs.timelineChartWrap;
+          if (!el) return;
+          const evts = this.timelineVisibleEvents;
+          const labels = this.timelineVisibleLabels;
+          if (!evts.length || !labels.length) { el.innerHTML = ''; return; }
+
+          const w = this.timelineWidth;
+          const labelW = this.timelineLabelWidth;
+          const rowH = this.timelineRowHeight;
+          const axisH = this.timelineAxisHeight;
+          const chartH = this.timelineChartHeight;
+          const chartWidth = Math.max(1, w - labelW);
+          const gridLines = this.timelineGridLines;
+          const now = this.now;
+          const rangeMs = this.timelineRangeMs;
+          const leftTime = now - rangeMs;
+
+          const rowBg = labels.map((label, idx) => {
+            const y = 8 + idx * rowH;
+            return `<rect x="0" y="${y}" width="${w}" height="${rowH - 1}" fill="${idx % 2 === 0 ? 'rgba(255,255,255,0.012)' : 'rgba(0,0,0,0)'}"/>`;
+          }).join('');
+
+          const rowLabels = labels.map((label, idx) => {
+            const y = 8 + idx * rowH;
+            const jobName = label.split('.').pop();
+            const groupName = label.split('.')[0];
+            return `<text x="8" y="${y + rowH / 2 - 4}" dominant-baseline="middle" fill="rgba(156,163,175,1)" font-size="11" font-family="ui-monospace,monospace">${jobName}</text>
+                    <text x="8" y="${y + rowH / 2 + 10}" dominant-baseline="middle" fill="rgba(75,85,99,1)" font-size="9" font-family="ui-monospace,monospace">${groupName}</text>`;
+          }).join('');
+
+          const vGridLines = gridLines.map(gl =>
+            `<line x1="${labelW + gl.x}" y1="0" x2="${labelW + gl.x}" y2="${chartH - axisH}" stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="2,3"/>`
+          ).join('');
+
+          const bars = evts.map(evt => {
+            const t = new Date(evt.fireTime).getTime();
+            const frac = (t - leftTime) / rangeMs;
+            const barX = labelW + Math.max(0, Math.min(chartWidth, frac * chartWidth));
+            const barWidth = Math.max(16, ((evt.duration || 0) / rangeMs) * chartWidth);
+            const jobIdx = labels.indexOf(evt.jobKey);
+            if (jobIdx === -1) return '';
+            const barY = 8 + jobIdx * rowH;
+            const fill = evt.success ? '#10b981' : '#ef4444';
+            const stroke = evt.success ? '#34d399' : '#f87171';
+            const dur = evt.duration ? (evt.duration < 1000 ? Math.round(evt.duration * 10) / 10 + 'ms' : (evt.duration / 1000).toFixed(1) + 's') : '';
+            return `<rect x="${barX}" y="${barY + 6}" width="${barWidth}" height="${rowH - 12}" rx="3" fill="${fill}" fill-opacity="0.9" stroke="${stroke}" stroke-width="1" class="tl-bar" data-key="${evt.jobKey}" data-time="${evt.fireTime}" data-dur="${evt.duration||0}" data-success="${evt.success}"/>`;
+          }).join('');
+
+          const nowX = labelW + Math.max(0, Math.min(chartWidth, chartWidth));
+          const nowLine = `<line x1="${nowX}" y1="0" x2="${nowX}" y2="${chartH - axisH}" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.8"/>`;
+
+          const axisLabels = gridLines.map(gl =>
+            `<text x="${labelW + gl.x}" y="${chartH - axisH + 18}" text-anchor="middle" fill="rgba(75,85,99,1)" font-size="9" font-family="ui-monospace,monospace">${gl.label}</text>`
+          ).join('');
+
+          el.innerHTML = `<svg width="${w}" height="${chartH}" style="width:100%;display:block;overflow:visible">
+            <defs>
+              <clipPath id="tl-clip"><rect x="${labelW}" y="0" width="${chartWidth}" height="${chartH - axisH}"/></clipPath>
+            </defs>
+            ${rowBg}
+            <rect x="0" y="0" width="${labelW}" height="${chartH - axisH}" fill="rgba(0,0,0,0.25)"/>
+            ${rowLabels}
+            <g clip-path="url(#tl-clip)">
+              ${vGridLines}
+              ${bars}
+              ${nowLine}
+            </g>
+            <line x1="0" y1="${chartH - axisH}" x2="${w}" y2="${chartH - axisH}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+            ${axisLabels}
+          </svg>`;
         },
 
         // ========================= INIT =========================
@@ -1043,11 +1121,22 @@
 
         getGraphData() {
           const buckets = this.executionBuckets || [];
+          let data;
           if (this.graphView === 'live') {
-            return buckets.slice(-Math.max(this.graphTimeRange, 1));
+            data = buckets.slice(-Math.max(this.graphTimeRange, 1));
+          } else {
+            return this.graphHistoryData || [];
           }
-          // 'history' view — return cached historical data (loaded separately)
-          return this.graphHistoryData || [];
+          // Pad with zero-buckets so line chart always has enough points to draw
+          if (data.length < this.graphTimeRange) {
+            const now = Date.now();
+            const pad = [];
+            for (let i = this.graphTimeRange - data.length; i > 0; i--) {
+              pad.push({ minute: new Date(now - i * 60000).toISOString(), count: 0, avgDurationMs: 0, errorRate: 0 });
+            }
+            data = [...pad, ...data];
+          }
+          return data;
         },
 
         async loadGraphHistoryData() {
@@ -1205,75 +1294,98 @@
           return margin.top + h - (val / max) * h;
         },
 
-        get graphGradientDefs() {
-          return ChartEngine.gradientDefs('graph');
-        },
+        // Render entire graph chart via innerHTML (bypasses Alpine SVG namespace issues)
+        updateGraphChart() {
+          const el = this.$refs && this.$refs.graphChartWrap;
+          if (!el) return;
+          const data = this.graphData;
+          if (!data || !data.length) { el.innerHTML = ''; return; }
 
-        get graphYTicks() {
-          const maxVal = Math.max(...this.graphData.map(b => b.count || 0), 10);
-          if (maxVal > this.graphMaxCount) this.graphMaxCount = maxVal;
-          return ChartEngine.yAxisTicks(maxVal, this.graphHeight, this.graphMargin, 5);
-        },
+          const w = this.graphWidth;
+          const h = this.graphHeight;
+          const margin = this.graphMargin;
+          const mode = this.graphChartMode;
+          const maxVal = Math.max(...data.map(b => b.count || 0), 1);
+          const maxValAxis = Math.max(maxVal, 10);
+          const yTicks = ChartEngine.yAxisTicks(maxValAxis, h, margin, 5);
 
-        get graphXLabels() {
-          return ChartEngine.xAxisTimeLabels(this.graphData, 'minute', this.graphWidth, this.graphMargin, 8).map(l => ({
-            ...l,
-            label: this.formatTimeShort(l.label)
-          }));
-        },
+          let xLabels = [];
+          try { xLabels = ChartEngine.xAxisTimeLabels(data, 'minute', w, margin, 8); } catch(_){}
 
-        get graphGridLines() {
-          const maxVal = Math.max(...this.graphData.map(b => b.count || 0), 10);
-          const ticks = ChartEngine.yAxisTicks(maxVal, this.graphHeight, this.graphMargin, 5);
-          return ChartEngine.gridLines(ticks, this.graphWidth, this.graphMargin);
-        },
+          const xScale = ChartEngine.scaleLinear(margin.left, w - margin.right, 0, data.length - 1);
+          const yScale = ChartEngine.scaleLinear(h - margin.bottom, margin.top, 0, maxValAxis);
 
-        get graphCountLinePath() {
-          if (!this.graphData || this.graphData.length < 2) return '';
-          const maxVal = Math.max(...this.graphData.map(b => b.count || 0), 1);
-          this.graphMaxCount = maxVal;
-          const xScale = ChartEngine.scaleLinear(this.graphMargin.left, this.graphWidth - this.graphMargin.right, 0, this.graphData.length - 1);
-          const yScale = ChartEngine.scaleLinear(this.graphHeight - this.graphMargin.bottom, this.graphMargin.top, 0, maxVal);
-          return ChartEngine.smoothPath(this.graphData, null, 'count', xScale, yScale);
-        },
+          const gridLines = yTicks.map(t =>
+            `<line x1="${margin.left}" y1="${t.y}" x2="${w - margin.right}" y2="${t.y}" stroke="rgba(255,255,255,0.04)" stroke-width="0.5" stroke-dasharray="3,3"/>`
+          ).join('');
 
-        get graphCountAreaPath() {
-          if (!this.graphData || this.graphData.length < 2) return '';
-          const maxVal = Math.max(...this.graphData.map(b => b.count || 0), 1);
-          const xScale = ChartEngine.scaleLinear(this.graphMargin.left, this.graphWidth - this.graphMargin.right, 0, this.graphData.length - 1);
-          const yScale = ChartEngine.scaleLinear(this.graphHeight - this.graphMargin.bottom, this.graphMargin.top, 0, maxVal);
-          return ChartEngine.areaPath(this.graphData, null, 'count', xScale, yScale, this.graphHeight - this.graphMargin.bottom);
-        },
+          const yLabels = yTicks.map(t =>
+            `<text x="${margin.left - 8}" y="${t.y + 4}" text-anchor="end" fill="rgba(107,114,128,1)" font-size="9" font-family="ui-monospace,monospace">${t.label}</text>`
+          ).join('');
 
-        get graphDurationLinePath() {
-          if (!this.graphData || this.graphData.length < 2) return '';
-          const maxVal = Math.max(...this.graphData.map(b => b.avgDurationMs || 0), 1);
-          this.graphMaxDuration = maxVal;
-          const xScale = ChartEngine.scaleLinear(this.graphMargin.left, this.graphWidth - this.graphMargin.right, 0, this.graphData.length - 1);
-          const yScale = ChartEngine.scaleLinear(this.graphHeight - this.graphMargin.bottom, this.graphMargin.top, 0, maxVal);
-          return ChartEngine.smoothPath(this.graphData, null, 'avgDurationMs', xScale, yScale);
-        },
+          const xLabelsSvg = xLabels.map(l => {
+            let label = l.label || '';
+            try {
+              const dt = new Date(label);
+              if (!isNaN(dt.getTime())) label = dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+            } catch(_) {}
+            return `<text x="${l.x}" y="${h - margin.bottom + 14}" text-anchor="middle" fill="rgba(107,114,128,1)" font-size="8" font-family="ui-monospace,monospace">${label}</text>`;
+          }).join('');
 
-        get graphErrorLinePath() {
-          if (!this.graphData || this.graphData.length < 2) return '';
-          const maxVal = Math.max(...this.graphData.map(b => b.errorRate || 0), 0.01);
-          const xScale = ChartEngine.scaleLinear(this.graphMargin.left, this.graphWidth - this.graphMargin.right, 0, this.graphData.length - 1);
-          const yScale = ChartEngine.scaleLinear(this.graphHeight - this.graphMargin.bottom, this.graphMargin.top, 0, maxVal);
-          return ChartEngine.smoothPath(this.graphData, null, 'errorRate', xScale, yScale);
-        },
+          let dataSeries = '';
+          if (mode === 'line' || mode === 'area') {
+            const yScaleCount = ChartEngine.scaleLinear(h - margin.bottom, margin.top, 0, maxVal > 0 ? maxVal : 1);
+            if (data.length >= 2) {
+              const countPath = ChartEngine.smoothPath(data, null, 'count', xScale, yScaleCount);
+              const countArea = ChartEngine.areaPath(data, null, 'count', xScale, yScaleCount, h - margin.bottom);
+              const maxDur = Math.max(...data.map(b => b.avgDurationMs || 0), 1);
+              const yScaleDur = ChartEngine.scaleLinear(h - margin.bottom, margin.top, 0, maxDur);
+              const durPath = ChartEngine.smoothPath(data, null, 'avgDurationMs', xScale, yScaleDur);
+              dataSeries = `
+                <path d="${countArea}" fill="url(#gcCountGrad)"/>
+                <path d="${countPath}" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#gcGlow)"/>
+                <path d="${durPath}" fill="none" stroke="#34d399" stroke-width="2" stroke-dasharray="6,3" stroke-linecap="round" stroke-linejoin="round"/>`;
+            }
+          } else if (mode === 'bar') {
+            const barRects = ChartEngine.barRects(data, 'count', w, h, margin);
+            dataSeries = barRects.map(r =>
+              `<rect x="${r.x}" y="${r.y}" width="${r.width}" height="${r.height}" rx="2" fill="#818cf8" fill-opacity="0.7"/>`
+            ).join('');
+          } else if (mode === 'heatmap') {
+            const cells = ChartEngine.heatmapCells(data, 'count', w, h, margin, 8, Math.min(data.length, 60));
+            dataSeries = cells.map(c =>
+              `<rect x="${c.x}" y="${c.y}" width="${c.width}" height="${c.height}" fill="${c.fill}" rx="1"/>`
+            ).join('');
+          }
 
-        get graphBarRects() {
-          if (!this.graphData || !this.graphData.length) return [];
-          const maxVal = Math.max(...this.graphData.map(b => b.count || 0), 1);
-          this.graphMaxCount = maxVal;
-          return ChartEngine.barRects(this.graphData, 'count', this.graphWidth, this.graphHeight, this.graphMargin);
-        },
+          const legendY = h - margin.bottom + 34;
+          const legendTextY = h - margin.bottom + 37;
 
-        get graphHeatCells() {
-          if (!this.graphData || !this.graphData.length) return [];
-          const rows = 8;
-          const cols = Math.min(this.graphData.length, 60);
-          return ChartEngine.heatmapCells(this.graphData, 'count', this.graphWidth, this.graphHeight, this.graphMargin, rows, cols);
+          el.innerHTML = `<svg width="${w}" height="${h + 50}" viewBox="0 0 ${w} ${h + 50}" style="width:100%;display:block;overflow:visible">
+            <defs>
+              <linearGradient id="gcCountGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#818cf8" stop-opacity="0.18"/>
+                <stop offset="100%" stop-color="#818cf8" stop-opacity="0"/>
+              </linearGradient>
+              <filter id="gcGlow">
+                <feGaussianBlur stdDeviation="2" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <g>${gridLines}</g>
+            <g>${yLabels}</g>
+            <g>${xLabelsSvg}</g>
+            <line x1="${margin.left}" y1="${h - margin.bottom}" x2="${w - margin.right}" y2="${h - margin.bottom}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+            <g>${dataSeries}</g>
+            <g>
+              <line x1="16" y1="${legendY}" x2="36" y2="${legendY}" stroke="#818cf8" stroke-width="2"/>
+              <text x="40" y="${legendTextY}" fill="rgba(156,163,175,1)" font-size="9">Count</text>
+              <line x1="100" y1="${legendY}" x2="120" y2="${legendY}" stroke="#34d399" stroke-width="2" stroke-dasharray="6,3"/>
+              <text x="124" y="${legendTextY}" fill="rgba(156,163,175,1)" font-size="9">Avg Dur</text>
+              <line x1="190" y1="${legendY}" x2="210" y2="${legendY}" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,2"/>
+              <text x="214" y="${legendTextY}" fill="rgba(156,163,175,1)" font-size="9">Errors</text>
+            </g>
+          </svg>`;
         },
 
         get graphTooltipTime() {
