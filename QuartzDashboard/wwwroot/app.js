@@ -73,7 +73,12 @@
           }
         },
 
-        // ========================= JOB DETAIL MODAL STATE =========================
+        // ========================= JOB DETAIL DRAWER STATE =========================
+        showJobDrawer: false,
+        jobDrawerData: null,
+        jobDrawerTab: 'overview',
+        jobDrawerHistory: [],
+        jobDrawerHistoryLoading: false,
         showJobDetailModal: false,
         jobDetailData: null,
         jobDetailTab: 'metadata',
@@ -99,37 +104,67 @@
         toastQueue: [],
         toastIdCounter: 0,
 
-        // ========================= JOB DETAIL MODAL METHODS =========================
-        openJobDetail(job) {
-          this.jobDetailData = job;
-          this.jobDetailTab = 'metadata';
-          this.showJobDetailModal = true;
-          this.loadJobDetailLogs(job.group, job.name);
+        // ========================= JOB DETAIL DRAWER METHODS =========================
+        openJobDrawer(job) {
+          this.jobDrawerData = job;
+          this.jobDrawerTab = 'overview';
+          this.jobDrawerHistory = [];
+          this.showJobDrawer = true;
+          this.loadJobDrawerHistory(job.group, job.name);
+          document.body.style.overflow = 'hidden';
         },
-        closeJobDetail() {
-          this.showJobDetailModal = false;
-          this.jobDetailData = null;
-          this.jobDetailLogs = [];
+        closeJobDrawer() {
+          this.showJobDrawer = false;
+          this.jobDrawerData = null;
+          this.jobDrawerHistory = [];
+          document.body.style.overflow = '';
         },
-        async loadJobDetailLogs(group, name) {
-          this.jobDetailLogsLoading = true;
+        async loadJobDrawerHistory(group, name) {
+          this.jobDrawerHistoryLoading = true;
           try {
-            const resp = await this.fetchApi('/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name) + '/logs');
-            this.jobDetailLogs = resp.logs || [];
-          } catch(e) {
-            this.jobDetailLogs = ['Failed to load logs'];
-          }
-          this.jobDetailLogsLoading = false;
+            // Filter local history by job name
+            const key = group + '.' + name;
+            this.jobDrawerHistory = (this.history || []).filter(h =>
+              h.jobKey && h.jobKey.toLowerCase() === key.toLowerCase()
+            ).slice(0, 20);
+          } catch(e) { this.jobDrawerHistory = []; }
+          this.jobDrawerHistoryLoading = false;
         },
         copyJobJson() {
-          if (!this.jobDetailData) return;
-          const json = JSON.stringify(this.jobDetailData, null, 2);
+          const d = this.jobDrawerData || this.jobDetailData;
+          if (!d) return;
+          const json = JSON.stringify(d, null, 2);
           if (navigator.clipboard) {
             navigator.clipboard.writeText(json).then(() => this.showToast('Job definition copied', 'success'));
           }
         },
-        triggerJobFromModal() {
-          if (this.jobDetailData) this.triggerJob(this.jobDetailData.group, this.jobDetailData.name);
+        triggerJobFromDrawer() {
+          if (this.jobDrawerData) this.triggerJob(this.jobDrawerData.group, this.jobDrawerData.name);
+        },
+        pauseJobFromDrawer() {
+          if (this.jobDrawerData) this.pauseJob(this.jobDrawerData.group, this.jobDrawerData.name);
+        },
+        resumeJobFromDrawer() {
+          if (this.jobDrawerData) this.resumeJob(this.jobDrawerData.group, this.jobDrawerData.name);
+        },
+        get jobDrawerTriggers() {
+          if (!this.jobDrawerData) return [];
+          return this.jobDrawerData.triggers || [];
+        },
+        get jobDrawerNextFire() {
+          if (!this.jobDrawerData) return null;
+          const triggers = this.jobDrawerData.triggers || [];
+          if (!triggers.length) return null;
+          const times = triggers.map(t => t.nextFireTime).filter(Boolean);
+          if (!times.length) return null;
+          return times.sort()[0];
+        },
+        // ========================= JOB DETAIL MODAL METHODS (legacy) =========================
+        openJobDetail(job) {
+          this.openJobDrawer(job);
+        },
+        closeJobDetail() {
+          this.closeJobDrawer();
         },
 
         jobStatusBadge(status) {
@@ -157,14 +192,7 @@
           return poolSize > 0 ? (active / poolSize) * 100 : 0;
         },
 
-        // ========================= COMMAND PALETTE =========================
-        showJobDetailModal: false,
-        jobDetailData: null,
-        jobDetailTab: 'metadata',
-        jobDetailLogs: [],
-        jobDetailLogsLoading: false,
-
-        showCommandPalette: false,
+        // ========================= COMMAND PALETTE =========================        showCommandPalette: false,
         commandPaletteQuery: '',
         commandPaletteIndex: 0,
 
