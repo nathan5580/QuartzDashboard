@@ -654,9 +654,6 @@
             this.updateGraphSize();
           }
           window.addEventListener('resize', () => this.updateGraphSize());
-
-          // Start timeline now ticker (currentTick already ticks every 1s above)
-          this.timelineNowInterval = setInterval(() => {}, 1000); // kept for cleanup compat
         },
 
         // ========================= SIGNALR =========================

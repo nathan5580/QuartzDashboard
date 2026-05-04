@@ -1705,7 +1705,7 @@
 
                   <!-- Chart rendered via innerHTML to bypass Alpine SVG namespace issues -->
                   <div x-ref="timelineChartWrap"
-                       x-effect="timelineVisibleEvents.length && updateTimelineChart()">
+                       x-effect="timelineEvents.length + '|' + timelineRange && updateTimelineChart()">
                   </div>
 
                   <!-- Floating tooltip -->
