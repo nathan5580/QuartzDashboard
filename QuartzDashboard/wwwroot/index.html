@@ -1677,94 +1677,98 @@
               <template x-if="!loading.timeline && timelineVisibleEvents.length">
                 <div class="relative" x-ref="timelineContainer"
                      x-init="$nextTick(() => { timelineWidth = $el.offsetWidth || 800; updateTimelineChart(); })"
-                     @mousemove="
-                       const rect = $el.getBoundingClientRect();
-                       timelineTooltip.screenX = $event.clientX - rect.left;
-                       timelineTooltip.screenY = $event.clientY - rect.top;
-                       const bar = $event.target && $event.target.closest ? $event.target.closest('.tl-bar') : null;
-                       if (bar && bar.dataset && bar.dataset.key) {
-                         timelineTooltip.show = true;
-                         timelineHoverRow = parseInt(bar.dataset.row);
-                         timelineTooltip.event = {
-                           jobKey: bar.dataset.key,
-                           triggerKey: bar.dataset.trigger || '',
-                           fireTime: bar.dataset.time,
-                           duration: parseFloat(bar.dataset.dur) || 0,
-                           success: bar.dataset.success !== 'false',
-                           errorMessage: bar.dataset.error || null,
-                         };
-                       } else {
-                         timelineTooltip.show = false;
-                         timelineHoverRow = -1;
-                         timelineTooltip.event = null;
-                       }
-                     "
-                     @mouseleave="timelineTooltip.show = false; timelineHoverRow = -1; timelineTooltip.event = null;">
+                     @mousemove="onTimelineMouseMove($event)"
+                     @mouseleave="timelineCursor.show = false">
 
-                  <!-- Row hover highlight overlay -->
-                  <div x-show="timelineHoverRow >= 0"
-                       :style="'position:absolute;top:' + (8 + timelineHoverRow * 52) + 'px;height:51px;left:0;right:0;pointer-events:none;background:rgba(255,255,255,0.03);border-radius:2px'">
+                  <!-- Row hover highlight -->
+                  <div x-show="timelineCursor.show && timelineCursor.rowIdx >= 0"
+                       :style="'position:absolute;top:' + (8 + timelineCursor.rowIdx * 52) + 'px;height:51px;left:0;right:0;pointer-events:none;background:rgba(255,255,255,0.03);border-radius:2px'"
+                       style="display:none">
                   </div>
+
+                  <!-- Vertical crosshair line -->
+                  <svg x-show="timelineCursor.show"
+                       class="absolute inset-0 pointer-events-none overflow-visible"
+                       :width="timelineWidth" :height="timelineChartHeight"
+                       :viewBox="'0 0 ' + timelineWidth + ' ' + timelineChartHeight"
+                       style="display:none;top:0;left:0">
+                    <line :x1="timelineCursor.x" y1="0" :x2="timelineCursor.x" :y2="timelineChartHeight - timelineAxisHeight"
+                          stroke="rgba(255,255,255,0.13)" stroke-width="1" stroke-dasharray="3,3"/>
+                  </svg>
 
                   <!-- Chart rendered via innerHTML to bypass Alpine SVG namespace issues -->
                   <div x-ref="timelineChartWrap"
                        x-effect="timelineEvents.length + '|' + timelineRange && updateTimelineChart()">
                   </div>
 
-                  <!-- Floating tooltip: single :style handles both visibility and position to avoid x-show/:style conflict -->
-                  <div x-ref="timelineTooltipEl"
-                       :style="(timelineTooltip.show && timelineTooltip.event && timelineTooltip.event.jobKey)
-                         ? 'display:block;position:absolute;z-index:30;left:' + Math.min(timelineTooltip.screenX + 14, timelineWidth - 220) + 'px;top:' + Math.max(4, timelineTooltip.screenY - 110) + 'px'
-                         : 'display:none'"
-                       class="bg-gray-900/95 border border-white/10 rounded-xl px-3.5 py-3 shadow-2xl pointer-events-none min-w-[200px] backdrop-blur-sm"
+                  <!-- Tooltip: time crosshair + jobs at cursor -->
+                  <div x-show="timelineCursor.show"
+                       :style="'left:' + Math.min(timelineCursor.x + 14, timelineWidth - 250) + 'px;top:8px;'"
+                       class="absolute z-30 pointer-events-none"
                        style="display:none">
-                    <template x-if="timelineTooltip.show && timelineTooltip.event && timelineTooltip.event.jobKey">
-                      <div class="space-y-2">
-                        <!-- Job name + status indicator -->
-                        <div class="flex items-start justify-between gap-2">
-                          <div>
-                            <div class="text-xs font-bold text-gray-100 leading-tight"
-                                 x-text="timelineTooltip.event.jobKey ? timelineTooltip.event.jobKey.split('.').pop() : ''"></div>
-                            <div class="text-[10px] text-gray-500 font-mono mt-0.5"
-                                 x-text="timelineTooltip.event.jobKey ? timelineTooltip.event.jobKey.split('.')[0] : ''"></div>
+                    <div class="bg-gray-900/95 backdrop-blur-sm border border-white/[0.08] rounded-xl px-3.5 py-3 shadow-2xl min-w-[210px] max-w-[250px]">
+
+                      <!-- Time at cursor -->
+                      <div class="text-[10px] font-mono text-gray-500 mb-2 pb-1.5 border-b border-white/[0.06]"
+                           x-text="new Date(timelineCursor.timeMs).toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit',second:'2-digit'})"></div>
+
+                      <!-- Specific bar hovered -->
+                      <template x-if="timelineCursor.bar">
+                        <div class="mb-2 pb-2 border-b border-white/[0.07]">
+                          <div class="flex items-start justify-between gap-2 mb-1.5">
+                            <div>
+                              <div class="text-xs font-bold text-gray-100 leading-tight"
+                                   x-text="timelineCursor.bar.jobKey ? timelineCursor.bar.jobKey.split('.').pop() : ''"></div>
+                              <div class="text-[10px] text-gray-500 font-mono mt-0.5"
+                                   x-text="timelineCursor.bar.jobKey ? timelineCursor.bar.jobKey.split('.')[0] : ''"></div>
+                            </div>
+                            <span class="flex-shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                                  :class="timelineCursor.bar.success ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'"
+                                  x-text="timelineCursor.bar.success ? '✓ OK' : '✗ ERR'"></span>
                           </div>
-                          <span class="flex-shrink-0 flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                                :class="timelineTooltip.event.success ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'"
-                                x-text="timelineTooltip.event.success ? '✓ OK' : '✗ ERR'"></span>
-                        </div>
-
-                        <!-- Trigger -->
-                        <div x-show="timelineTooltip.event.triggerKey" class="text-[10px] text-gray-600 font-mono truncate"
-                             x-text="'⚡ ' + (timelineTooltip.event.triggerKey || '')"></div>
-
-                        <!-- Stats -->
-                        <div class="border-t border-white/[0.07] pt-1.5 space-y-1.5">
-                          <div class="flex justify-between gap-4 text-[10px]">
+                          <div class="flex justify-between text-[10px]">
                             <span class="text-gray-500">Duration</span>
-                            <span class="text-gray-100 font-mono font-medium"
-                                  x-text="timelineTooltip.event.duration
-                                    ? (timelineTooltip.event.duration < 1000 ? timelineTooltip.event.duration.toFixed(1) + ' ms' : (timelineTooltip.event.duration / 1000).toFixed(2) + ' s')
-                                    : '—'"></span>
+                            <span class="font-mono text-gray-200"
+                                  x-text="timelineCursor.bar.duration ? (timelineCursor.bar.duration < 1000 ? timelineCursor.bar.duration.toFixed(1) + 'ms' : (timelineCursor.bar.duration / 1000).toFixed(2) + 's') : '—'"></span>
                           </div>
-                          <div class="flex justify-between gap-4 text-[10px]">
+                          <div class="flex justify-between text-[10px] mt-0.5">
                             <span class="text-gray-500">Fired at</span>
-                            <span class="text-gray-100 font-mono"
-                                  x-text="timelineTooltip.event.fireTime ? new Date(timelineTooltip.event.fireTime).toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—'"></span>
+                            <span class="font-mono text-gray-300"
+                                  x-text="timelineCursor.bar.fireTime ? new Date(timelineCursor.bar.fireTime).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—'"></span>
                           </div>
-                          <div x-show="timelineTooltip.event.fireTime" class="flex justify-between gap-4 text-[10px]">
-                            <span class="text-gray-500">Date</span>
-                            <span class="text-gray-400 font-mono"
-                                  x-text="timelineTooltip.event.fireTime ? new Date(timelineTooltip.event.fireTime).toLocaleDateString(undefined, {month:'short',day:'numeric'}) : ''"></span>
-                          </div>
+                          <div x-show="timelineCursor.bar.triggerKey"
+                               class="text-[10px] text-gray-600 font-mono truncate mt-0.5"
+                               x-text="'⚡ ' + (timelineCursor.bar.triggerKey || '')"></div>
+                          <template x-if="timelineCursor.bar.errorMessage">
+                            <div class="text-[10px] text-red-300 font-mono bg-red-500/10 border border-red-500/20 px-2 py-1 rounded mt-1 break-words"
+                                 x-text="timelineCursor.bar.errorMessage"></div>
+                          </template>
                         </div>
+                      </template>
 
-                        <!-- Error message -->
-                        <template x-if="timelineTooltip.event.errorMessage">
-                          <div class="text-[10px] text-red-300 font-mono bg-red-500/10 border border-red-500/20 px-2 py-1.5 rounded-lg mt-0.5 break-words max-w-[190px]"
-                               x-text="timelineTooltip.event.errorMessage"></div>
-                        </template>
-                      </div>
-                    </template>
+                      <!-- Nearby executions at cursor -->
+                      <template x-if="timelineCursor.events.length">
+                        <div>
+                          <div class="text-[9px] uppercase tracking-wider text-gray-600 mb-1.5"
+                               x-text="timelineCursor.events.length + ' execution' + (timelineCursor.events.length !== 1 ? 's' : '') + ' at cursor'"></div>
+                          <template x-for="(evt, i) in timelineCursor.events.slice(0, 6)" :key="evt.fireTime + '-' + i">
+                            <div class="flex items-center gap-2 py-0.5">
+                              <span class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                    :class="evt.success ? 'bg-emerald-400' : 'bg-red-400'"></span>
+                              <span class="text-[10px] text-gray-300 flex-1 truncate font-mono"
+                                    x-text="evt.jobKey ? evt.jobKey.split('.').pop() : evt.jobKey"></span>
+                              <span class="text-[10px] text-gray-500 font-mono tabular-nums"
+                                    x-text="evt.duration ? (evt.duration < 1000 ? evt.duration.toFixed(0) + 'ms' : (evt.duration/1000).toFixed(1) + 's') : '—'"></span>
+                            </div>
+                          </template>
+                        </div>
+                      </template>
+
+                      <!-- Nothing near cursor -->
+                      <template x-if="!timelineCursor.bar && !timelineCursor.events.length">
+                        <div class="text-[10px] text-gray-600 italic">No executions at this point</div>
+                      </template>
+                    </div>
                   </div>
                 </div>
               </template>

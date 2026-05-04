@@ -257,8 +257,7 @@
         timelineWidth: 800,
         timelineHeight: 400,
         timelineRange: 10,
-        timelineTooltip: { show: false, event: null, x: 0, y: 0, screenX: 0, screenY: 0 },
-        timelineHoverRow: -1,
+        timelineCursor: { show: false, x: 0, timeMs: 0, rowIdx: -1, events: [], bar: null },
         timelineNowInterval: null,
         timelineAnimFrame: null,
 
@@ -1667,6 +1666,59 @@
             show: true,
             x: margin.left + (clampedIdx / Math.max(data.length - 1, 1)) * chartW,
             data: Object.assign({}, data[clampedIdx])
+          };
+        },
+
+        onTimelineMouseMove(event) {
+          const container = this.$refs && this.$refs.timelineContainer;
+          if (!container) return;
+          const rect = container.getBoundingClientRect();
+          const mouseX = event.clientX - rect.left;
+          const mouseY = event.clientY - rect.top;
+
+          const labelW = this.timelineLabelWidth;
+          const chartWidth = Math.max(1, this.timelineWidth - labelW);
+          const rowH = this.timelineRowHeight;
+          const labels = this.timelineVisibleLabels;
+          const now = Date.now();
+          const rangeMs = this.timelineRangeMs;
+          const leftTime = now - rangeMs;
+          const chartX = mouseX - labelW;
+
+          if (chartX < 0 || chartX > chartWidth || !labels.length) {
+            this.timelineCursor.show = false;
+            return;
+          }
+
+          const timeMs = leftTime + (chartX / chartWidth) * rangeMs;
+          const rowIdx = Math.floor((mouseY - 8) / rowH);
+
+          // Find events whose bars overlap the cursor X (with a small pixel tolerance)
+          const pxPerMs = chartWidth / rangeMs;
+          const TOL_PX = 6;
+          const nearEvents = this.timelineVisibleEvents.filter(e => {
+            const t = new Date(e.fireTime).getTime();
+            const barStart = (t - leftTime) * pxPerMs;
+            const barEnd = barStart + Math.max(TOL_PX, (e.duration || 0) * pxPerMs);
+            return chartX >= barStart - TOL_PX && chartX <= barEnd + TOL_PX;
+          }).sort((a, b) => new Date(a.fireTime) - new Date(b.fireTime));
+
+          const barEl = event.target && event.target.closest ? event.target.closest('.tl-bar') : null;
+
+          this.timelineCursor = {
+            show: true,
+            x: mouseX,
+            timeMs,
+            rowIdx: (rowIdx >= 0 && rowIdx < labels.length) ? rowIdx : -1,
+            events: nearEvents,
+            bar: barEl ? {
+              jobKey: barEl.dataset.key,
+              triggerKey: barEl.dataset.trigger || '',
+              fireTime: barEl.dataset.time,
+              duration: parseFloat(barEl.dataset.dur) || 0,
+              success: barEl.dataset.success !== 'false',
+              errorMessage: barEl.dataset.error || null,
+            } : null,
           };
         },
 
