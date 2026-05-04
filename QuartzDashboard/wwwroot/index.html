@@ -680,82 +680,86 @@
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-white/[0.04]">
-                        <template x-for="grp in jobGroupList" :key="grp.name">
-                          <!-- Group header row -->
-                          <tr @click="collapsedGroups = { ...collapsedGroups, [grp.name]: !collapsedGroups[grp.name] }; saveSettings()"
-                              class="cursor-pointer hover:bg-white/[0.02] bg-white/[0.015]">
-                            <td colspan="7" class="py-2 px-4">
+                        <template x-for="item in jobRows" :key="item.key">
+                          <tr :class="[
+                                item.isHeader
+                                  ? 'cursor-pointer hover:bg-white/[0.02] bg-white/[0.015]'
+                                  : 'group cursor-pointer hover:bg-white/[0.025] transition-colors duration-100',
+                                !item.isHeader && item.job && jobDrawerData && jobDrawerData.group === item.job.group && jobDrawerData.name === item.job.name ? 'bg-indigo-500/[0.06] border-l-2 border-l-indigo-500' : '',
+                                !item.isHeader && item.job && jobFlash[item.job.group + '.' + item.job.name] === 'success' ? 'ring-1 ring-inset ring-emerald-400/40 bg-emerald-400/5' : '',
+                                !item.isHeader && item.job && jobFlash[item.job.group + '.' + item.job.name] === 'error' ? 'ring-1 ring-inset ring-red-400/40 bg-red-400/5' : ''
+                              ]"
+                               @click="item.isHeader
+                                 ? (collapsedGroups = { ...collapsedGroups, [item.groupName]: !collapsedGroups[item.groupName] }, saveSettings())
+                                 : (openJobDrawer(item.job), selectedJobIndex = filteredJobs.indexOf(item.job))">
+
+                            <!-- ── HEADER cells (group row) ── -->
+                            <td x-show="item.isHeader" colspan="7" class="py-2 px-4">
                               <div class="flex items-center gap-2">
                                 <svg class="w-3.5 h-3.5 text-gray-500 transition-transform duration-150 flex-shrink-0"
-                                     :class="grp.collapsed ? '' : 'rotate-90'"
+                                     :class="item.isCollapsed ? '' : 'rotate-90'"
                                      viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                   <polyline points="9 18 15 12 9 6"/>
                                 </svg>
-                                <span class="text-xs font-semibold text-gray-400 mono" x-text="grp.name"></span>
-                                <span class="text-[10px] bg-white/[0.06] text-gray-500 px-1.5 py-0.5 rounded-full" x-text="grp.jobs.length + ' job' + (grp.jobs.length !== 1 ? 's' : '')"></span>
+                                <span class="text-xs font-semibold text-gray-400 mono" x-text="item.groupName"></span>
+                                <span class="text-[10px] bg-white/[0.06] text-gray-500 px-1.5 py-0.5 rounded-full"
+                                      x-text="item.count + ' job' + (item.count !== 1 ? 's' : '')"></span>
+                              </div>
+                            </td>
+
+                            <!-- ── JOB cells ── -->
+                            <!-- Status dot -->
+                            <td x-show="!item.isHeader" class="py-3.5 pl-4 pr-1 w-4" data-label="">
+                              <span class="block w-2 h-2 rounded-full flex-shrink-0"
+                                    :class="item.job && item.job.status === 'Executing' ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]' : item.job && item.job.status === 'Paused' ? 'bg-amber-400' : item.job && item.job.status === 'Scheduled' ? 'bg-indigo-400' : 'bg-gray-600'">
+                              </span>
+                            </td>
+                            <!-- Name + description -->
+                            <td x-show="!item.isHeader" class="py-3.5 px-4" data-label="Job">
+                              <div class="font-medium text-gray-100 leading-tight" x-text="item.job && item.job.name"></div>
+                              <div class="text-[11px] text-gray-500 mt-0.5 truncate max-w-[200px]"
+                                   x-text="item.job && (item.job.description || item.job.jobType || item.job.group)"></div>
+                            </td>
+                            <!-- Group -->
+                            <td x-show="!item.isHeader" class="py-3.5 px-4 hidden md:table-cell" data-label="Group">
+                              <span class="mono text-[11px] text-gray-500 bg-white/[0.04] px-1.5 py-0.5 rounded"
+                                    x-text="item.job && item.job.group"></span>
+                            </td>
+                            <!-- Status badge -->
+                            <td x-show="!item.isHeader" class="py-3.5 px-4 hidden sm:table-cell" data-label="Status">
+                              <span :class="item.job && jobStatusBadge(item.job.status)"
+                                    x-text="item.job && (item.job.status || 'Idle')"></span>
+                            </td>
+                            <!-- Trigger count -->
+                            <td x-show="!item.isHeader" class="py-3.5 px-4 hidden lg:table-cell" data-label="Triggers">
+                              <span class="text-[11px] text-gray-400"
+                                    x-text="item.job && ((item.job.triggers || []).length + ' trigger' + ((item.job.triggers || []).length !== 1 ? 's' : ''))"></span>
+                            </td>
+                            <!-- Next fire with live countdown -->
+                            <td x-show="!item.isHeader" class="py-3.5 px-4" data-label="Next Fire">
+                              <span class="text-xs mono"
+                                    :class="item.job && item.job.nextFireTime ? 'text-gray-300' : 'text-gray-600'"
+                                    :title="item.job && item.job.nextFireTime ? formatDate(item.job.nextFireTime) : ''"
+                                    x-text="item.job && formatCountdown(item.job.nextFireTime)"></span>
+                            </td>
+                            <!-- Actions -->
+                            <td x-show="!item.isHeader" class="py-3.5 px-4 text-right" data-label="Actions">
+                              <div class="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
+                                <button @click="item.job && triggerJob(item.job.group, item.job.name)" class="btn btn-primary p-1.5" title="Run Now">
+                                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                                </button>
+                                <button x-show="item.job && item.job.status !== 'Paused'" @click="item.job && pauseJob(item.job.group, item.job.name)" class="btn btn-warning p-1.5" title="Pause">
+                                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                                </button>
+                                <button x-show="item.job && item.job.status === 'Paused'" @click="item.job && resumeJob(item.job.group, item.job.name)" class="btn btn-success p-1.5" title="Resume">
+                                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                                </button>
+                                <button x-show="!config.readOnly" @click="item.job && deleteJob(item.job.group, item.job.name)" class="btn btn-danger p-1.5" title="Delete">
+                                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                                </button>
                               </div>
                             </td>
                           </tr>
-                          <!-- Job rows for this group -->
-                          <template x-for="job in grp.jobs" :key="job.group + '.' + job.name">
-                            <tr x-show="!grp.collapsed"
-                                @click="openJobDrawer(job); selectedJobIndex = filteredJobs.indexOf(job)"
-                                class="group cursor-pointer hover:bg-white/[0.025] transition-colors duration-100"
-                                :class="[
-                                  jobDrawerData && jobDrawerData.group === job.group && jobDrawerData.name === job.name ? 'bg-indigo-500/[0.06] border-l-2 border-l-indigo-500' : '',
-                                  selectedJobIndex !== -1 && selectedJobIndex === filteredJobs.indexOf(job) ? 'ring-1 ring-inset ring-indigo-400/40 bg-indigo-400/5' : '',
-                                  jobFlash[job.group + '.' + job.name] === 'success' ? 'ring-1 ring-inset ring-emerald-400/40 bg-emerald-400/5' : '',
-                                  jobFlash[job.group + '.' + job.name] === 'error' ? 'ring-1 ring-inset ring-red-400/40 bg-red-400/5' : ''
-                                ]">
-                              <!-- Status dot -->
-                              <td class="py-3.5 pl-4 pr-1 w-4" data-label="">
-                                <span class="block w-2 h-2 rounded-full flex-shrink-0"
-                                      :class="job.status === 'Executing' ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]' : job.status === 'Paused' ? 'bg-amber-400' : job.status === 'Scheduled' ? 'bg-indigo-400' : 'bg-gray-600'">
-                                </span>
-                              </td>
-                              <!-- Name + description -->
-                              <td class="py-3.5 px-4" data-label="Job">
-                                <div class="font-medium text-gray-100 leading-tight" x-text="job.name"></div>
-                                <div class="text-[11px] text-gray-500 mt-0.5 truncate max-w-[200px]"
-                                     x-text="job.description || job.jobType || job.group"></div>
-                              </td>
-                              <!-- Group -->
-                              <td class="py-3.5 px-4 hidden md:table-cell" data-label="Group">
-                                <span class="mono text-[11px] text-gray-500 bg-white/[0.04] px-1.5 py-0.5 rounded" x-text="job.group"></span>
-                              </td>
-                              <!-- Status badge -->
-                              <td class="py-3.5 px-4 hidden sm:table-cell" data-label="Status">
-                                <span :class="jobStatusBadge(job.status)" x-text="job.status || 'Idle'"></span>
-                              </td>
-                              <!-- Trigger count -->
-                              <td class="py-3.5 px-4 hidden lg:table-cell" data-label="Triggers">
-                                <span class="text-[11px] text-gray-400" x-text="(job.triggers || []).length + ' trigger' + ((job.triggers || []).length !== 1 ? 's' : '')"></span>
-                              </td>
-                              <!-- Next fire with live countdown -->
-                              <td class="py-3.5 px-4" data-label="Next Fire">
-                                <span class="text-xs mono" :class="job.nextFireTime ? 'text-gray-300' : 'text-gray-600'"
-                                      :title="job.nextFireTime ? formatDate(job.nextFireTime) : ''"
-                                      x-text="formatCountdown(job.nextFireTime)"></span>
-                              </td>
-                              <!-- Actions -->
-                              <td class="py-3.5 px-4 text-right" data-label="Actions">
-                                <div class="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
-                                  <button @click="triggerJob(job.group, job.name)" class="btn btn-primary p-1.5" title="Run Now">
-                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                                  </button>
-                                  <button x-show="job.status !== 'Paused'" @click="pauseJob(job.group, job.name)" class="btn btn-warning p-1.5" title="Pause">
-                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                                  </button>
-                                  <button x-show="job.status === 'Paused'" @click="resumeJob(job.group, job.name)" class="btn btn-success p-1.5" title="Resume">
-                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                                  </button>
-                                  <button x-show="!config.readOnly" @click="deleteJob(job.group, job.name)" class="btn btn-danger p-1.5" title="Delete">
-                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          </template>
                         </template>
                       </tbody>
                     </table>
