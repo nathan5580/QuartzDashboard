@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Http;
+
 namespace QuartzDashboard;
 
 /// <summary>
@@ -64,4 +66,10 @@ public class QuartzDashboardOptions
     /// Default: 50
     /// </summary>
     public int MaxExecutionLogsPerJob { get; set; } = 50;
+
+    /// <summary>
+    /// Authorization callback invoked on every dashboard request. Return <c>false</c> to reject with 401.
+    /// Example: <c>OnAuthorize = ctx => ctx.User.IsInRole("Admin")</c>
+    /// </summary>
+    public Func<HttpContext, bool>? OnAuthorize { get; set; }
 }
