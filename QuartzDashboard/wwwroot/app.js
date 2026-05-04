@@ -381,7 +381,7 @@
         },
 
         get timelineVisibleEvents() {
-          const cutoff = this.now - this.timelineRangeMs;
+          const cutoff = Date.now() - this.timelineRangeMs;
           return this.timelineEvents.filter(e => new Date(e.fireTime).getTime() >= cutoff);
         },
 
@@ -427,7 +427,7 @@
           const lines = [];
           const chartWidth = Math.max(1, this.timelineWidth - this.timelineLabelWidth);
           for (let i = 0; i <= ticks; i++) {
-            const t = this.now - this.timelineRangeMs + (i / ticks) * this.timelineRangeMs;
+          const t = Date.now() - this.timelineRangeMs + (i / ticks) * this.timelineRangeMs;
             const x = (i / ticks) * chartWidth;
             const dt = new Date(t);
             const showSec = this.timelineRange <= 5;
@@ -459,7 +459,7 @@
           const chartH = this.timelineChartHeight;
           const chartWidth = Math.max(1, w - labelW);
           const gridLines = this.timelineGridLines;
-          const now = this.now;
+          const now = Date.now();
           const rangeMs = this.timelineRangeMs;
           const leftTime = now - rangeMs;
 
