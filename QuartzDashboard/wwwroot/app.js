@@ -322,14 +322,18 @@
           return list;
         },
 
-        get jobsByGroup() {
+        get jobGroupList() {
           const groups = {};
           (this.jobs || []).forEach(j => {
             const g = j.group || 'Default';
             if (!groups[g]) groups[g] = [];
             groups[g].push(j);
           });
-          return groups;
+          return Object.entries(groups).map(([name, jobs]) => ({
+            name,
+            jobs,
+            collapsed: !!this.collapsedGroups[name]
+          }));
         },
 
         get statsLoading() {
