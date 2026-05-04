@@ -48,8 +48,27 @@
 </head>
 <body class="bg-gray-950 text-gray-200 antialiased" x-data="dashboard()" x-init="init()">
 
-  <!-- ChartEngine filters and gradients -->
-  <svg height="0" width="0" style="position:absolute" x-html="ChartEngine.gradientDefs('chart')"></svg>
+  <!-- ChartEngine filters and gradients (static, both prefixes) -->
+  <svg height="0" width="0" style="position:absolute">
+    <defs>
+      <linearGradient id="graphcountGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#818cf8" stop-opacity="0.18"/>
+        <stop offset="100%" stop-color="#818cf8" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="graphdurationGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#34d399" stop-opacity="0.15"/>
+        <stop offset="100%" stop-color="#34d399" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="grapherrorGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#ef4444" stop-opacity="0.15"/>
+        <stop offset="100%" stop-color="#ef4444" stop-opacity="0"/>
+      </linearGradient>
+      <filter id="chartGlow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="2" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+  </svg>
 
   <!-- Toast queue -->
   <div class="fixed bottom-12 right-4 z-50 flex flex-col-reverse gap-2 pointer-events-none" style="z-index: 55;">
@@ -1212,120 +1231,38 @@
                 </div>
 
                 <div x-show="graphData.length">
-                <div class="relative" x-ref="graphContainer" @mousemove="onGraphMouseMove($event)" @mouseleave="graphCrosshair.show = false">
-                  <svg :width="graphWidth" :height="graphHeight" class="w-full" :viewBox="'0 0 ' + graphWidth + ' ' + graphHeight" preserveAspectRatio="xMidYMid meet"
-                       x-ref="graphSvg" style="overflow: visible;">
-                    <!-- Defs from ChartEngine -->
-                    <defs x-html="graphGradientDefs"></defs>
+                <div class="relative" x-ref="graphContainer" @mousemove="onGraphMouseMove($event)" @mouseleave="graphCrosshair.show = false"
+                     x-init="$nextTick(() => { graphWidth = Math.max(400, $el.offsetWidth || 800); updateGraphChart(); })">
+                  <!-- Chart rendered via innerHTML to bypass Alpine SVG namespace issues -->
+                  <div x-ref="graphChartWrap"
+                       x-effect="graphData.length && updateGraphChart()">
+                  </div>
 
-                    <!-- Grid lines via ChartEngine -->
-                    <g x-html="graphGridLines"></g>
-
-                    <!-- Y-axis labels via ChartEngine (left) -->
-                    <g>
-                      <template x-for="tick in graphYTicks" :key="'yt-' + tick.value">
-                        <text :x="graphMargin.left - 8" :y="tick.y + 3"
-                              text-anchor="end" class="fill-gray-500 text-[9px] font-mono" x-text="tick.label"></text>
-                      </template>
-                    </g>
-
-                    <!-- X-axis labels via ChartEngine -->
-                    <g>
-                      <template x-for="label in graphXLabels" :key="'xl-' + label.index">
-                        <text :x="label.x" :y="graphHeight - graphMargin.bottom + 14"
-                              text-anchor="middle" class="fill-gray-500 text-[8px] font-mono" x-text="label.label"></text>
-                      </template>
-                    </g>
-
-                    <!-- LINE MODE: Smooth curves with area fill -->
-                    <template x-if="graphChartMode === 'line'">
-                      <g>
-                        <!-- Area fill -->
-                        <template x-if="graphSeries.count">
-                          <path :d="graphCountAreaPath" fill="url(#graphcountGrad)"/>
-                        </template>
-                        <!-- Count line -->
-                        <template x-if="graphSeries.count">
-                          <path :d="graphCountLinePath" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#chartGlow)"/>
-                        </template>
-                        <!-- Duration line -->
-                        <template x-if="graphSeries.avgDuration">
-                          <path :d="graphDurationLinePath" fill="none" stroke="#34d399" stroke-width="2" stroke-dasharray="6,3" stroke-linecap="round" stroke-linejoin="round"/>
-                        </template>
-                        <!-- Error rate line -->
-                        <template x-if="graphSeries.errorRate">
-                          <path :d="graphErrorLinePath" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3,2"/>
-                        </template>
-                        <!-- Data point dots on hover -->
-                        <template x-for="(bucket, idx) in graphData" :key="'pt-' + idx">
-                          <circle :cx="graphX(idx)" :cy="graphY(bucket.count, graphMaxCount || 10)" r="2.5"
-                                  fill="#818cf8" stroke="#030712" stroke-width="1" class="cursor-pointer"
-                                  @mouseenter="graphCrosshair = { show: true, x: graphX(idx), data: bucket }"
-                                  @mouseleave="graphCrosshair.show = false"/>
-                        </template>
-                      </g>
-                    </template>
-
-                    <!-- BAR MODE -->
-                    <template x-if="graphChartMode === 'bar'">
-                      <g>
-                        <template x-for="(rect, idx) in graphBarRects" :key="'bar-' + idx">
-                          <rect :x="rect.x" :y="rect.y" :width="rect.width" :height="rect.height"
-                                rx="2" fill="#818cf8" fill-opacity="0.7" class="cursor-pointer"
-                                @mouseenter="graphCrosshair = { show: true, x: rect.x + rect.width / 2, data: rect.data }"
-                                @mouseleave="graphCrosshair.show = false">
-                            <animate attributeName="height" :from="0" :to="rect.height" dur="0.3s" fill="freeze"/>
-                            <animate attributeName="y" :from="graphHeight - graphMargin.bottom" :to="rect.y" dur="0.3s" fill="freeze"/>
-                          </rect>
-                        </template>
-                      </g>
-                    </template>
-
-                    <!-- HEATMAP MODE -->
-                    <template x-if="graphChartMode === 'heatmap'">
-                      <g>
-                        <template x-for="(cell, idx) in graphHeatCells" :key="'hc-' + idx">
-                          <rect :x="cell.x" :y="cell.y" :width="cell.width" :height="cell.height"
-                                :fill="cell.fill" rx="1" class="cursor-pointer"
-                                @mouseenter="graphCrosshair = { show: true, x: cell.x + cell.width / 2, data: cell.data }"
-                                @mouseleave="graphCrosshair.show = false">
-                          </rect>
-                        </template>
-                      </g>
-                    </template>
-
-                    <!-- Legend -->
-                    <g>
-                      <line x1="16" :y1="graphHeight - graphMargin.bottom + 34" x2="36" :y2="graphHeight - graphMargin.bottom + 34" stroke="#818cf8" stroke-width="2"/>
-                      <text x="40" :y="graphHeight - graphMargin.bottom + 37" class="fill-gray-400 text-[9px] font-medium">Count</text>
-                      <line x1="100" :y1="graphHeight - graphMargin.bottom + 34" x2="120" :y2="graphHeight - graphMargin.bottom + 34" stroke="#34d399" stroke-width="2" stroke-dasharray="6,3"/>
-                      <text x="124" :y="graphHeight - graphMargin.bottom + 37" class="fill-gray-400 text-[9px] font-medium">Avg Dur</text>
-                      <line x1="190" :y1="graphHeight - graphMargin.bottom + 34" x2="210" :y2="graphHeight - graphMargin.bottom + 34" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,2"/>
-                      <text x="214" :y="graphHeight - graphMargin.bottom + 37" class="fill-gray-400 text-[9px] font-medium">Errors</text>
-                    </g>
-
-                    <!-- Crosshair vertical line -->
-                    <line x-show="graphCrosshair.show" :x1="graphCrosshair.x" y1="0" :x2="graphCrosshair.x" :y2="graphHeight"
-                          stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="3,3" style="display: none;"/>
+                  <!-- Crosshair overlay -->
+                  <svg x-show="graphCrosshair.show" class="absolute inset-0 pointer-events-none overflow-visible"
+                       :width="graphWidth" :height="graphHeight + 50" :viewBox="'0 0 ' + graphWidth + ' ' + (graphHeight + 50)"
+                       style="display:none;top:0;left:0">
+                    <line :x1="graphCrosshair.x" y1="0" :x2="graphCrosshair.x" :y2="graphHeight"
+                          stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="3,3"/>
                   </svg>
 
                   <!-- Tooltip overlay -->
-                  <div x-show="graphCrosshair.show" 
+                  <div x-show="graphCrosshair.show"
                        :style="'left: ' + Math.min(graphCrosshair.x + 12, graphWidth - 180) + 'px; top: 12px;'"
                        class="absolute z-20 pointer-events-none" style="display: none;">
                     <div class="bg-gray-900/95 backdrop-blur-sm border border-white/[0.08] rounded-lg px-3 py-2 shadow-xl min-w-[130px]">
                       <div class="text-xs font-medium text-gray-200 mb-1" x-text="graphTooltipTime"></div>
                       <div class="flex items-center gap-2 text-[11px]">
                         <span class="w-1.5 h-1.5 rounded-full bg-quartz-400"></span>
-                        <span x-text="'Count: ' + (graphCrosshair.data ? graphCrosshair.data.count : '\\u2014')" class="text-gray-300"></span>
+                        <span x-text="'Count: ' + (graphCrosshair.data ? graphCrosshair.data.count : '\u2014')" class="text-gray-300"></span>
                       </div>
                       <div class="flex items-center gap-2 text-[11px]">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                        <span x-text="'Dur: ' + (graphCrosshair.data ? Math.round(graphCrosshair.data.avgDurationMs || 0) + 'ms' : '\\u2014')" class="text-gray-300"></span>
+                        <span x-text="'Dur: ' + (graphCrosshair.data ? Math.round(graphCrosshair.data.avgDurationMs || 0) + 'ms' : '\u2014')" class="text-gray-300"></span>
                       </div>
                       <div x-show="graphCrosshair.data && graphCrosshair.data.errorRate !== undefined" class="flex items-center gap-2 text-[11px]">
                         <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                        <span x-text="'Err: ' + (graphCrosshair.data ? (graphCrosshair.data.errorRate * 100).toFixed(1) + '%' : '\\u2014')" class="text-red-300"></span>
+                        <span x-text="'Err: ' + (graphCrosshair.data ? (graphCrosshair.data.errorRate * 100).toFixed(1) + '%' : '\u2014')" class="text-red-300"></span>
                       </div>
                     </div>
                   </div>
@@ -1428,97 +1365,16 @@
 
               <template x-if="!loading.timeline && timelineVisibleEvents.length">
                 <div class="relative" x-ref="timelineContainer"
+                     x-init="$nextTick(() => { timelineWidth = $el.offsetWidth || 800; updateTimelineChart(); })"
                      @mousemove="
                        const rect = $el.getBoundingClientRect();
                        timelineTooltip.screenX = $event.clientX - rect.left;
                        timelineTooltip.screenY = $event.clientY - rect.top;
                      ">
-                  <svg :width="timelineWidth" :height="timelineChartHeight" class="w-full overflow-visible" style="display:block"
-                       x-init="$nextTick(() => { timelineWidth = $el.parentElement.clientWidth || 800 })">
-
-                    <!-- Row backgrounds -->
-                    <template x-for="(label, idx) in timelineVisibleLabels" :key="'bg-' + label">
-                      <rect x="0" :y="timelineRowY(idx)" :width="timelineWidth" :height="timelineRowHeight - 1"
-                            :fill="idx % 2 === 0 ? 'rgba(255,255,255,0.012)' : 'rgba(0,0,0,0.0)'"/>
-                    </template>
-
-                    <!-- Label area -->
-                    <rect x="0" y="0" :width="timelineLabelWidth" :height="timelineChartHeight - timelineAxisHeight" fill="rgba(0,0,0,0.25)"/>
-                    <template x-for="(label, idx) in timelineVisibleLabels" :key="'lbl-' + label">
-                      <g>
-                        <text :y="timelineRowY(idx) + timelineRowHeight / 2 + 1"
-                              x="8" dominant-baseline="middle"
-                              class="fill-gray-400 text-[11px] font-medium" style="font-size:11px;font-family:ui-monospace,monospace">
-                          <tspan x-text="label.split('.').pop()"></tspan>
-                        </text>
-                        <text :y="timelineRowY(idx) + timelineRowHeight / 2 + 14"
-                              x="8" dominant-baseline="middle"
-                              class="fill-gray-600" style="font-size:9px;font-family:ui-monospace,monospace">
-                          <tspan x-text="label.split('.')[0]"></tspan>
-                        </text>
-                      </g>
-                    </template>
-
-                    <!-- Chart area clip -->
-                    <defs>
-                      <clipPath id="tl-clip">
-                        <rect :x="timelineLabelWidth + 4" y="0" :width="timelineWidth - timelineLabelWidth - 4" :height="timelineChartHeight - timelineAxisHeight"/>
-                      </clipPath>
-                    </defs>
-
-                    <g clip-path="url(#tl-clip)">
-                      <!-- Vertical grid lines -->
-                      <template x-for="(gl, i) in timelineGridLines" :key="'vg-' + i">
-                        <line :x1="timelineLabelWidth + 4 + (gl.x / (timelineWidth - 16)) * (timelineWidth - timelineLabelWidth - 4)"
-                              y1="0"
-                              :x2="timelineLabelWidth + 4 + (gl.x / (timelineWidth - 16)) * (timelineWidth - timelineLabelWidth - 4)"
-                              :y2="timelineChartHeight - timelineAxisHeight"
-                              stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="2,3"/>
-                      </template>
-
-                      <!-- Execution bars -->
-                      <template x-for="(evt, idx) in timelineVisibleEvents" :key="evt.fireTime + '-' + evt.jobKey + '-' + idx">
-                        <g>
-                          <rect
-                            :x="timelineLabelWidth + 4 + (timelineXForTime(new Date(evt.fireTime).getTime()) / (timelineWidth - 16)) * (timelineWidth - timelineLabelWidth - 4)"
-                            :y="timelineYForJob(evt.jobKey) - 11"
-                            :width="timelineBarWidth(evt.duration || 0)"
-                            height="22"
-                            rx="3"
-                            :fill="evt.success ? 'rgba(52,211,153,0.85)' : 'rgba(248,113,113,0.85)'"
-                            :stroke="evt.success ? 'rgba(52,211,153,1)' : 'rgba(248,113,113,1)'"
-                            stroke-width="0.5"
-                            class="cursor-pointer"
-                            @mouseenter="timelineTooltip = { show: true, event: evt }"
-                            @mouseleave="timelineTooltip.show = false"
-                          />
-                        </g>
-                      </template>
-                    </g>
-
-                    <!-- Now line -->
-                    <line
-                      :x1="timelineLabelWidth + 4 + (timelineXForTime(now) / (timelineWidth - 16)) * (timelineWidth - timelineLabelWidth - 4)"
-                      y1="0"
-                      :x2="timelineLabelWidth + 4 + (timelineXForTime(now) / (timelineWidth - 16)) * (timelineWidth - timelineLabelWidth - 4)"
-                      :y2="timelineChartHeight - timelineAxisHeight"
-                      stroke="#6366f1" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.7"/>
-
-                    <!-- Separator line above axis -->
-                    <line x1="0" :y1="timelineChartHeight - timelineAxisHeight" :x2="timelineWidth" :y2="timelineChartHeight - timelineAxisHeight"
-                          stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
-
-                    <!-- Time axis labels -->
-                    <template x-for="(gl, i) in timelineGridLines" :key="'axl-' + i">
-                      <text
-                        :x="timelineLabelWidth + 4 + (gl.x / (timelineWidth - 16)) * (timelineWidth - timelineLabelWidth - 4)"
-                        :y="timelineChartHeight - timelineAxisHeight + 18"
-                        text-anchor="middle"
-                        class="fill-gray-600" style="font-size:9px;font-family:ui-monospace,monospace">
-                        <tspan x-text="gl.label"></tspan>
-                      </text>
-                    </template>
-                  </svg>
+                  <!-- Chart rendered via innerHTML to bypass Alpine SVG namespace issues -->
+                  <div x-ref="timelineChartWrap"
+                       x-effect="timelineVisibleEvents.length && updateTimelineChart()">
+                  </div>
 
                   <!-- Floating tooltip -->
                   <div x-show="timelineTooltip.show && timelineTooltip.event"
@@ -1839,6 +1695,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.1.1"></script>
+  <script src="app.js?v=2.1.6"></script>
 </body>
 </html>
