@@ -682,7 +682,7 @@
                       <tbody class="divide-y divide-white/[0.04]">
                         <template x-for="[group, groupJobs] in Object.entries(jobsByGroup)" :key="group">
                           <!-- Group header row -->
-                          <tr @click="collapsedGroups[group] = !collapsedGroups[group]; saveSettings()"
+                          <tr @click="collapsedGroups = { ...collapsedGroups, [group]: !collapsedGroups[group] }; saveSettings()"
                               class="cursor-pointer hover:bg-white/[0.02] bg-white/[0.015]">
                             <td colspan="7" class="py-2 px-4">
                               <div class="flex items-center gap-2">
