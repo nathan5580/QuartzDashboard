@@ -37,7 +37,26 @@
 
         // History page
         historyFilter: '',
+        historyFilterObj: { search: '', status: 'all', dateFrom: '', dateTo: '' },
         maxHistoryDuration: 0,
+
+        // Job run result feedback
+        pendingTriggers: {},
+        jobFlash: {},
+
+        // Stats trend
+        statsPrev: null,
+        statsSnapshot: null,
+
+        // Collapsible job groups
+        collapsedGroups: {},
+
+        // Now ticker (1s resolution, for countdowns and live durations)
+        nowTick: Date.now(),
+
+        // Keyboard navigation
+        selectedJobIndex: -1,
+        _gPressed: false,
 
         // Graph page
         graphView: 'live',
@@ -283,6 +302,36 @@
           return this.history.filter(h => (h.jobKey || '').toLowerCase().includes(q));
         },
 
+        get historyFiltered() {
+          const f = this.historyFilterObj;
+          let list = this.history || [];
+          if (f.search) {
+            const q = f.search.toLowerCase();
+            list = list.filter(h => (h.jobKey || '').toLowerCase().includes(q));
+          }
+          if (f.status === 'success') list = list.filter(h => h.success !== false);
+          else if (f.status === 'error') list = list.filter(h => h.success === false);
+          if (f.dateFrom) {
+            const from = new Date(f.dateFrom).getTime();
+            list = list.filter(h => h.fireTime && new Date(h.fireTime).getTime() >= from);
+          }
+          if (f.dateTo) {
+            const to = new Date(f.dateTo).getTime();
+            list = list.filter(h => h.fireTime && new Date(h.fireTime).getTime() <= to);
+          }
+          return list;
+        },
+
+        get jobsByGroup() {
+          const groups = {};
+          (this.jobs || []).forEach(j => {
+            const g = j.group || 'Default';
+            if (!groups[g]) groups[g] = [];
+            groups[g].push(j);
+          });
+          return groups;
+        },
+
         get statsLoading() {
           return this.loading.stats;
         },
@@ -510,6 +559,29 @@
             <line x1="0" y1="${chartH - axisH}" x2="${w}" y2="${chartH - axisH}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
             ${axisLabels}
           </svg>`;
+
+          // Build HTML action-button overlay for each timeline row
+          const overlayParent = el.parentElement;
+          let overlay = overlayParent.querySelector('.tl-action-overlay');
+          if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.className = 'tl-action-overlay';
+            overlay.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;width:100%;';
+            overlayParent.style.position = 'relative';
+            overlayParent.appendChild(overlay);
+          }
+          overlay.innerHTML = labels.map((lbl, rowIndex) => {
+            const y = 8 + rowIndex * rowH;
+            const parts = lbl.split('.');
+            const grp = parts[0];
+            const nm = parts.slice(1).join('.') || parts[0];
+            return `<div class="tl-row-actions" data-row="${rowIndex}" style="position:absolute;top:${y}px;left:0;width:${labelW - 4}px;height:${rowH - 1}px;pointer-events:auto;display:flex;align-items:center;justify-content:flex-end;gap:2px;padding-right:24px;opacity:0;transition:opacity 0.15s;"
+              onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0">
+              <button title="Run Now" onclick="window.dashboard && document.querySelector('[x-data]')?._x_dataStack?.[0]?.triggerJob('${grp}','${nm}')" style="background:rgba(99,102,241,0.7);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;color:#fff;font-size:10px;">▶</button>
+              <button title="Pause" onclick="window.dashboard && document.querySelector('[x-data]')?._x_dataStack?.[0]?.pauseJob('${grp}','${nm}')" style="background:rgba(245,158,11,0.7);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;color:#fff;font-size:10px;">⏸</button>
+              <button title="Resume" onclick="window.dashboard && document.querySelector('[x-data]')?._x_dataStack?.[0]?.resumeJob('${grp}','${nm}')" style="background:rgba(52,211,153,0.7);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;color:#fff;font-size:10px;">↺</button>
+            </div>`;
+          }).join('');
         },
 
         // ========================= INIT =========================
@@ -523,11 +595,21 @@
             document.body.classList.add('light');
           }
 
+          // Load persistent settings
+          try {
+            const saved = JSON.parse(localStorage.getItem('qd-settings') || '{}');
+            if (saved.sidebarOpen !== undefined) this.sidebarOpen = saved.sidebarOpen;
+            if (saved.graphChartMode) this.graphChartMode = saved.graphChartMode;
+            if (saved.refreshInterval) this.settings.refreshInterval = saved.refreshInterval;
+            if (saved.historyLimit) this.historyLimit = saved.historyLimit;
+            if (saved.collapsedGroups) this.collapsedGroups = saved.collapsedGroups;
+          } catch(_) {}
+
           // Setup keyboard shortcuts
           document.addEventListener('keydown', (e) => this.handleKeydown(e));
 
-          // Live-tick every second for executing-job duration display
-          setInterval(() => { this.currentTick = Date.now(); }, 1000);
+          // Live-tick every second for executing-job duration display and countdowns
+          setInterval(() => { this.currentTick = Date.now(); this.nowTick = Date.now(); }, 1000);
 
           // Start SignalR connection
           await this.connectSignalR();
@@ -548,7 +630,11 @@
 
           this.startAutoRefresh();
           this.$watch('currentPage', (val) => { this.onPageChange(val); });
-          this.$watch('settings.refreshInterval', () => { this.startAutoRefresh(); });
+          this.$watch('settings.refreshInterval', () => { this.startAutoRefresh(); this.saveSettings(); });
+          this.$watch('sidebarOpen', () => this.saveSettings());
+          this.$watch('graphChartMode', () => this.saveSettings());
+          this.$watch('historyLimit', () => this.saveSettings());
+          this.$watch('collapsedGroups', () => this.saveSettings());
           if (this.$refs && this.$refs.graphContainer) {
             this.updateGraphSize();
           }
@@ -623,6 +709,14 @@
             // Update maxHistoryDuration
             const d = data.durationMs || 0;
             if (d > this.maxHistoryDuration) this.maxHistoryDuration = d;
+          }
+
+          // Job run result feedback: check if this was a manually triggered job
+          if (data.jobKey && this.pendingTriggers[data.jobKey] !== undefined) {
+            const flashKey = data.jobKey;
+            this.jobFlash[flashKey] = data.success !== false ? 'success' : 'error';
+            delete this.pendingTriggers[flashKey];
+            setTimeout(() => { delete this.jobFlash[flashKey]; }, 4000);
           }
 
           // Update executionBuckets if we have stats
@@ -727,11 +821,15 @@
             if (this.showCreateJobModal) { this.showCreateJobModal = false; return; }
             if (this.showCreateTriggerModal) { this.showCreateTriggerModal = false; return; }
             if (this.showDeleteConfirm) { this.showDeleteConfirm = false; return; }
+            if (this.showJobDrawer) { this.closeJobDrawer(); return; }
             return;
           }
 
           // If command palette is open, handle arrow keys internally
           if (this.showCommandPalette) return;
+
+          // Skip when typing in an input
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
           // Number keys 1-N: switch pages (N = number of nav items)
           const num = parseInt(e.key);
@@ -746,28 +844,51 @@
 
           // r: refresh
           if (e.key === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-            // Only if no input is focused
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'SELECT') {
-              e.preventDefault();
-              this.refreshPage(this.currentPage);
-            }
+            e.preventDefault();
+            this.refreshPage(this.currentPage);
             return;
           }
 
           // /: focus search on jobs or history page
           if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-              if (this.currentPage === 'jobs') {
-                e.preventDefault();
-                // Focus the jobs search input - find it in DOM
-                const input = document.querySelector('input[x-model="jobsFilter"]');
-                if (input) input.focus();
-              } else if (this.currentPage === 'history') {
-                e.preventDefault();
-                const input = document.querySelector('input[x-model="historyFilter"]');
-                if (input) input.focus();
-              }
+            if (this.currentPage === 'jobs') {
+              e.preventDefault();
+              const input = document.querySelector('input[x-model="jobsFilter"]');
+              if (input) input.focus();
+            } else if (this.currentPage === 'history') {
+              e.preventDefault();
+              const input = document.querySelector('input[x-model="historyFilterObj.search"]');
+              if (input) input.focus();
             }
+            return;
+          }
+
+          // g + key: navigate to page
+          if (e.key === 'g') {
+            this._gPressed = true;
+            setTimeout(() => { this._gPressed = false; }, 1000);
+            return;
+          }
+          if (this._gPressed) {
+            const map = { o: 'overview', j: 'jobs', t: 'triggers', h: 'history', e: 'executing', l: 'timeline', x: 'graph', s: 'settings' };
+            if (map[e.key]) { this.currentPage = map[e.key]; this._gPressed = false; e.preventDefault(); return; }
+          }
+
+          // j/k: row navigation in jobs table
+          if (this.currentPage === 'jobs' && (e.key === 'j' || e.key === 'k')) {
+            const jobs = this.filteredJobs || this.jobs || [];
+            if (!jobs.length) return;
+            const cur = this.selectedJobIndex ?? -1;
+            const next = e.key === 'j' ? Math.min(cur + 1, jobs.length - 1) : Math.max(cur - 1, 0);
+            this.selectedJobIndex = next;
+            e.preventDefault();
+            return;
+          }
+          if (this.currentPage === 'jobs' && e.key === 'Enter' && this.selectedJobIndex >= 0) {
+            const jobs = this.filteredJobs || this.jobs || [];
+            const job = jobs[this.selectedJobIndex];
+            if (job) this.openJobDrawer(job);
+            return;
           }
         },
 
@@ -1184,7 +1305,15 @@
         async loadStats() {
           this.loading.stats = true;
           try {
-            this.stats = await this.fetchApi('/stats');
+            const newStats = await this.fetchApi('/stats');
+            // Track trend: move current to prev after 15s
+            if (this.statsSnapshot && (Date.now() - this.statsSnapshot > 15000)) {
+              this.statsPrev = Object.assign({}, this.stats);
+              this.statsSnapshot = Date.now();
+            } else if (!this.statsSnapshot) {
+              this.statsSnapshot = Date.now();
+            }
+            this.stats = newStats;
             this.executionBuckets = this.stats.executionBuckets || [];
             this.graphData = this.getGraphData();
             this.errors.stats = null; this.retryCounts.stats = 0;
@@ -1243,6 +1372,7 @@
         async triggerJob(group, name) {
           try {
             await this.postApi('/jobs/' + group + '/' + name + '/trigger');
+            this.pendingTriggers[group + '.' + name] = Date.now();
             this.showToast('Triggered ' + group + '.' + name, 'success');
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
         },
@@ -1550,6 +1680,62 @@
             this.loadStats(),
             this.loadTimeline(),
           ]);
+        },
+
+        // ========================= PERSISTENT SETTINGS =========================
+        saveSettings() {
+          try {
+            localStorage.setItem('qd-settings', JSON.stringify({
+              sidebarOpen: this.sidebarOpen,
+              graphChartMode: this.graphChartMode,
+              refreshInterval: this.settings.refreshInterval,
+              historyLimit: this.historyLimit,
+              collapsedGroups: this.collapsedGroups,
+            }));
+          } catch(_) {}
+        },
+
+        // ========================= COUNTDOWN & LIVE DURATION =========================
+        formatCountdown(isoString) {
+          if (!isoString) return '—';
+          const diff = new Date(isoString).getTime() - this.nowTick;
+          if (diff < 0) return 'past';
+          if (diff < 60000) return `in ${Math.floor(diff / 1000)}s`;
+          if (diff < 3600000) return `in ${Math.floor(diff / 60000)}m ${Math.floor((diff % 60000) / 1000)}s`;
+          if (diff < 86400000) return `in ${Math.floor(diff / 3600000)}h ${Math.floor((diff % 3600000) / 60000)}m`;
+          return `in ${Math.floor(diff / 86400000)}d`;
+        },
+
+        formatLiveDuration(startIso) {
+          if (!startIso) return '—';
+          const elapsed = this.nowTick - new Date(startIso).getTime();
+          if (elapsed < 0) return '0s';
+          const h = Math.floor(elapsed / 3600000);
+          const m = Math.floor((elapsed % 3600000) / 60000);
+          const s = Math.floor((elapsed % 60000) / 1000);
+          if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+          return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        },
+
+        // ========================= STATS TREND =========================
+        statsTrend(key) {
+          if (!this.statsPrev || this.stats[key] === undefined || this.statsPrev[key] === undefined) return null;
+          return (this.stats[key] || 0) - (this.statsPrev[key] || 0);
+        },
+
+        // ========================= EXPORT HISTORY CSV =========================
+        exportHistoryCSV() {
+          const rows = this.historyFiltered || this.history;
+          const header = 'Job Key,Trigger,Fire Time,Duration (ms),Status\n';
+          const lines = rows.map(r =>
+            [r.jobKey || '', r.triggerKey || '', r.fireTime || '', r.durationMs || r.duration || '', r.success !== false ? 'Success' : 'Error'].join(',')
+          );
+          const csv = header + lines.join('\n');
+          const blob = new Blob([csv], { type: 'text/csv' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = 'quartz-history.csv'; a.click();
+          URL.revokeObjectURL(url);
         },
       }         // closes return object
     }           // closes dashboard()

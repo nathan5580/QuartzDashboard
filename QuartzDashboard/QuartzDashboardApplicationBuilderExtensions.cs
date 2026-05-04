@@ -61,6 +61,15 @@ public static class QuartzDashboardApplicationBuilderExtensions
                 return;
             }
 
+            // Optional custom authorization callback
+            if (options.OnAuthorize != null && !options.OnAuthorize(ctx))
+            {
+                ctx.Response.StatusCode = 401;
+                ctx.Response.ContentType = "application/json";
+                await ctx.Response.WriteAsync("{\"error\":\"Unauthorized\"}");
+                return;
+            }
+
             // Optional auth check
             if (options.RequireAuthentication)
             {
