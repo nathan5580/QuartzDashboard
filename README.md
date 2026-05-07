@@ -25,8 +25,6 @@ DASHBOARD URL: /quartz (or options.Path)
 
 // 1. In DI (Program.cs or ServiceExtensions):
 builder.Services.AddQuartzDashboard();
-// Optional: add per-minute execution history and stats graph:
-builder.Services.AddQuartzDashboardHistory();
 
 // 2. In middleware pipeline (before MapControllers and MapFallbackToFile):
 app.UseQuartzDashboard();
@@ -101,7 +99,7 @@ GET  /triggers            - all triggers with schedule descriptions
 POST /triggers/{group}/{name}/pause   - pause trigger
 POST /triggers/{group}/{name}/resume  - resume trigger
 GET  /executing           - currently running jobs with duration
-GET  /history             - last N fire events (requires AddQuartzDashboardHistory())
+GET  /history             - last N fire events
 GET  /stats               - per-minute execution buckets + rates
 GET  /stats/history       - rolling history for the graph
 GET  /health              - scheduler health, success rate, failure list
@@ -145,11 +143,8 @@ using QuartzDashboard;
 builder.Services.AddQuartz();
 builder.Services.AddQuartzHostedService();
 
-// Line 1: register dashboard services
+// Line 1: register dashboard services (history tracking included automatically)
 builder.Services.AddQuartzDashboard();
-
-// Optional: track fire history for stats graph
-builder.Services.AddQuartzDashboardHistory();
 
 var app = builder.Build();
 
@@ -314,7 +309,7 @@ All endpoints under `{basePath}/api/` (default: `/quartz/api/`).
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/executing` | Currently executing jobs with duration |
-| GET | `/history` | Last N fire events (requires `AddQuartzDashboardHistory()`) |
+| GET | `/history` | Last N fire events |
 | GET | `/stats` | Per-minute execution buckets, rate, avg duration |
 | GET | `/stats/history` | Rolling history for the graph |
 | GET | `/health` | Success rate, pool utilization, failure list |
@@ -339,7 +334,7 @@ curl -X POST http://localhost:5000/quartz/hub/negotiate?negotiateVersion=1
 
 ## History & Stats
 
-`AddQuartzDashboardHistory()` registers an `IJobListener` that:
+`AddQuartzDashboard()` automatically registers an `IJobListener` that:
 
 - Records the last **N fire events** in a `ConcurrentQueue<FireRecord>` (configurable via `MaxFireHistory`)
 - Buckets executions **per-minute** into 120 rolling `ExecutionBucket` entries
@@ -357,7 +352,7 @@ No external storage — all in-memory, ~7 KB for 120 buckets.
 | CDN scripts blocked | Strict `Content-Security-Policy` header | Add `cdn.jsdelivr.net` to `script-src`, `style-src`, `connect-src` |
 | 401 on all dashboard requests | `RequireAuthentication = true` but user not logged in | Add auth middleware before `UseQuartzDashboard()` |
 | Jobs show count in header but no rows render | Alpine.js nested `x-for` bug (pre-2.1.23) | Update to 2.1.23+ — jobs table now uses a flat single `x-for` |
-| Stats/history endpoints return empty | History listener not registered | Call `AddQuartzDashboardHistory()` |
+| Stats/history endpoints return empty | Old package version (pre-2.1.28) required a separate `AddQuartzDashboardHistory()` call | Update to 2.1.28+ |
 | Old `app.js` loaded from browser cache | Pre-2.1.26 used hardcoded `?v=2.1.8` | Update to 2.1.26+ — asset URLs are now version-busted automatically |
 
 ## Architecture
