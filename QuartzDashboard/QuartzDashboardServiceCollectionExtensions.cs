@@ -41,19 +41,19 @@ public static class QuartzDashboardServiceCollectionExtensions
             services.AddSingleton<IHostedService, DashboardSignalRBridge>();
         }
 
+        // History listener is always registered — timelines and graphs work out of the box
+        services.AddSingleton<IHostedService, DashboardListenerAttacher>();
+        services.AddSingleton<ISchedulerListener, DashboardSchedulerListener>();
+
         return services;
     }
 
     /// <summary>
-    /// Registers a Quartz job listener that records fire history for the dashboard.
-    /// Called AFTER <c>AddQuartz()</c>.
+    /// No-op — history is now registered automatically by <c>AddQuartzDashboard()</c>.
+    /// Kept for backwards compatibility.
     /// </summary>
-    public static IServiceCollection AddQuartzDashboardHistory(this IServiceCollection services)
-    {
-        services.AddSingleton<IHostedService, DashboardListenerAttacher>();
-        services.AddSingleton<ISchedulerListener, DashboardSchedulerListener>();
-        return services;
-    }
+    [Obsolete("History is registered automatically by AddQuartzDashboard(). This call is no longer needed.")]
+    public static IServiceCollection AddQuartzDashboardHistory(this IServiceCollection services) => services;
 }
 
 internal sealed class DashboardListenerAttacher(
