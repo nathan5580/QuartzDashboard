@@ -95,7 +95,6 @@ builder.Services.AddQuartzDashboard(options =>
         options.AllowedRoles = ["Admin"];
     }
 });
-builder.Services.AddQuartzDashboardHistory();
 
 var app = builder.Build();
 
