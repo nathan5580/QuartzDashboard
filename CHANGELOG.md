@@ -2,6 +2,14 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.1.37] — 2026-05-08
+
+### Fixed
+- **Sidebar icon sizing** — nav item SVG icons now use inline `style="width:20px;height:20px"` instead of Tailwind `class="w-5 h-5"`. Since Tailwind only scans `index.html` at build time, class names inside `app.js` strings were not generated, causing icons to expand beyond their container and potentially clip adjacent text labels.
+- **Health failure chart layout** — bars now fill the full SVG width dynamically. Previously bar positions were hardcoded (`x = 44 + idx * 27`), causing 5 buckets to occupy only the leftmost ~15% of the 720px chart. Bar X and width are now computed as a fraction of the available 668px inner width, evenly distributing all buckets.
+- **Health failure chart states** — bars use green fill-opacity when `errorRate = 0` (success) instead of invisible minimum-height red slivers. A "✓ No failures detected" overlay appears when all buckets have zero error rate. Grid lines at 50% and 100% added for better readability.
+- **Health page auto-refresh** — `health` page was missing from `autoRefreshPages` defaults, so it never refreshed on the auto-refresh timer. Now included with `true` by default alongside all other pages.
+
 ## [2.1.36] — 2026-05-08
 
 ### Fixed
