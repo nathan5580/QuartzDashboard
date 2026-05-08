@@ -35,6 +35,7 @@ internal static class ConfigHandlers
             title = options.Title,
             historyRetentionHours = options.HistoryRetentionHours,
             hasPersistentHistory = !string.IsNullOrWhiteSpace(options.PersistHistoryPath),
+            webhookUrl = options.WebhookUrl,
         });
     }
 }

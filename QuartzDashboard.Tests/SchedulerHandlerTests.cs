@@ -97,6 +97,7 @@ public class SchedulerHandlerTests : IClassFixture<QuartzTestFixture>
         Assert.False(root.GetProperty("readOnly").GetBoolean());
         Assert.False(root.GetProperty("useSignalR").GetBoolean());
         Assert.Equal("/quartz", root.GetProperty("basePath").GetString());
+        Assert.True(root.TryGetProperty("webhookUrl", out _));
     }
 
     [Fact]

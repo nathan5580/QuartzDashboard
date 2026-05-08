@@ -205,6 +205,130 @@
       </div>
     </div>
 
+  <!-- ============ TRIGGER JOB MODAL ============ -->
+    <div x-show="showTriggerJobModal" class="modal-overlay" @click.self="closeTriggerJobModal()" style="display: none;">
+      <div class="modal-card max-w-lg">
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <h2 class="text-base font-semibold text-gray-100">Run Job</h2>
+            <p class="text-xs text-gray-500 mt-1" x-text="triggerJobTarget ? (triggerJobTarget.group + '.' + triggerJobTarget.name) : ''"></p>
+          </div>
+          <button @click="closeTriggerJobModal()" class="btn-icon">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="space-y-4">
+          <div class="rounded-lg border border-white/[0.06] bg-white/[0.03] p-4">
+            <div class="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <div class="text-sm font-medium text-gray-200">Data Map</div>
+                <div class="text-xs text-gray-500">Optional transient parameters for this manual run</div>
+              </div>
+              <button @click="addTriggerJobParam()" class="btn btn-ghost text-xs">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add parameter
+              </button>
+            </div>
+            <div class="space-y-2">
+              <template x-for="(entry, idx) in triggerJobDataMap" :key="idx">
+                <div class="grid grid-cols-3 gap-2 items-center">
+                  <input type="text" x-model="entry.key" class="glass-input w-full" placeholder="Key">
+                  <input type="text" x-model="entry.value" class="glass-input w-full" placeholder="Value">
+                  <button @click="removeTriggerJobParam(idx)" class="btn btn-ghost text-xs px-2">×</button>
+                </div>
+              </template>
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button @click="closeTriggerJobModal()" class="btn btn-ghost">Cancel</button>
+            <button @click="triggerJob(triggerJobTarget.group, triggerJobTarget.name)" class="btn btn-primary" :disabled="!triggerJobTarget">Run Job</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  <!-- ============ EDIT TRIGGER MODAL ============ -->
+    <div x-show="showEditTriggerModal" class="modal-overlay" @click.self="showEditTriggerModal = false" style="display: none;">
+      <div class="modal-card max-w-md">
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <h2 class="text-base font-semibold text-gray-100">Edit Trigger</h2>
+            <p class="text-xs text-gray-500 mt-1" x-text="editTriggerData ? (editTriggerData.group + '.' + editTriggerData.name) : ''"></p>
+          </div>
+          <button @click="showEditTriggerModal = false" class="btn-icon">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div x-show="editTriggerData" class="space-y-4">
+          <div class="flex gap-2 border-b border-white/[0.06] pb-2">
+            <button @click="editTriggerData.triggerType = 'cron'" :class="['btn text-xs', editTriggerData && editTriggerData.triggerType === 'cron' ? 'btn-primary' : 'btn-ghost']">Cron</button>
+            <button @click="editTriggerData.triggerType = 'simple'" :class="['btn text-xs', editTriggerData && editTriggerData.triggerType === 'simple' ? 'btn-primary' : 'btn-ghost']">Simple</button>
+          </div>
+          <div x-show="editTriggerData && editTriggerData.triggerType === 'cron'">
+            <label class="form-label">Cron Expression</label>
+            <input type="text" x-model="editTriggerData.cronExpression" class="glass-input w-full" placeholder="0/5 * * * * ?">
+          </div>
+          <div x-show="editTriggerData && editTriggerData.triggerType === 'simple'">
+            <label class="form-label">Interval (seconds)</label>
+            <input type="number" x-model.number="editTriggerData.intervalSeconds" class="glass-input w-full" min="1" placeholder="60">
+          </div>
+          <div>
+            <label class="form-label">Misfire Policy</label>
+            <select x-model="editTriggerData.misfireInstruction" class="glass-select w-full">
+              <template x-for="option in getMisfireOptions(editTriggerData ? editTriggerData.triggerType : 'cron')" :key="option.value">
+                <option :value="option.value" x-text="option.label"></option>
+              </template>
+            </select>
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button @click="showEditTriggerModal = false" class="btn btn-ghost">Cancel</button>
+            <button @click="saveEditTrigger()" class="btn btn-primary">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  <!-- ============ CREATE CALENDAR MODAL ============ -->
+    <div x-show="showCreateCalendarModal" class="modal-overlay" @click.self="showCreateCalendarModal = false" style="display: none;">
+      <div class="modal-card max-w-md">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-base font-semibold text-gray-100">Create Calendar</h2>
+          <button @click="showCreateCalendarModal = false" class="btn-icon">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="form-label">Name *</label>
+            <input type="text" x-model="newCalendar.name" class="glass-input w-full" placeholder="BusinessHours">
+          </div>
+          <div>
+            <label class="form-label">Type</label>
+            <select x-model="newCalendar.type" class="glass-select w-full">
+              <option value="holiday">Holiday</option>
+              <option value="monthly">Monthly</option>
+              <option value="weekly">Weekly</option>
+              <option value="daily">Daily</option>
+              <option value="cron">Cron</option>
+              <option value="annual">Annual</option>
+            </select>
+          </div>
+          <div x-show="newCalendar.type === 'cron'">
+            <label class="form-label">Cron Expression</label>
+            <input type="text" x-model="newCalendar.cronExpression" class="glass-input w-full" placeholder="0 0 0 * * ?">
+          </div>
+          <div>
+            <label class="form-label">Description</label>
+            <textarea x-model="newCalendar.description" rows="3" class="glass-textarea w-full" placeholder="Optional description"></textarea>
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button @click="showCreateCalendarModal = false" class="btn btn-ghost">Cancel</button>
+            <button @click="createCalendar()" :disabled="!newCalendar.name || (newCalendar.type === 'cron' && !newCalendar.cronExpression)" class="btn btn-primary">Create Calendar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   <!-- ============ DELETE CONFIRMATION MODAL ============ -->
     <div x-show="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false" style="display: none;">
       <div class="modal-card max-w-sm">
@@ -576,6 +700,31 @@
               </div>
             </div>
 
+            <div class="card-gradient">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <h2 class="text-sm font-semibold text-gray-200">Failure Rate (last 24h)</h2>
+                  <p class="text-xs text-gray-500 mt-0.5">Error percentage across recent execution buckets</p>
+                </div>
+                <span class="text-xs text-gray-600" x-text="executionBuckets.length + ' buckets'"></span>
+              </div>
+              <div class="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 overflow-x-auto">
+                <svg viewBox="0 0 720 180" class="w-full min-w-[210px] h-64">
+                  <line x1="36" y1="12" x2="36" y2="148" stroke="rgba(148,163,184,.25)" stroke-width="1"/>
+                  <line x1="36" y1="148" x2="704" y2="148" stroke="rgba(148,163,184,.25)" stroke-width="1"/>
+                  <template x-for="(bucket, idx) in executionBuckets.slice(-24)" :key="idx">
+                    <g>
+                      <rect :x="44 + idx * 27" :y="148 - Math.max(4, ((bucket.errorRate || 0) / 100) * 120)" width="16" :height="Math.max(4, ((bucket.errorRate || 0) / 100) * 120)" rx="3" fill="#ef4444" fill-opacity="0.78"></rect>
+                      <text :x="52 + idx * 27" y="165" text-anchor="middle" class="fill-gray-600 text-[9px]" x-text="bucket.label || ''"></text>
+                    </g>
+                  </template>
+                  <text x="8" y="16" class="fill-gray-600 text-[9px]">100%</text>
+                  <text x="14" y="86" class="fill-gray-600 text-[9px]">50%</text>
+                  <text x="19" y="152" class="fill-gray-600 text-[9px]">0%</text>
+                </svg>
+              </div>
+            </div>
+
             <!-- Scheduler Diagnostics -->
             <div class="card-gradient">
               <h2 class="text-sm font-semibold text-gray-200 mb-4">Scheduler Diagnostics</h2>
@@ -776,7 +925,7 @@
                             </td>
                             <td x-show="!item.isHeader" class="py-3.5 px-4 text-right" data-label="Actions">
                               <div class="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
-                                <button @click="item.job && triggerJob(item.job.group, item.job.name)" class="btn btn-primary p-1.5" title="Run Now">
+                                <button @click="item.job && openTriggerJobModal(item.job.group, item.job.name)" class="btn btn-primary p-1.5" title="Run Now">
                                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                                 </button>
                                 <button x-show="item.job && item.job.status !== 'Paused'" @click="item.job && pauseJob(item.job.group, item.job.name)" class="btn btn-warning p-1.5" title="Pause">
@@ -903,6 +1052,9 @@
                   <button @click="jobDrawerTab = 'history'; loadJobDrawerHistory(jobDrawerData.group, jobDrawerData.name)"
                           :class="jobDrawerTab === 'history' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-500 hover:text-gray-300 border-b-2 border-transparent'"
                           class="text-xs font-medium px-4 pb-3 transition-colors">History</button>
+                  <button @click="jobDrawerTab = 'logs'; loadJobDrawerLogs(jobDrawerData.group, jobDrawerData.name)"
+                          :class="jobDrawerTab === 'logs' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-500 hover:text-gray-300 border-b-2 border-transparent'"
+                          class="text-xs font-medium px-4 pb-3 transition-colors">Logs</button>
                 </div>
               </div>
 
@@ -1028,6 +1180,10 @@
                                     <span class="mono text-gray-400" x-text="t.type || '—'"></span>
                                   </div>
                                   <div class="flex items-center gap-2 text-xs">
+                                    <span class="text-gray-500 w-20 flex-shrink-0">Misfire</span>
+                                    <span class="badge badge-idle text-[9px]" x-text="t.misfireInstruction || 'SmartPolicy'"></span>
+                                  </div>
+                                  <div class="flex items-center gap-2 text-xs">
                                     <span class="text-gray-500 w-20 flex-shrink-0">Last fire</span>
                                     <span class="mono" :class="t.lastFireTime ? 'text-gray-300' : 'text-gray-600'"
                                           x-text="t.lastFireTime ? relativeTime(t.lastFireTime) + ' ago' : 'Never'"></span>
@@ -1092,6 +1248,7 @@
                               <div class="flex items-center gap-2 flex-wrap">
                                 <span class="mono text-gray-400" x-text="h.fireTime ? new Date(h.fireTime).toLocaleTimeString() : '—'"></span>
                                 <span x-show="h.runTimeMs" class="text-gray-500" x-text="h.runTimeMs + 'ms'"></span>
+                                <span x-show="h.refireCount > 0" class="badge badge-idle text-[9px]" x-text="'Refire ×' + h.refireCount"></span>
                                 <span x-show="h.success === false" class="text-red-400">Failed</span>
                               </div>
                               <div x-show="h.errorMessage" class="text-red-400 text-[11px] truncate mt-0.5" x-text="h.errorMessage"></div>
@@ -1108,6 +1265,22 @@
                         <p class="text-xs text-gray-600 mt-1">Executions will appear here after the job runs</p>
                       </div>
                     </template>
+                  </div>
+                </template>
+
+                <!-- ---- LOGS TAB ---- -->
+                <template x-if="jobDrawerTab === 'logs'">
+                  <div>
+                    <div x-show="jobDrawerLogsLoading" class="rounded-lg bg-white/[0.03] border border-white/[0.06] py-10 text-center text-sm text-gray-500">Loading logs...</div>
+                    <div x-show="!jobDrawerLogsLoading && jobDrawerLogs.length" class="rounded-lg bg-gray-900/80 border border-white/[0.06] max-h-64 overflow-y-auto p-3 space-y-1 scrollbar-thin">
+                      <template x-for="(entry, idx) in jobDrawerLogs" :key="idx">
+                        <div class="font-mono text-xs text-gray-400 whitespace-pre-wrap break-all" x-text="entry"></div>
+                      </template>
+                    </div>
+                    <div x-show="!jobDrawerLogsLoading && !jobDrawerLogs.length" class="rounded-lg bg-white/[0.03] border border-white/[0.06] py-10 text-center">
+                      <p class="text-sm text-gray-500">No logs yet</p>
+                      <p class="text-xs text-gray-600 mt-1">Execution logs will appear after the job runs</p>
+                    </div>
                   </div>
                 </template>
 
@@ -1178,6 +1351,7 @@
                               <th>State</th>
                               <th class="hidden md:table-cell">Schedule</th>
                               <th class="hidden md:table-cell">Last Fire</th>
+                              <th class="hidden lg:table-cell">Misfire</th>
                               <th>Next Fire</th>
                               <th class="text-right">Actions</th>
                             </tr>
@@ -1192,11 +1366,15 @@
                                 </td>
                                 <td class="hidden md:table-cell text-xs text-gray-400" x-text="t.scheduleDescription || '\u2014'"></td>
                                 <td class="hidden md:table-cell text-xs mono text-gray-500" x-text="t.lastFireTime ? relativeTime(t.lastFireTime) + ' ago' : '\u2014'"></td>
+                                <td class="hidden lg:table-cell"><span class="badge badge-idle text-[9px]" x-text="t.misfireInstruction || 'SmartPolicy'"></span></td>
                                 <td class="text-xs mono text-gray-400">
                                   <span :title="t.nextFireTime ? formatDate(t.nextFireTime) : ''" x-text="formatCountdown(t.nextFireTime)"></span>
                                 </td>
                                 <td class="text-right">
                                   <div class="flex gap-1 justify-end">
+                                    <button @click.stop="openEditTrigger(t)" class="btn btn-ghost text-[10px] px-2 py-1" title="Edit">
+                                      <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                                    </button>
                                     <button x-show="t.state !== 'Paused'" @click.stop="pauseTrigger(t.group, t.name)" class="btn btn-warning text-[10px] px-2 py-1">Pause</button>
                                     <button x-show="t.state === 'Paused'" @click.stop="resumeTrigger(t.group, t.name)" class="btn btn-success text-[10px] px-2 py-1">Resume</button>
                                     <button @click.stop="deleteTrigger(t.group, t.name)" class="btn btn-danger text-[10px] px-2 py-1">Delete</button>
@@ -1363,6 +1541,10 @@
                   </svg>
                   Export CSV
                 </button>
+                <button @click="exportHistoryJSON()" class="btn btn-ghost text-xs" title="Export JSON">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+                  Export JSON
+                </button>
                 <button @click="loadHistory()" class="btn btn-ghost">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
                   Refresh
@@ -1445,14 +1627,19 @@
                       <template x-for="(h, idx) in historyFiltered" :key="idx">
                         <tr>
                           <td class="mono text-xs text-gray-400" data-label="Time" x-text="formatDate(h.fireTime)"></td>
-                          <td class="font-medium text-gray-100 text-xs" data-label="Job" x-text="h.jobKey"></td>
+                          <td class="font-medium text-gray-100 text-xs" data-label="Job">
+                            <div class="flex items-center gap-2">
+                              <span x-text="h.jobKey"></span>
+                              <span x-show="h.refireCount > 0" class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500/20 text-[9px] font-semibold text-amber-400">R</span>
+                            </div>
+                          </td>
                           <td class="text-xs text-gray-500 hidden sm:table-cell truncate max-w-[140px]" data-label="Trigger" x-text="h.triggerKey"></td>
                           <td class="text-xs mono text-gray-300" data-label="Duration" x-text="h.duration ? formatDuration(h.duration) : '\u2014'"></td>
                           <td class="hidden md:table-cell" data-label="">
                             <div class="w-24 h-1.5 bg-gray-700/40 rounded-full overflow-hidden">
                               <div class="h-full rounded-full duration-bar"
                                    :class="h.success ? 'bg-emerald-500' : 'bg-red-500'"
-                                   :style="'width: ' + Math.min((h.durationMs || 0) / (maxHistoryDuration || 5000) * 100, 100) + '%'"></div>
+                                   :style="'width: ' + Math.min(((h.durationMs || h.duration || 0) / (maxHistoryDuration || 5000)) * 100, 100) + '%'"></div>
                             </div>
                           </td>
                           <td data-label="Outcome">
@@ -1463,10 +1650,20 @@
                     </tbody>
                   </table>
                 </div>
-                <div x-show="history.length < historyTotal" class="pt-3 text-center border-t border-white/[0.04] mt-2">
-                  <button @click="loadMoreHistory()" class="btn btn-ghost text-xs">
-                    Load more <span class="text-gray-500 ml-1" x-text="'(' + (historyTotal - history.length) + ' remaining)'"></span>
-                  </button>
+                <div x-show="historyTotal > 0" class="pt-4 mt-3 border-t border-white/[0.04] flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div class="text-xs text-gray-500">Page <span x-text="historyCurrentPage"></span> of <span x-text="historyPageCount"></span></div>
+                  <div class="flex items-center gap-1 flex-wrap justify-center">
+                    <button @click="historyGoToPage(historyCurrentPage - 1)" :disabled="historyCurrentPage === 1" class="btn btn-ghost text-xs">Previous</button>
+                    <template x-for="(page, idx) in historyPageNumbers" :key="idx">
+                      <template x-if="page === '…'">
+                        <span class="px-2 text-xs text-gray-600">…</span>
+                      </template>
+                      <template x-if="page !== '…'">
+                        <button @click="historyGoToPage(page)" :class="page === historyCurrentPage ? 'btn btn-primary text-xs' : 'btn btn-ghost text-xs'" x-text="page"></button>
+                      </template>
+                    </template>
+                    <button @click="historyGoToPage(historyCurrentPage + 1)" :disabled="historyCurrentPage === historyPageCount" class="btn btn-ghost text-xs">Next</button>
+                  </div>
                 </div>
                 <div x-show="!historyFiltered.length && history.length > 0" class="card-gradient text-center py-10">
                   <svg class="w-10 h-10 mx-auto text-gray-600 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -1823,6 +2020,84 @@
           </div>
         </div>
 
+      <!-- ===================== CALENDARS PAGE ===================== -->
+      <div x-show="currentPage === 'calendars'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h1 class="text-lg font-semibold tracking-tight text-gray-100">Calendars</h1>
+                <p class="text-xs text-gray-500 mt-0.5">Quartz calendar exclusions and schedule helpers</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button @click="showCreateCalendarModal = true" class="btn btn-primary">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Create Calendar
+                </button>
+                <button @click="loadCalendars()" class="btn btn-ghost">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            <template x-if="loading.calendars">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <template x-for="i in 6" :key="i">
+                  <div class="card-gradient p-5 space-y-3">
+                    <div class="sk h-4 w-1/3"></div>
+                    <div class="sk h-3 w-1/4"></div>
+                    <div class="sk h-16 w-full rounded"></div>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+            <template x-if="!loading.calendars">
+              <div class="space-y-4">
+                <div x-show="errors.calendars" class="card-gradient border border-red-500/20 text-sm text-red-300">
+                  <div class="flex items-center justify-between gap-3">
+                    <span x-text="errors.calendars"></span>
+                    <button @click="loadCalendars()" class="btn btn-ghost text-xs">Retry</button>
+                  </div>
+                </div>
+
+                <div x-show="calendars.length" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <template x-for="(calendar, idx) in calendars" :key="calendar.name || idx">
+                    <div class="card-gradient p-5 space-y-4">
+                      <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                          <div class="flex items-center gap-2 flex-wrap">
+                            <h2 class="text-sm font-semibold text-gray-100 truncate" x-text="calendar.name || 'Unnamed'"></h2>
+                            <span class="badge badge-idle text-[10px]" x-text="calendar.type || 'calendar'"></span>
+                          </div>
+                          <p class="text-xs text-gray-500 mt-1 break-all" x-text="calendar.description || calendar.cronExpression || 'No description'"></p>
+                        </div>
+                        <button @click="deleteCalendar(calendar.name)" class="btn btn-danger text-[10px] px-2 py-1">Delete</button>
+                      </div>
+                      <dl class="space-y-2 text-xs">
+                        <div class="flex items-center justify-between gap-3">
+                          <dt class="text-gray-500">Type</dt>
+                          <dd class="mono text-gray-300" x-text="calendar.type || '—'"></dd>
+                        </div>
+                        <div class="flex items-center justify-between gap-3">
+                          <dt class="text-gray-500">Cron</dt>
+                          <dd class="mono text-gray-300 truncate max-w-[220px]" x-text="calendar.cronExpression || '—'"></dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </template>
+                </div>
+
+                <div x-show="!calendars.length && !errors.calendars" class="card-gradient text-center py-12">
+                  <svg class="w-12 h-12 mx-auto text-gray-600 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <p class="text-sm text-gray-400">No calendars configured</p>
+                  <p class="text-xs text-gray-600 mt-1">Create one to exclude dates or provide recurring rules</p>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
       <!-- ===================== SETTINGS PAGE ===================== -->
       <div x-show="currentPage === 'settings'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
@@ -1997,6 +2272,10 @@
                 <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02]">
                   <span class="text-gray-500">API base</span>
                   <code class="text-quartz-400 font-mono text-[10px] bg-quartz-500/10 px-1.5 py-0.5 rounded">/quartz/api</code>
+                </div>
+                <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02] gap-3">
+                  <span class="text-gray-500">Failure webhook</span>
+                  <code class="text-gray-300 font-mono text-[10px] truncate max-w-[220px]" x-text="config.webhookUrl || 'Not configured'"></code>
                 </div>
                 <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02]">
                   <span class="text-gray-500">Last refresh</span>

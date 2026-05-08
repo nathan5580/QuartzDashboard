@@ -168,6 +168,36 @@ public class TriggerHandlerTests : IClassFixture<QuartzTestFixture>
         Assert.Equal("DEFAULT", doc.RootElement.GetProperty("group").GetString());
         Assert.True(doc.RootElement.TryGetProperty("state", out _));
         Assert.True(doc.RootElement.TryGetProperty("jobName", out _));
+        Assert.True(doc.RootElement.TryGetProperty("intervalSeconds", out _));
+        Assert.True(doc.RootElement.TryGetProperty("misfireInstruction", out _));
+    }
+
+    [Fact]
+    public async Task UpdateTrigger_WithCronSchedule_ReturnsUpdated()
+    {
+        await CreateDurableJob("UpdateCronJob");
+        await _client.PostAsync("/quartz/api/triggers", Json(new
+        {
+            name = "UpdateCronTrigger",
+            group = "DEFAULT",
+            jobName = "UpdateCronJob",
+            jobGroup = "DEFAULT",
+            cronExpression = "0/30 * * * * ?",
+        }));
+
+        var response = await _client.PutAsync("/quartz/api/triggers/DEFAULT/UpdateCronTrigger", Json(new
+        {
+            cronExpression = "0/45 * * * * ?",
+            misfireInstruction = "doNothing",
+        }));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var detailResponse = await _client.GetAsync("/quartz/api/triggers/DEFAULT/UpdateCronTrigger");
+        var detailJson = await detailResponse.Content.ReadAsStringAsync();
+        using var detailDoc = JsonDocument.Parse(detailJson);
+        Assert.Equal("0/45 * * * * ?", detailDoc.RootElement.GetProperty("cronExpression").GetString());
+        Assert.Equal("DoNothing", detailDoc.RootElement.GetProperty("misfireInstruction").GetString());
     }
 
     [Fact]

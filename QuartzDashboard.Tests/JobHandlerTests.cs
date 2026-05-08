@@ -212,6 +212,48 @@ public class JobHandlerTests : IClassFixture<QuartzTestFixture>
     }
 
     [Fact]
+    public async Task TriggerJob_WithDataMap_ReturnsTriggered()
+    {
+        var createPayload = new
+        {
+            name = "TriggerJobWithDataMap",
+            group = "DEFAULT",
+            description = "Job to trigger with payload",
+            jobType = "",
+            isDurable = true,
+        };
+
+        var createContent = new StringContent(
+            JsonSerializer.Serialize(createPayload),
+            Encoding.UTF8,
+            "application/json");
+
+        await _client.PostAsync("/quartz/api/jobs", createContent);
+
+        var triggerPayload = new
+        {
+            dataMap = new Dictionary<string, string>
+            {
+                ["source"] = "dashboard-tests",
+                ["mode"] = "manual",
+            },
+        };
+
+        var triggerContent = new StringContent(
+            JsonSerializer.Serialize(triggerPayload),
+            Encoding.UTF8,
+            "application/json");
+
+        var triggerResponse = await _client.PostAsync(
+            "/quartz/api/jobs/DEFAULT/TriggerJobWithDataMap/trigger", triggerContent);
+        Assert.Equal(HttpStatusCode.OK, triggerResponse.StatusCode);
+
+        var json = await triggerResponse.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+        Assert.Equal("triggered", doc.RootElement.GetProperty("status").GetString());
+    }
+
+    [Fact]
     public async Task PauseAndResumeJob_WorksCorrectly()
     {
         // Create a job

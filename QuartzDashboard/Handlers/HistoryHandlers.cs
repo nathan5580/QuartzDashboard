@@ -15,19 +15,27 @@ internal static class HistoryHandlers
     {
         var offset = int.TryParse(ctx.Request.Query["offset"], out var o) ? o : 0;
         var limit = int.TryParse(ctx.Request.Query["limit"], out var l) ? Math.Min(l, 200) : 50;
+        var job = ctx.Request.Query["job"].FirstOrDefault();
 
         var store = ctx.RequestServices.GetRequiredService<IFireHistoryStore>();
-        var records = store.GetRecent(limit, offset).Select(f => new
+        var filtered = store.GetRecent(int.MaxValue, 0);
+
+        if (!string.IsNullOrWhiteSpace(job))
+            filtered = filtered.Where(f => string.Equals(f.JobKey, job, StringComparison.OrdinalIgnoreCase));
+
+        var filteredList = filtered.ToList();
+        var records = filteredList.Skip(offset).Take(limit).Select(f => new
         {
             jobKey = f.JobKey,
             triggerKey = f.TriggerKey,
             fireTime = f.FireTime,
             duration = f.Duration.TotalMilliseconds,
             success = f.Success,
+            refireCount = f.RefireCount,
             relativeTime = (DateTimeOffset.UtcNow - f.FireTime).TotalSeconds,
         }).ToList();
 
-        return Results.Ok(new { data = records, total = store.Count, offset, limit });
+        return Results.Ok(new { data = records, total = filteredList.Count, offset, limit });
     }
 
     public static IResult GetTimeline(HttpContext ctx)
