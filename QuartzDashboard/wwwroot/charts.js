@@ -205,12 +205,16 @@ window.ChartEngine = (function() {
       if (data[i][field] > maxVal) maxVal = data[i][field];
     }
     if (maxVal <= 0) maxVal = 1;
-    var barW = Math.max(2, (w / data.length) - 2);
+    // Bar width based on slot size, capped for readability
+    var slotW = data.length > 1 ? w / (data.length - 1) : w;
+    var barW = Math.max(2, Math.min(18, slotW * 0.6));
     var rects = [];
-    for (i = 0; i < data.length; i++) {
+    for (var i = 0; i < data.length; i++) {
       var val = data[i][field] || 0;
       var barH = (val / maxVal) * h;
-      var x = margin.left + (i / data.length) * w + 1;
+      // Center each bar under its x-axis label (same formula as xAxisTimeLabels and scaleLinear)
+      var cx = margin.left + (data.length > 1 ? (i / (data.length - 1)) * w : w / 2);
+      var x = cx - barW / 2;
       var y = margin.top + h - barH;
       rects.push({ x: x, y: y, width: barW, height: barH, value: val, index: i, data: data[i] });
     }
