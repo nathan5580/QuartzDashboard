@@ -78,4 +78,33 @@ public class QuartzDashboardOptions
     /// Reduces package payload by ~286KB. Default: false
     /// </summary>
     public bool UseSystemFonts { get; set; } = false;
+
+    /// <summary>
+    /// Custom title shown in the sidebar header and browser tab.
+    /// Default: "QuartzDash"
+    /// </summary>
+    public string Title { get; set; } = "QuartzDash";
+
+    /// <summary>
+    /// Number of hours of fire history to retain. Records older than this are pruned automatically.
+    /// Set to 0 to disable TTL pruning (keep all records up to MaxFireHistory).
+    /// Default: 24
+    /// </summary>
+    public int HistoryRetentionHours { get; set; } = 24;
+
+    /// <summary>
+    /// Optional file path for persisting fire history to disk as JSON.
+    /// When set, history survives application restarts and is loaded on startup.
+    /// Example: <c>options.PersistHistoryPath = "quartz-history.json"</c>
+    /// Default: null (in-memory only)
+    /// </summary>
+    public string? PersistHistoryPath { get; set; }
+
+    /// <summary>
+    /// Optional async callback invoked every time a job fails (throws an exception during execution).
+    /// Useful for Slack alerts, PagerDuty notifications, webhooks, etc.
+    /// The first argument is the job key (group.name), the second is the exception.
+    /// Example: <c>options.OnJobFailed = async (jobKey, ex) => await notifier.AlertAsync(jobKey, ex);</c>
+    /// </summary>
+    public Func<string, Exception, Task>? OnJobFailed { get; set; }
 }

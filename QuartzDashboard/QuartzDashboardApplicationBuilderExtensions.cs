@@ -106,7 +106,16 @@ public static class QuartzDashboardApplicationBuilderExtensions
             if (suffixStr.StartsWith("/api", StringComparison.OrdinalIgnoreCase))
             {
                 var schedFactory = app.ApplicationServices.GetRequiredService<ISchedulerFactory>();
-                await HandleApi(ctx, await schedFactory.GetScheduler(), suffixStr, options);
+
+                // Multi-scheduler: ?scheduler=SchedulerName header or query param selects which scheduler
+                IScheduler sched;
+                var schedulerName = ctx.Request.Query["scheduler"].FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(schedulerName))
+                    sched = await schedFactory.GetScheduler(schedulerName) ?? await schedFactory.GetScheduler();
+                else
+                    sched = await schedFactory.GetScheduler();
+
+                await HandleApi(ctx, sched, schedFactory, suffixStr, options);
                 return;
             }
 
@@ -152,6 +161,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
     // ============= Main API Router =============
 
     private static async Task HandleApi(HttpContext ctx, IScheduler sched,
+        ISchedulerFactory schedFactory,
         string path, QuartzDashboardOptions options)
     {
         var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
@@ -176,6 +186,21 @@ public static class QuartzDashboardApplicationBuilderExtensions
             // -- Config --
             else if (method == "GET" && route is ["config"])
                 result = ConfigHandlers.GetDashboardConfig(ctx, options);
+
+            // -- Multi-scheduler: list all schedulers --
+            else if (method == "GET" && route is ["schedulers"])
+            {
+                var allSchedulers = await schedFactory.GetAllSchedulers();
+                result = Results.Ok(allSchedulers.Select(s => new
+                {
+                    name = s.SchedulerName,
+                    instanceId = s.SchedulerInstanceId,
+                    isStarted = s.IsStarted,
+                    isInStandbyMode = s.InStandbyMode,
+                    isShutdown = s.IsShutdown,
+                    isCurrent = s.SchedulerName == sched.SchedulerName,
+                }).ToList());
+            }
 
             // -- Scheduler --
             else if (method == "GET" && route is ["scheduler"])
@@ -399,6 +424,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
 
         html = html.Replace("'__QUARTZ_BASE__'", $"'{basePath}'");
         html = html.Replace("__QUARTZ_VERSION__", AssemblyVersion);
+        html = html.Replace("__QUARTZ_TITLE__", System.Text.Encodings.Web.HtmlEncoder.Default.Encode(options.Title));
 
         if (options.UseSystemFonts)
         {

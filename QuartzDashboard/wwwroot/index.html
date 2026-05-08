@@ -3,8 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Quartz Dashboard</title>
+  <title>__QUARTZ_TITLE__</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=__QUARTZ_VERSION__" />
   <script>window.__QUARTZ_BASE = '__QUARTZ_BASE__';</script>
+  <script>
+    // Apply OS theme before Alpine loads to avoid flash
+    (function() {
+      var saved = localStorage.getItem('quartz-dashboard-theme');
+      if (!saved) {
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (!prefersDark) {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.classList.add('light');
+        }
+      } else if (saved === 'light') {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+      }
+    })();
+  </script>
   <script src="signalr.min.js?v=__QUARTZ_VERSION__"></script>
   <script src="alpine.min.js?v=__QUARTZ_VERSION__" defer></script>
   <link rel="stylesheet" href="tailwind.css?v=__QUARTZ_VERSION__" />
@@ -236,6 +253,58 @@
       </div>
     </div>
 
+    <!-- ===================== KEYBOARD SHORTCUTS MODAL ===================== -->
+    <div x-show="showShortcutsModal" class="modal-overlay" @click.self="showShortcutsModal = false" @keydown.escape.window="showShortcutsModal = false" style="display: none;">
+      <div class="card-gradient rounded-xl shadow-2xl w-full max-w-md mx-auto p-6">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-sm font-semibold text-gray-100">Keyboard Shortcuts</h2>
+          <button @click="showShortcutsModal = false" class="btn-icon"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <p class="text-[10px] uppercase tracking-widest text-gray-600 font-semibold mb-2">Navigation</p>
+            <div class="grid grid-cols-2 gap-1.5">
+              <template x-for="s in shortcutsList" :key="s.key">
+                <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white/[0.03]">
+                  <span class="text-xs text-gray-400" x-text="s.label"></span>
+                  <kbd class="mono text-[10px] bg-white/[0.07] text-gray-300 px-1.5 py-0.5 rounded border border-white/[0.1]" x-text="s.key"></kbd>
+                </div>
+              </template>
+            </div>
+          </div>
+          <div>
+            <p class="text-[10px] uppercase tracking-widest text-gray-600 font-semibold mb-2">Actions</p>
+            <div class="grid grid-cols-2 gap-1.5">
+              <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white/[0.03]">
+                <span class="text-xs text-gray-400">Command palette</span>
+                <kbd class="mono text-[10px] bg-white/[0.07] text-gray-300 px-1.5 py-0.5 rounded border border-white/[0.1]">⌘K</kbd>
+              </div>
+              <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white/[0.03]">
+                <span class="text-xs text-gray-400">Refresh page</span>
+                <kbd class="mono text-[10px] bg-white/[0.07] text-gray-300 px-1.5 py-0.5 rounded border border-white/[0.1]">R</kbd>
+              </div>
+              <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white/[0.03]">
+                <span class="text-xs text-gray-400">Quick search</span>
+                <kbd class="mono text-[10px] bg-white/[0.07] text-gray-300 px-1.5 py-0.5 rounded border border-white/[0.1]">/</kbd>
+              </div>
+              <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white/[0.03]">
+                <span class="text-xs text-gray-400">Toggle sidebar</span>
+                <kbd class="mono text-[10px] bg-white/[0.07] text-gray-300 px-1.5 py-0.5 rounded border border-white/[0.1]">[</kbd>
+              </div>
+              <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white/[0.03]">
+                <span class="text-xs text-gray-400">Toggle theme</span>
+                <kbd class="mono text-[10px] bg-white/[0.07] text-gray-300 px-1.5 py-0.5 rounded border border-white/[0.1]">T</kbd>
+              </div>
+              <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white/[0.03]">
+                <span class="text-xs text-gray-400">Show shortcuts</span>
+                <kbd class="mono text-[10px] bg-white/[0.07] text-gray-300 px-1.5 py-0.5 rounded border border-white/[0.1]">?</kbd>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   <div class="flex h-screen overflow-hidden" :style="'padding-bottom: 2rem'">
     <!-- ===================== SIDEBAR ===================== -->
     <aside :class="['sidebar-collapse flex flex-col flex-shrink-0 bg-gray-950 sidebar-border z-20', sidebarOpen ? 'w-60' : 'w-16']">
@@ -248,8 +317,8 @@
           </svg>
         </div>
         <span x-show="sidebarOpen" class="font-semibold text-sm text-gray-100 whitespace-nowrap overflow-hidden">
-          Quartz<span class="text-quartz-400">Dash</span>
-          <span class="ml-1 text-[10px] text-gray-600 font-mono">v2.0</span>
+          <span x-text="config.title || 'QuartzDash'" class="text-gray-100"></span>
+          <span class="ml-1 text-[10px] text-gray-600 font-mono">v__QUARTZ_VERSION__</span>
         </span>
       </div>
 
@@ -267,6 +336,17 @@
 
       <!-- Bottom section: status + collapse -->
       <div class="p-3 border-t border-white/[0.04] space-y-2">
+        <!-- Multi-scheduler selector (only shown when > 1 scheduler detected) -->
+        <div x-show="sidebarOpen && schedulers.length > 1" class="px-1">
+          <label class="text-[10px] uppercase tracking-widest text-gray-600 font-semibold mb-1 block">Scheduler</label>
+          <select x-model="activeSchedulerName" @change="onSchedulerChange()"
+                  class="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg text-xs text-gray-300 px-2 py-1.5 outline-none focus:border-quartz-500/50">
+            <template x-for="s in schedulers" :key="s.name">
+              <option :value="s.name" x-text="s.name + (s.isCurrent ? ' ✓' : '')"></option>
+            </template>
+          </select>
+        </div>
+
         <div x-show="sidebarOpen" class="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.03]">
           <div class="flex items-center gap-2.5">
             <span class="relative inline-flex">

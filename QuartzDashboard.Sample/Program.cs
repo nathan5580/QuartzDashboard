@@ -36,7 +36,17 @@ builder.Services.AddQuartz(q =>
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
 // ── QuartzDashboard — one line to register ─────────────────────
-builder.Services.AddQuartzDashboard();
+builder.Services.AddQuartzDashboard(options =>
+{
+    options.Title = "My App Dashboard";          // Custom title in sidebar + browser tab
+    options.HistoryRetentionHours = 48;          // Keep 48 hours of history
+    // options.PersistHistoryPath = "quartz-history.json";  // Persist across restarts
+    options.OnJobFailed = async (jobKey, ex) =>
+    {
+        Console.WriteLine($"[ALERT] Job failed: {jobKey} — {ex.Message}");
+        await Task.CompletedTask;
+    };
+});
 
 var app = builder.Build();
 
