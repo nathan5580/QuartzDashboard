@@ -121,12 +121,31 @@ public static class QuartzDashboardApplicationBuilderExtensions
             await ServeStaticFile(ctx, suffixStr, basePath);
         });
 
-        // Map SignalR hub (outside Map() branch for endpoint routing)
-        if (options.UseSignalR)
+        // Map SignalR hub — only when app is an IEndpointRouteBuilder (WebApplication satisfies this;
+        // plain IApplicationBuilder from test hosts does not — call MapQuartzDashboard() separately in that case)
+        if (options.UseSignalR && app is IEndpointRouteBuilder erb)
         {
-            ((IEndpointRouteBuilder)app).MapHub<QuartzDashboardHub>($"{basePath}/hub");
+            erb.MapHub<QuartzDashboardHub>($"{basePath}/hub");
         }
 
+        return app;
+    }
+
+    /// <summary>
+    /// Maps the SignalR hub for real-time dashboard updates.
+    /// Call this on your <c>IEndpointRouteBuilder</c> (e.g. <c>app</c> in a minimal-API app)
+    /// when <c>UseQuartzDashboard()</c> was called on a plain <c>IApplicationBuilder</c>
+    /// that does not implement <c>IEndpointRouteBuilder</c> (e.g. in a test host).
+    /// In standard <c>WebApplication</c> usage this is called automatically by <c>UseQuartzDashboard()</c>.
+    /// </summary>
+    public static IEndpointRouteBuilder MapQuartzDashboard(this IEndpointRouteBuilder app)
+    {
+        var options = app.ServiceProvider.GetRequiredService<QuartzDashboardOptions>();
+        if (!options.Enabled || !options.UseSignalR)
+            return app;
+
+        var basePath = options.Path.TrimEnd('/');
+        app.MapHub<QuartzDashboardHub>($"{basePath}/hub");
         return app;
     }
 
