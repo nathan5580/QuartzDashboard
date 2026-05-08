@@ -2,7 +2,13 @@
   <Folder Name="/src/">
     <Project Path="QuartzDashboard/QuartzDashboard.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="QuartzDashboard.Tests/QuartzDashboard.Tests.csproj" />
+  </Folder>
   <Folder Name="/demo/">
     <Project Path="QuartzDashboard.Demo/QuartzDashboard.Demo.csproj" />
+  </Folder>
+  <Folder Name="/sample/">
+    <Project Path="QuartzDashboard.Sample/QuartzDashboard.Sample.csproj" />
   </Folder>
 </Solution>

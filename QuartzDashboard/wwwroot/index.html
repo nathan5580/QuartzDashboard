@@ -56,7 +56,6 @@
   </div>
 
   <!-- ============ CREATE JOB MODAL ============ -->
-  <template x-teleport="body">
     <div x-show="showCreateJobModal" class="modal-overlay" @click.self="showCreateJobModal = false" style="display: none;">
       <div class="modal-card">
         <div class="flex items-center justify-between mb-5">
@@ -103,10 +102,8 @@
         </div>
       </div>
     </div>
-  </template>
 
   <!-- ============ CREATE TRIGGER MODAL ============ -->
-  <template x-teleport="body">
     <div x-show="showCreateTriggerModal" class="modal-overlay" @click.self="showCreateTriggerModal = false" style="display: none;">
       <div class="modal-card">
         <div class="flex items-center justify-between mb-5">
@@ -190,10 +187,8 @@
         </div>
       </div>
     </div>
-  </template>
 
   <!-- ============ DELETE CONFIRMATION MODAL ============ -->
-  <template x-teleport="body">
     <div x-show="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false" style="display: none;">
       <div class="modal-card max-w-sm">
         <div class="flex items-center justify-between mb-4">
@@ -209,10 +204,8 @@
         </div>
       </div>
     </div>
-  </template>
 
   <!-- ============ COMMAND PALETTE ============ -->
-  <template x-teleport="body">
     <div x-show="showCommandPalette" class="command-palette-overlay" @click.self="showCommandPalette = false" style="display: none;">
       <div class="command-palette-card" @keydown.escape="showCommandPalette = false" @keydown.arrow-up.prevent="commandPalettePrev" @keydown.arrow-down.prevent="commandPaletteNext" @keydown.enter.prevent="commandPaletteSelect">
         <div class="flex items-center px-4 py-3 border-b border-white/[0.06]">
@@ -242,7 +235,6 @@
         </div>
       </div>
     </div>
-  </template>
 
   <div class="flex h-screen overflow-hidden" :style="'padding-bottom: 2rem'">
     <!-- ===================== SIDEBAR ===================== -->
@@ -299,8 +291,7 @@
     <!-- ===================== MAIN CONTENT ===================== -->
     <main class="flex-1 overflow-y-auto scrollbar-thin p-6 lg:p-8">
       <!-- ===================== OVERVIEW PAGE ===================== -->
-      <template x-if="currentPage === 'overview'">
-        <div x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      <div x-show="currentPage === 'overview'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-6">
             <!-- Header -->
             <div class="flex items-center justify-between">
@@ -428,9 +419,7 @@
             </div>
           </div>
         </div>
-      </template>
-      <template x-if="currentPage === 'health'">
-        <div x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      <div x-show="currentPage === 'health'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-6">
             <!-- Header -->
             <div class="flex items-center justify-between">
@@ -573,12 +562,10 @@
             </template>
           </div>
         </div>
-      </template>
 
 
       <!-- ===================== JOBS PAGE ===================== -->
-      <template x-if="currentPage === 'jobs'">
-        <div x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      <div x-show="currentPage === 'jobs'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
             <!-- Header -->
             <div class="flex items-center justify-between flex-wrap gap-3">
@@ -749,17 +736,15 @@
             </template>
           </div>
         </div>
-      </template>
 
       <!-- ============ JOB DETAIL DRAWER ============ -->
-      <template x-teleport="body">
         <div x-show="showJobDrawer" style="display:none;">
           <!-- Backdrop -->
           <div
              x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0"
              x-transition:enter-end="opacity-100"
-             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave="transition ease-in duration-100"
              x-transition:leave-start="opacity-100"
              x-transition:leave-end="opacity-0"
              @click="closeJobDrawer()"
@@ -1051,11 +1036,9 @@
           </template>
         </div>
         </div>
-      </template>
 
       <!-- ===================== TRIGGERS PAGE ===================== -->
-      <template x-if="currentPage === 'triggers'">
-        <div x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      <div x-show="currentPage === 'triggers'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
             <div class="flex items-center justify-between">
               <div>
@@ -1159,11 +1142,9 @@
             </template>
           </div>
         </div>
-      </template>
 
       <!-- ===================== EXECUTING PAGE ===================== -->
-      <template x-if="currentPage === 'executing'">
-        <div x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      <div x-show="currentPage === 'executing'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
             <div class="flex items-center justify-between">
               <div>
@@ -1286,11 +1267,9 @@
             </template>
           </div>
         </div>
-      </template>
 
       <!-- ===================== HISTORY PAGE ===================== -->
-      <template x-if="currentPage === 'history'">
-        <div x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      <div x-show="currentPage === 'history'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
             <div class="flex items-center justify-between flex-wrap gap-3">
               <div>
@@ -1420,11 +1399,9 @@
             </template>
           </div>
         </div>
-      </template>
 
       <!-- ===================== GRAPH PAGE (ChartEngine) ===================== -->
-      <template x-if="currentPage === 'graph'">
-        <div x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      <div x-show="currentPage === 'graph'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
             <!-- Header -->
             <div class="flex items-center justify-between">
@@ -1567,11 +1544,9 @@
             </template>
           </div>
         </div>
-      </template>
 
       <!-- ===================== TIMELINE PAGE ===================== -->
-      <template x-if="currentPage === 'timeline'">
-        <div x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      <div x-show="currentPage === 'timeline'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
 
             <!-- Header -->
@@ -1767,11 +1742,9 @@
 
           </div>
         </div>
-      </template>
 
       <!-- ===================== SETTINGS PAGE ===================== -->
-      <template x-if="currentPage === 'settings'">
-        <div x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      <div x-show="currentPage === 'settings'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
             <div>
               <h1 class="text-lg font-semibold tracking-tight text-gray-100">Settings</h1>
@@ -1997,7 +1970,6 @@
 
           </div>
         </div>
-      </template>
     </main>
   </div>
 

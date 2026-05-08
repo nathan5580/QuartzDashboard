@@ -1168,7 +1168,10 @@
 
         onPageChange(page) {
           if (page === 'history') this.loadHistory();
-          if (page === 'graph') this.loadStats();
+          if (page === 'graph') {
+            this.loadStats();
+            this.$nextTick(() => this.updateGraphSize());
+          }
           if (page === 'triggers') this.loadTriggers();
           if (page === 'executing') this.loadExecutingJobs();
           if (page === 'timeline') {
