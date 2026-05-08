@@ -2,6 +2,13 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.1.35] — 2026-05-08
+
+### Fixed
+- **Bar chart x-axis alignment** — bars in the Graph page bar-chart mode are now centered directly under their corresponding x-axis time labels. Previously `barRects` used `i/n` positioning while labels used `i/(n-1)`, causing a visible horizontal offset. All modes (bar, line, area, heatmap) now share consistent coordinate mapping.
+- **Job drawer tab flickering** — all four drawer tabs (Overview, Triggers, History, Logs) converted from `<template x-if>` to `<div x-show>`. This eliminates DOM destroy/recreate on every tab click, preventing flash-of-content and Alpine.js cloneNode errors during rapid tab switching.
+- **History tab internal states** — loading skeleton and empty state inside History tab now use `x-show` instead of `x-if` for consistent no-flicker transitions.
+
 ## [2.1.34] — 2026-05-08
 
 ### Added

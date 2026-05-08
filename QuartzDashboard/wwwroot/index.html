@@ -1062,8 +1062,7 @@
               <div class="flex-1 overflow-y-auto px-5 py-4 space-y-4 scrollbar-thin">
 
                 <!-- ---- OVERVIEW TAB ---- -->
-                <template x-if="jobDrawerTab === 'overview'">
-                  <div class="space-y-4">
+                <div x-show="jobDrawerTab === 'overview'" class="space-y-4">
                     <!-- Description -->
                     <div x-show="jobDrawerData.description" class="rounded-lg bg-white/[0.03] border border-white/[0.06] px-4 py-3">
                       <p class="text-xs text-gray-400 italic" x-text="jobDrawerData.description"></p>
@@ -1152,14 +1151,11 @@
                         </dl>
                       </div>
                     </template>
-                  </div>
-                </template>
+                </div>
 
                 <!-- ---- TRIGGERS TAB ---- -->
-                <template x-if="jobDrawerTab === 'triggers'">
-                  <div class="space-y-3">
-                    <template x-if="jobDrawerTriggers.length">
-                      <div class="space-y-2">
+                <div x-show="jobDrawerTab === 'triggers'" class="space-y-3">
+                    <div x-show="jobDrawerTriggers.length" class="space-y-2">
                         <template x-for="t in jobDrawerTriggers" :key="t.group + '.' + t.name">
                           <div class="rounded-lg bg-white/[0.03] border border-white/[0.06] p-4">
                             <div class="flex items-start justify-between gap-3">
@@ -1209,23 +1205,17 @@
                             </div>
                           </div>
                         </template>
-                      </div>
-                    </template>
-                    <template x-if="!jobDrawerTriggers.length">
-                      <div class="rounded-lg bg-white/[0.03] border border-white/[0.06] py-10 text-center">
+                    </div>
+                    <div x-show="!jobDrawerTriggers.length" class="rounded-lg bg-white/[0.03] border border-white/[0.06] py-10 text-center">
                         <svg class="w-8 h-8 mx-auto text-gray-600 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                         <p class="text-sm text-gray-500">No triggers</p>
                         <p class="text-xs text-gray-600 mt-1">This job runs on demand only</p>
-                      </div>
-                    </template>
-                  </div>
-                </template>
+                    </div>
+                </div>
 
                 <!-- ---- HISTORY TAB ---- -->
-                <template x-if="jobDrawerTab === 'history'">
-                  <div>
-                    <template x-if="jobDrawerHistoryLoading">
-                      <div class="space-y-2">
+                <div x-show="jobDrawerTab === 'history'">
+                    <div x-show="jobDrawerHistoryLoading" class="space-y-2">
                         <template x-for="i in 5" :key="i">
                           <div class="rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center gap-3 px-4 py-3">
                             <div class="sk w-2 h-2 rounded-full flex-shrink-0"></div>
@@ -1235,10 +1225,8 @@
                             </div>
                           </div>
                         </template>
-                      </div>
-                    </template>
-                    <template x-if="!jobDrawerHistoryLoading && jobDrawerHistory.length">
-                      <div class="space-y-1.5">
+                    </div>
+                    <div x-show="!jobDrawerHistoryLoading && jobDrawerHistory.length" class="space-y-1.5">
                         <template x-for="(h, idx) in jobDrawerHistory" :key="idx">
                           <div class="rounded-lg bg-white/[0.03] border flex items-center gap-3 px-4 py-2.5 text-xs"
                                :class="h.success === false ? 'border-red-500/20' : 'border-white/[0.06]'">
@@ -1256,21 +1244,16 @@
                             <span class="text-gray-600 flex-shrink-0" x-text="h.fireTime ? relativeTime(h.fireTime) + ' ago' : ''"></span>
                           </div>
                         </template>
-                      </div>
-                    </template>
-                    <template x-if="!jobDrawerHistoryLoading && !jobDrawerHistory.length">
-                      <div class="rounded-lg bg-white/[0.03] border border-white/[0.06] py-10 text-center">
+                    </div>
+                    <div x-show="!jobDrawerHistoryLoading && !jobDrawerHistory.length" class="rounded-lg bg-white/[0.03] border border-white/[0.06] py-10 text-center">
                         <svg class="w-8 h-8 mx-auto text-gray-600 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3"/><path d="M3.05 11a9 9 0 1 0 .5-3M3 4v4h4"/></svg>
                         <p class="text-sm text-gray-500">No history yet</p>
                         <p class="text-xs text-gray-600 mt-1">Executions will appear here after the job runs</p>
-                      </div>
-                    </template>
-                  </div>
-                </template>
+                    </div>
+                </div>
 
                 <!-- ---- LOGS TAB ---- -->
-                <template x-if="jobDrawerTab === 'logs'">
-                  <div>
+                <div x-show="jobDrawerTab === 'logs'">
                     <div x-show="jobDrawerLogsLoading" class="rounded-lg bg-white/[0.03] border border-white/[0.06] py-10 text-center text-sm text-gray-500">Loading logs...</div>
                     <div x-show="!jobDrawerLogsLoading && jobDrawerLogs.length" class="rounded-lg bg-gray-900/80 border border-white/[0.06] max-h-64 overflow-y-auto p-3 space-y-1 scrollbar-thin">
                       <template x-for="(entry, idx) in jobDrawerLogs" :key="idx">
@@ -1281,8 +1264,7 @@
                       <p class="text-sm text-gray-500">No logs yet</p>
                       <p class="text-xs text-gray-600 mt-1">Execution logs will appear after the job runs</p>
                     </div>
-                  </div>
-                </template>
+                </div>
 
               </div>
             </div>
