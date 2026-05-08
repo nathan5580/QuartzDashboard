@@ -2,10 +2,11 @@
 
 A beautiful, self-contained **Quartz.NET scheduler dashboard** — drop it into any ASP.NET Core app with two lines of code.
 
-![Dark UI](https://img.shields.io/badge/UI-Dark_Alpine.js_Tailwind-6366f1)
-![.NET](https://img.shields.io/badge/.NET-8.0%20|%209.0%20|%2010.0-512BD4)
-![NuGet](https://img.shields.io/badge/NuGet-Dot.QuartzDashboard-004880)
-![Version](https://img.shields.io/nuget/v/Dot.QuartzDashboard)
+[![NuGet](https://img.shields.io/nuget/v/Dot.QuartzDashboard?style=flat-square&logo=nuget&color=004880)](https://www.nuget.org/packages/Dot.QuartzDashboard)
+[![Downloads](https://img.shields.io/nuget/dt/Dot.QuartzDashboard?style=flat-square&logo=nuget&color=green)](https://www.nuget.org/packages/Dot.QuartzDashboard)
+[![Build](https://img.shields.io/github/actions/workflow/status/nathan5580/QuartzDashboard/dotnet.yml?branch=main&style=flat-square&logo=github)](https://github.com/nathan5580/QuartzDashboard/actions)
+[![.NET](https://img.shields.io/badge/.NET-8.0%20|%209.0%20|%2010.0-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
 ---
 
@@ -48,6 +49,7 @@ builder.Services.AddQuartzDashboard(options =>
     // History limits
     options.MaxFireHistory = 100;            // max fire records in memory
     options.MaxExecutionLogsPerJob = 50;     // max log lines per job
+    options.UseSystemFonts = false;          // true = use system fonts, skip 286KB embedded fonts
 });
 
 --- APPSETTINGS BINDING (bind a config section directly) ---

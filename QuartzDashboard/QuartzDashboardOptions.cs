@@ -72,4 +72,10 @@ public class QuartzDashboardOptions
     /// Example: <c>OnAuthorize = ctx => ctx.User.IsInRole("Admin")</c>
     /// </summary>
     public Func<HttpContext, bool>? OnAuthorize { get; set; }
+
+    /// <summary>
+    /// When true, uses the system font stack instead of embedded Inter/JetBrains Mono fonts.
+    /// Reduces package payload by ~286KB. Default: false
+    /// </summary>
+    public bool UseSystemFonts { get; set; } = false;
 }

@@ -118,7 +118,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
             }
 
             // --- SPA static files (and root /quartz/ → index.html) ---
-            await ServeStaticFile(ctx, suffixStr, basePath);
+            await ServeStaticFile(ctx, suffixStr, basePath, options);
         });
 
         // Map SignalR hub — only when app is an IEndpointRouteBuilder (WebApplication satisfies this;
@@ -345,7 +345,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
 
     // ============= Static File Serving =============
 
-    private static async Task ServeStaticFile(HttpContext ctx, string path, string basePath)
+    private static async Task ServeStaticFile(HttpContext ctx, string path, string basePath, QuartzDashboardOptions options)
     {
         var relativePath = path.TrimStart('/');
         if (string.IsNullOrEmpty(relativePath))
@@ -354,6 +354,13 @@ public static class QuartzDashboardApplicationBuilderExtensions
         var filePath = relativePath.Contains('?')
             ? relativePath[..relativePath.IndexOf('?')]
             : relativePath;
+
+        // Block font files when UseSystemFonts is enabled
+        if (options.UseSystemFonts && filePath.StartsWith("fonts/", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Response.StatusCode = 404;
+            return;
+        }
 
         var fileInfo = EmbeddedFiles.GetFileInfo(filePath);
 
@@ -366,7 +373,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
 
             if (filePath == "index.html")
             {
-                await ServeIndexHtml(ctx, basePath);
+                await ServeIndexHtml(ctx, basePath, options);
                 return;
             }
 
@@ -376,14 +383,14 @@ public static class QuartzDashboardApplicationBuilderExtensions
         {
             ctx.Response.ContentType = "text/html; charset=utf-8";
             ctx.Response.Headers.CacheControl = "no-cache";
-            await ServeIndexHtml(ctx, basePath);
+            await ServeIndexHtml(ctx, basePath, options);
         }
     }
 
     private static readonly string AssemblyVersion =
         ThisAssembly.GetName().Version?.ToString(3) ?? "0";
 
-    private static async Task ServeIndexHtml(HttpContext ctx, string basePath)
+    private static async Task ServeIndexHtml(HttpContext ctx, string basePath, QuartzDashboardOptions options)
     {
         var fileInfo = EmbeddedFiles.GetFileInfo("index.html");
         using var stream = fileInfo.CreateReadStream();
@@ -392,6 +399,18 @@ public static class QuartzDashboardApplicationBuilderExtensions
 
         html = html.Replace("'__QUARTZ_BASE__'", $"'{basePath}'");
         html = html.Replace("__QUARTZ_VERSION__", AssemblyVersion);
+
+        if (options.UseSystemFonts)
+        {
+            // Inject a style override that uses system fonts instead of embedded woff2
+            const string systemFontOverride = """
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important; }
+              .mono { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace !important; }
+            </style>
+            """;
+            html = html.Replace("</head>", systemFontOverride + "</head>");
+        }
 
         ctx.Response.ContentType = "text/html; charset=utf-8";
         await ctx.Response.WriteAsync(html);
