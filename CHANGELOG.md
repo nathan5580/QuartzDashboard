@@ -2,7 +2,14 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
-## [2.1.35] — 2026-05-08
+## [2.1.36] — 2026-05-08
+
+### Fixed
+- **Graph x-axis mixed timestamp formats** — `executionBuckets` from `/api/stats` now returns `minute` as a full ISO 8601 timestamp (`ToString("o")`) instead of `"HH:mm"`. Previously live-mode padding used `toISOString()` while real buckets used `"09:52"` format, making labels render inconsistently (some as "11:48 AM", others as "09:52" raw). Now all points parse via `new Date(isoString)` and format uniformly.
+- **Health page failure chart labels** — added `Label` (`"HH:mm"`) field to execution bucket response. Health chart template was already using `bucket.label` but the field was missing from the API response, causing all axis labels to be empty. Both `minute` (ISO for JS date math) and `label` (short display string) are now returned.
+- **Graph padding `label` field** — zero-pad buckets now include a `label` field alongside `minute` so they are consistent with real buckets.
+
+
 
 ### Fixed
 - **Bar chart x-axis alignment** — bars in the Graph page bar-chart mode are now centered directly under their corresponding x-axis time labels. Previously `barRects` used `i/n` positioning while labels used `i/(n-1)`, causing a visible horizontal offset. All modes (bar, line, area, heatmap) now share consistent coordinate mapping.

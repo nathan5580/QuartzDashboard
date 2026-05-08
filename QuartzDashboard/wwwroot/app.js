@@ -1573,7 +1573,8 @@
             const now = Date.now();
             const pad = [];
             for (let i = this.graphTimeRange - data.length; i > 0; i--) {
-              pad.push({ minute: new Date(now - i * 60000).toISOString(), count: 0, avgDurationMs: 0, errorRate: 0 });
+              const d = new Date(now - i * 60000);
+              pad.push({ minute: d.toISOString(), label: d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }), count: 0, avgDurationMs: 0, errorRate: 0 });
             }
             data = [...pad, ...data];
           }

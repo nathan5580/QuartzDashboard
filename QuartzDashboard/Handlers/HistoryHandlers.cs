@@ -66,7 +66,8 @@ internal static class HistoryHandlers
                     : 0;
                 return new
                 {
-                    Minute = b.Timestamp.ToString("HH:mm"),
+                    Minute = b.Timestamp.ToString("o"),
+                    Label = b.Timestamp.ToString("HH:mm"),
                     Count = b.ExecutionCount,
                     AvgDurationMs = b.ExecutionCount > 0
                         ? Math.Round(b.TotalDurationMs / b.ExecutionCount, 1)
