@@ -107,4 +107,61 @@ public class EmbeddedAssetsTests : IClassFixture<QuartzTestFixture>
         var html = await response.Content.ReadAsStringAsync();
         Assert.Contains("alpine.min.js", html);
     }
+
+    [Fact]
+    public async Task IndexHtml_DoesNotReferenceTailwindCdn()
+    {
+        var response = await _client.GetAsync("/quartz/");
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("cdn.tailwindcss.com", html);
+    }
+
+    [Fact]
+    public async Task IndexHtml_DoesNotReferenceGoogleFontsCdn()
+    {
+        var response = await _client.GetAsync("/quartz/");
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("fonts.googleapis.com", html);
+    }
+
+    [Fact]
+    public async Task IndexHtml_ReferencesEmbeddedTailwindCss()
+    {
+        var response = await _client.GetAsync("/quartz/");
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("tailwind.css", html);
+    }
+
+    [Fact]
+    public async Task IndexHtml_HasXCloakForNoFouc()
+    {
+        var response = await _client.GetAsync("/quartz/");
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("x-cloak", html);
+    }
+
+    [Fact]
+    public async Task TailwindCss_IsServedAsEmbeddedResource()
+    {
+        var response = await _client.GetAsync("/quartz/tailwind.css");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains(".bg-gray-950", content);
+    }
+
+    [Fact]
+    public async Task Fonts_InterIsServedAsEmbeddedResource()
+    {
+        var response = await _client.GetAsync("/quartz/fonts/inter-latin.woff2");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.Content.Headers.ContentLength > 10000);
+    }
+
+    [Fact]
+    public async Task Fonts_JetBrainsMonoIsServedAsEmbeddedResource()
+    {
+        var response = await _client.GetAsync("/quartz/fonts/jetbrains-mono-latin.woff2");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.Content.Headers.ContentLength > 10000);
+    }
 }
