@@ -80,6 +80,15 @@ builder.Services.AddQuartz(q =>
         .WithIdentity(new JobKey("ManualNotification"))
         .WithDescription("On-demand push notification — trigger me from the dashboard!")
         .StoreDurably());
+
+    // Job 6: randomly failing — populates Health page error data
+    var jobKey6 = new JobKey("UnstableImport");
+    q.AddJob<UnstableImportJob>(opts => opts.WithIdentity(jobKey6));
+    q.AddTrigger(opts => opts
+        .ForJob(jobKey6)
+        .WithIdentity("UnstableImport-trigger")
+        .WithDescription("Flaky import that fails ~30% of the time")
+        .WithSimpleSchedule(x => x.WithIntervalInSeconds(20).RepeatForever()));
 });
 
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
@@ -115,6 +124,7 @@ Console.WriteLine("║   ├─ HealthCheck         (every 15s, 300ms)  ║");
 Console.WriteLine("║   ├─ CacheWarmup         (every 30s, 1-3s)   ║");
 Console.WriteLine("║   ├─ ReportGeneration    (every 2min, 5s)    ║");
 Console.WriteLine("║   ├─ DataSync            (CRON 0/30)         ║");
+Console.WriteLine("║   ├─ UnstableImport      (every 20s, ~30% fail) ║");
 Console.WriteLine("║   └─ ManualNotification  (trigger via UI)    ║");
 Console.WriteLine("╚══════════════════════════════════════════════╝");
 app.Run($"http://localhost:{port}");
@@ -175,5 +185,23 @@ public class ManualNotificationJob(ILogger<ManualNotificationJob> logger) : IJob
         logger.LogInformation("[ManualNotification] Sending push notification...");
         await Task.Delay(200);
         logger.LogInformation("[ManualNotification] Notification sent!");
+    }
+}
+
+/// <summary>Unstable import — fails ~30% of the time to populate Health page error data</summary>
+public class UnstableImportJob(ILogger<UnstableImportJob> logger) : IJob
+{
+    public async Task Execute(IJobExecutionContext context)
+    {
+        logger.LogInformation("[UnstableImport] Starting data import...");
+        await Task.Delay(Random.Shared.Next(300, 800));
+
+        if (Random.Shared.Next(100) < 30)
+        {
+            logger.LogError("[UnstableImport] Import failed — connection timeout");
+            throw new JobExecutionException("Simulated connection timeout to external API");
+        }
+
+        logger.LogInformation("[UnstableImport] Import completed successfully");
     }
 }
