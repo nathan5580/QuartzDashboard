@@ -4,9 +4,9 @@
         currentPage: 'overview',
         sidebarOpen: true,
         lastRefreshed: null,
-        loading: { global: false, jobs: false, triggers: false, executing: false, history: false, stats: false, timeline: false },
-        errors: { jobs: null, triggers: null, executing: null, history: null, stats: null, timeline: null },
-        retryCounts: { jobs: 0, triggers: 0, executing: 0, history: 0, stats: 0, timeline: 0 },
+        loading: { global: false, jobs: false, triggers: false, executing: false, history: false, stats: false, timeline: false, calendars: false },
+        errors: { jobs: null, triggers: null, executing: null, history: null, stats: null, timeline: null, calendars: null },
+        retryCounts: { jobs: 0, triggers: 0, executing: 0, history: 0, stats: 0, timeline: 0, calendars: 0 },
         maxRetries: 3,
         retryDelay: 3000,
         scheduler: { isStarted: false, isStandbyMode: false, numberOfJobsExecuted: 0 },
@@ -18,6 +18,8 @@
         historyTotal: 0,
         historyOffset: 0,
         historyLimit: 50,
+        historyCurrentPage: 1,
+        historyPageSize: 50,
         stats: {},
         executionBuckets: [],
         toast: { show: false, message: '', type: 'info' },
@@ -47,6 +49,9 @@
         // Job run result feedback
         pendingTriggers: {},
         jobFlash: {},
+        showTriggerJobModal: false,
+        triggerJobTarget: null,
+        triggerJobDataMap: [],
 
         // Stats trend
         statsPrev: null,
@@ -92,6 +97,7 @@
             history: true,
             graph: true,
             timeline: true,
+            calendars: true,
             settings: false
           }
         },
@@ -102,6 +108,8 @@
         jobDrawerTab: 'overview',
         jobDrawerHistory: [],
         jobDrawerHistoryLoading: false,
+        jobDrawerLogs: [],
+        jobDrawerLogsLoading: false,
         showJobDetailModal: false,
         jobDetailData: null,
         jobDetailTab: 'metadata',
@@ -132,6 +140,7 @@
           this.jobDrawerData = job;
           this.jobDrawerTab = 'overview';
           this.jobDrawerHistory = [];
+          this.jobDrawerLogs = [];
           this.showJobDrawer = true;
           this.loadJobDrawerHistory(job.group, job.name);
           document.body.style.overflow = 'hidden';
@@ -140,18 +149,25 @@
           this.showJobDrawer = false;
           this.jobDrawerData = null;
           this.jobDrawerHistory = [];
+          this.jobDrawerLogs = [];
           document.body.style.overflow = '';
         },
         async loadJobDrawerHistory(group, name) {
           this.jobDrawerHistoryLoading = true;
           try {
-            // Filter local history by job name
-            const key = group + '.' + name;
-            this.jobDrawerHistory = (this.history || []).filter(h =>
-              h.jobKey && h.jobKey.toLowerCase() === key.toLowerCase()
-            ).slice(0, 20);
+            const key = encodeURIComponent(group + '.' + name);
+            const resp = await this.fetchApi('/history?job=' + key + '&limit=50');
+            this.jobDrawerHistory = Array.isArray(resp?.data) ? resp.data : [];
           } catch(e) { this.jobDrawerHistory = []; }
           this.jobDrawerHistoryLoading = false;
+        },
+        async loadJobDrawerLogs(group, name) {
+          this.jobDrawerLogsLoading = true;
+          try {
+            const resp = await this.fetchApi('/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name) + '/logs');
+            this.jobDrawerLogs = Array.isArray(resp?.logs) ? resp.logs : [];
+          } catch(e) { this.jobDrawerLogs = []; }
+          this.jobDrawerLogsLoading = false;
         },
         copyJobJson() {
           const d = this.jobDrawerData || this.jobDetailData;
@@ -162,7 +178,7 @@
           }
         },
         triggerJobFromDrawer() {
-          if (this.jobDrawerData) this.triggerJob(this.jobDrawerData.group, this.jobDrawerData.name);
+          if (this.jobDrawerData) this.openTriggerJobModal(this.jobDrawerData.group, this.jobDrawerData.name);
         },
         pauseJobFromDrawer() {
           if (this.jobDrawerData) this.pauseJob(this.jobDrawerData.group, this.jobDrawerData.name);
@@ -209,6 +225,23 @@
           return Math.round(successes / this.history.length * 100);
         },
         get failedHistory() { return this.history ? this.history.filter(h => h.success === false) : []; },
+        get failuresByHour() {
+          const now = new Date();
+          now.setMinutes(0, 0, 0);
+          const failed = this.history ? this.history.filter(h => h.success === false && h.fireTime) : [];
+          const buckets = [];
+          for (let i = 23; i >= 0; i--) {
+            const start = new Date(now.getTime() - i * 60 * 60 * 1000);
+            const end = new Date(start.getTime() + 60 * 60 * 1000);
+            let count = 0;
+            for (const item of failed) {
+              const time = new Date(item.fireTime).getTime();
+              if (time >= start.getTime() && time < end.getTime()) count++;
+            }
+            buckets.push({ hour: 23 - i, count: count, label: start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) });
+          }
+          return buckets;
+        },
         get poolUtilization() {
           const poolSize = this.scheduler.threadPoolSize || 10;
           const active = this.executingJobs.length;
@@ -230,7 +263,8 @@
           { key: '6', label: 'Graph' },
           { key: '7', label: 'Timeline' },
           { key: '8', label: 'Health' },
-          { key: '9', label: 'Settings' },
+          { key: '9', label: 'Calendars' },
+          { key: 'S', label: 'Settings' },
           { key: 'J/K', label: 'Prev / Next row' },
         ],
 
@@ -251,6 +285,8 @@
 
         // ========================= CREATE TRIGGER MODAL =========================
         showCreateTriggerModal: false,
+        showEditTriggerModal: false,
+        editTriggerData: null,
         newTrigger: {
           name: '',
           group: 'DEFAULT',
@@ -264,6 +300,16 @@
           priority: 5,
           startTimeUtc: '',
           endTimeUtc: ''
+        },
+
+        // ========================= CALENDARS =========================
+        calendars: [],
+        showCreateCalendarModal: false,
+        newCalendar: {
+          name: '',
+          type: 'holiday',
+          cronExpression: '',
+          description: ''
         },
 
         // ========================= DELETE CONFIRM =========================
@@ -289,7 +335,8 @@
           { id: 'graph', label: 'Graph', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>' },
           { id: 'timeline', label: 'Timeline', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="12" x2="21" y2="12"/><polyline points="8 7 3 12 8 17"/><polyline points="16 7 21 12 16 17"/></svg>' },
           { id: 'health', label: 'Health', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>' },
-        { id: 'settings', label: 'Settings', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>' },
+          { id: 'calendars', label: 'Calendars', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' },
+          { id: 'settings', label: 'Settings', icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>' },
         ],
 
         // ========================= COMPUTED =========================
@@ -338,6 +385,27 @@
             list = list.filter(h => h.fireTime && new Date(h.fireTime).getTime() <= to);
           }
           return list;
+        },
+
+        get historyPageCount() {
+          const pageSize = Math.max(this.historyPageSize || this.historyLimit || 50, 1);
+          const total = this.historyTotal || 0;
+          return Math.max(1, Math.ceil(total / pageSize));
+        },
+
+        get historyPageNumbers() {
+          const total = this.historyPageCount;
+          const current = this.historyCurrentPage;
+          if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+          const items = [1];
+          const start = Math.max(2, current - 1);
+          const end = Math.min(total - 1, current + 1);
+          if (start > 2) items.push('…');
+          for (let page = start; page <= end; page++) items.push(page);
+          if (end < total - 1) items.push('…');
+          items.push(total);
+          return items;
         },
 
         // Flat list: header items + job items interleaved.
@@ -487,6 +555,30 @@
           return { total, success, failed: total - success, avgDur };
         },
 
+        getChartColors() {
+          return this.lightMode
+            ? {
+                primary: '#4f46e5',
+                text: '#374151',
+                muted: '#6b7280',
+                grid: 'rgba(17,24,39,0.08)',
+                border: 'rgba(17,24,39,0.12)',
+                panel: 'rgba(255,255,255,0.72)',
+                rowAlt: 'rgba(79,70,229,0.04)',
+                crosshair: 'rgba(55,65,81,0.18)'
+              }
+            : {
+                primary: '#818cf8',
+                text: '#9ca3af',
+                muted: '#4b5563',
+                grid: 'rgba(255,255,255,0.05)',
+                border: 'rgba(255,255,255,0.06)',
+                panel: 'rgba(0,0,0,0.2)',
+                rowAlt: 'rgba(255,255,255,0.014)',
+                crosshair: 'rgba(255,255,255,0.1)'
+              };
+        },
+
         // Render timeline Gantt chart via innerHTML (bypasses Alpine SVG namespace issues)
         updateTimelineChart() {
           const el = this.$refs && this.$refs.timelineChartWrap;
@@ -505,6 +597,7 @@
           const now = Date.now();
           const rangeMs = this.timelineRangeMs;
           const leftTime = now - rangeMs;
+          const chartColors = this.getChartColors();
 
           // Per-job color palette
           const colorPalette = ['#818cf8','#34d399','#fbbf24','#f87171','#c084fc','#38bdf8','#fb923c'];
@@ -517,7 +610,7 @@
 
           const rowBg = labels.map((label, idx) => {
             const y = 8 + idx * rowH;
-            return `<rect x="0" y="${y}" width="${w}" height="${rowH - 1}" fill="${idx % 2 === 0 ? 'rgba(255,255,255,0.014)' : 'rgba(0,0,0,0)'}"/>`;
+            return `<rect x="0" y="${y}" width="${w}" height="${rowH - 1}" fill="${idx % 2 === 0 ? chartColors.rowAlt : 'rgba(0,0,0,0)'}"/>`;
           }).join('');
 
           const rowLabels = labels.map((label, idx) => {
@@ -529,13 +622,13 @@
             const truncated = jobName.length > 16 ? jobName.slice(0, 15) + '…' : jobName;
             return `
               <rect x="3" y="${y + 10}" width="3" height="${rowH - 20}" rx="1.5" fill="${color}" fill-opacity="0.85"/>
-              <text x="12" y="${y + rowH / 2 - 5}" dominant-baseline="middle" fill="rgba(209,213,219,1)" font-size="11" font-family="ui-monospace,monospace">${truncated}</text>
-              <text x="12" y="${y + rowH / 2 + 9}" dominant-baseline="middle" fill="rgba(75,85,99,1)" font-size="9" font-family="ui-monospace,monospace">${groupName}</text>
+              <text x="12" y="${y + rowH / 2 - 5}" dominant-baseline="middle" fill="${chartColors.text}" font-size="11" font-family="ui-monospace,monospace">${truncated}</text>
+              <text x="12" y="${y + rowH / 2 + 9}" dominant-baseline="middle" fill="${chartColors.muted}" font-size="9" font-family="ui-monospace,monospace">${groupName}</text>
               <text x="${labelW - 6}" y="${y + rowH / 2 + 1}" text-anchor="end" dominant-baseline="middle" fill="${color}" font-size="9" font-family="ui-monospace,monospace" opacity="0.9">${count}×</text>`;
           }).join('');
 
           const vGridLines = gridLines.map(gl =>
-            `<line x1="${labelW + gl.x}" y1="0" x2="${labelW + gl.x}" y2="${chartH - axisH}" stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="2,3"/>`
+            `<line x1="${labelW + gl.x}" y1="0" x2="${labelW + gl.x}" y2="${chartH - axisH}" stroke="${chartColors.grid}" stroke-width="1" stroke-dasharray="2,3"/>`
           ).join('');
 
           // Build gradient defs per job
@@ -590,15 +683,15 @@
           }).join('');
 
           const nowX = labelW + chartWidth;
-          const nowLine = `<line x1="${nowX}" y1="0" x2="${nowX}" y2="${chartH - axisH}" stroke="#6366f1" stroke-width="2" stroke-dasharray="4,3" opacity="0.9"/>
-            <text x="${nowX - 3}" y="${chartH - axisH - 4}" text-anchor="end" fill="#818cf8" font-size="8" font-family="ui-monospace,monospace" opacity="0.8">now</text>`;
+          const nowLine = `<line x1="${nowX}" y1="0" x2="${nowX}" y2="${chartH - axisH}" stroke="${chartColors.primary}" stroke-width="2" stroke-dasharray="4,3" opacity="0.9"/>
+            <text x="${nowX - 3}" y="${chartH - axisH - 4}" text-anchor="end" fill="${chartColors.primary}" font-size="8" font-family="ui-monospace,monospace" opacity="0.8">now</text>`;
 
           const axisLabels = gridLines.map(gl =>
-            `<text x="${labelW + gl.x}" y="${chartH - axisH + 18}" text-anchor="middle" fill="rgba(75,85,99,1)" font-size="9" font-family="ui-monospace,monospace">${gl.label}</text>`
+            `<text x="${labelW + gl.x}" y="${chartH - axisH + 18}" text-anchor="middle" fill="${chartColors.muted}" font-size="9" font-family="ui-monospace,monospace">${gl.label}</text>`
           ).join('');
 
           // Separator line between label panel and chart area
-          const separator = `<line x1="${labelW}" y1="0" x2="${labelW}" y2="${chartH - axisH}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
+          const separator = `<line x1="${labelW}" y1="0" x2="${labelW}" y2="${chartH - axisH}" stroke="${chartColors.border}" stroke-width="1"/>`;
 
           el.innerHTML = `<svg width="${w}" height="${chartH}" style="width:100%;display:block;overflow:visible">
             <defs>
@@ -606,7 +699,7 @@
               ${gradDefs}
             </defs>
             ${rowBg}
-            <rect x="0" y="0" width="${labelW}" height="${chartH - axisH}" fill="rgba(0,0,0,0.2)"/>
+            <rect x="0" y="0" width="${labelW}" height="${chartH - axisH}" fill="${chartColors.panel}"/>
             ${rowLabels}
             ${separator}
             <g clip-path="url(#tl-clip)">
@@ -614,7 +707,7 @@
               ${bars}
               ${nowLine}
             </g>
-            <line x1="0" y1="${chartH - axisH}" x2="${w}" y2="${chartH - axisH}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+            <line x1="0" y1="${chartH - axisH}" x2="${w}" y2="${chartH - axisH}" stroke="${chartColors.border}" stroke-width="1"/>
             ${axisLabels}
           </svg>`;
 
@@ -661,7 +754,10 @@
             if (saved.sidebarOpen !== undefined) this.sidebarOpen = saved.sidebarOpen;
             if (saved.graphChartMode) this.graphChartMode = saved.graphChartMode;
             if (saved.refreshInterval) this.settings.refreshInterval = saved.refreshInterval;
-            if (saved.historyLimit) this.historyLimit = saved.historyLimit;
+            if (saved.historyLimit) {
+              this.historyLimit = saved.historyLimit;
+              this.historyPageSize = saved.historyLimit;
+            }
             if (saved.collapsedGroups && Object.values(saved.collapsedGroups).some(v => !v)) {
               // Only restore if at least one group is NOT collapsed (avoid all-collapsed corrupted state)
               this.collapsedGroups = saved.collapsedGroups;
@@ -1021,7 +1117,7 @@
           if (cmd.action === 'navigate') {
             this.currentPage = cmd.page;
           } else if (cmd.action === 'triggerJob') {
-            this.triggerJob(cmd.group, cmd.name);
+            this.openTriggerJobModal(cmd.group, cmd.name);
           }
         },
 
@@ -1039,6 +1135,10 @@
             document.body.classList.remove('light');
             localStorage.setItem('quartz-dashboard-theme', 'dark');
           }
+          this.$nextTick(() => {
+            this.updateGraphChart();
+            this.updateTimelineChart();
+          });
         },
 
         // ========================= CREATE JOB =========================
@@ -1230,6 +1330,7 @@
           }
           if (page === 'triggers') this.loadTriggers();
           if (page === 'executing') this.loadExecutingJobs();
+          if (page === 'calendars') this.loadCalendars();
           if (page === 'timeline') {
             this.loadTimeline();
             this.$nextTick(() => this.updateGraphSize());
@@ -1267,6 +1368,7 @@
             case 'graph': await this.loadStats(); break;
             case 'timeline': await this.loadTimeline(); break;
             case 'health': await this.loadHealth(); break;
+            case 'calendars': await this.loadCalendars(); break;
           }
         },
 
@@ -1301,9 +1403,25 @@
           return res.json();
         },
 
-        async postApi(path) {
+        async postApi(path, body) {
           const url = path.startsWith('http') ? path : this._api(path);
-          const res = await fetch(url, { method: 'POST' });
+          const options = { method: 'POST', headers: {} };
+          if (body !== undefined) {
+            options.headers['Content-Type'] = 'application/json';
+            options.body = JSON.stringify(body);
+          }
+          const res = await fetch(url, options);
+          if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+          return res.json();
+        },
+
+        async putApi(path, body) {
+          const url = path.startsWith('http') ? path : this._api(path);
+          const res = await fetch(url, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body || {})
+          });
           if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
           return res.json();
         },
@@ -1336,6 +1454,7 @@
           this.refreshAll();
           this.loadHistory();
           this.loadStats();
+          this.loadCalendars();
         },
 
         async refreshAll() {
@@ -1395,16 +1514,20 @@
           this.loading.executing = false;
         },
 
-        async loadHistory() {
+        async loadHistory(page) {
           this.loading.history = true;
           try {
-            this.historyOffset = 0;
-            const resp = await this.fetchApi('/history?limit=' + this.historyLimit + '&offset=0');
+            const pageSize = Math.max(this.historyPageSize || this.historyLimit || 50, 1);
+            if (page) this.historyCurrentPage = page;
+            if (this.historyCurrentPage < 1) this.historyCurrentPage = 1;
+            this.historyLimit = pageSize;
+            this.historyOffset = (this.historyCurrentPage - 1) * pageSize;
+            const resp = await this.fetchApi('/history?limit=' + pageSize + '&offset=' + this.historyOffset);
             this.history = resp.data || [];
             this.historyTotal = resp.total || 0;
             this.maxHistoryDuration = 0;
             for (const h of this.history) {
-              const d = h.duration || 0;
+              const d = h.duration || h.durationMs || 0;
               if (d > this.maxHistoryDuration) this.maxHistoryDuration = d;
             }
             if (this.maxHistoryDuration === 0) this.maxHistoryDuration = 5000;
@@ -1413,16 +1536,9 @@
           this.loading.history = false;
         },
 
-        async loadMoreHistory() {
-          const nextOffset = this.historyOffset + this.historyLimit;
-          if (nextOffset >= this.historyTotal) return;
-          try {
-            const resp = await this.fetchApi('/history?limit=' + this.historyLimit + '&offset=' + nextOffset);
-            this.history = this.history.concat(resp.data || []);
-            this.historyTotal = resp.total || 0;
-            this.historyOffset = nextOffset;
-            this.errors.history = null;
-          } catch (e) { this.showToast('Failed to load more history: ' + e.message, 'error'); }
+        async historyGoToPage(page) {
+          if (page < 1 || page > this.historyPageCount || page === this.historyCurrentPage) return;
+          await this.loadHistory(page);
         },
 
         async loadStats() {
@@ -1492,11 +1608,36 @@
           this.loading.global = false;
         },
 
+        openTriggerJobModal(group, name) {
+          this.triggerJobTarget = { group: group, name: name };
+          this.triggerJobDataMap = [{ key: '', value: '' }];
+          this.showTriggerJobModal = true;
+        },
+
+        closeTriggerJobModal() {
+          this.showTriggerJobModal = false;
+          this.triggerJobTarget = null;
+          this.triggerJobDataMap = [];
+        },
+
+        addTriggerJobParam() {
+          this.triggerJobDataMap.push({ key: '', value: '' });
+        },
+
+        removeTriggerJobParam(index) {
+          this.triggerJobDataMap.splice(index, 1);
+          if (!this.triggerJobDataMap.length) this.triggerJobDataMap = [{ key: '', value: '' }];
+        },
+
         async triggerJob(group, name) {
           try {
-            await this.postApi('/jobs/' + group + '/' + name + '/trigger');
+            const payload = {
+              dataMap: Object.fromEntries((this.triggerJobDataMap || []).filter(e => e.key).map(e => [e.key, e.value ?? '']))
+            };
+            await this.postApi('/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name) + '/trigger', payload);
             this.pendingTriggers[group + '.' + name] = Date.now();
             this.showToast('Triggered ' + group + '.' + name, 'success');
+            this.closeTriggerJobModal();
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
         },
 
@@ -1541,6 +1682,94 @@
             await this.loadTriggers();
             this.showToast('Resumed trigger ' + group + '.' + name, 'success');
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
+        openEditTrigger(trigger) {
+          this.editTriggerData = {
+            group: trigger.group,
+            name: trigger.name,
+            triggerType: (trigger.type || '').toLowerCase().includes('cron') ? 'cron' : 'simple',
+            cronExpression: trigger.cronExpression || '',
+            intervalSeconds: trigger.intervalSeconds || null,
+            misfireInstruction: trigger.misfireInstructionValue || 'smartPolicy'
+          };
+          this.showEditTriggerModal = true;
+        },
+
+        async saveEditTrigger() {
+          if (!this.editTriggerData) return;
+          try {
+            const body = {
+              cronExpression: this.editTriggerData.triggerType === 'cron' ? this.editTriggerData.cronExpression : null,
+              intervalSeconds: this.editTriggerData.triggerType === 'simple' ? this.editTriggerData.intervalSeconds : null,
+              misfireInstruction: this.editTriggerData.misfireInstruction
+            };
+            await this.putApi('/triggers/' + encodeURIComponent(this.editTriggerData.group) + '/' + encodeURIComponent(this.editTriggerData.name), body);
+            this.showEditTriggerModal = false;
+            this.editTriggerData = null;
+            await this.loadTriggers();
+            this.showToast('Trigger updated', 'success');
+          } catch (e) { this.showToast('Failed to update trigger: ' + e.message, 'error'); }
+        },
+
+        getMisfireOptions(triggerType) {
+          if (triggerType === 'cron') {
+            return [
+              { value: 'smartPolicy', label: 'SmartPolicy' },
+              { value: 'fireOnceNow', label: 'FireOnceNow' },
+              { value: 'doNothing', label: 'DoNothing' },
+              { value: 'ignoreMisfirePolicy', label: 'IgnoreMisfirePolicy' }
+            ];
+          }
+          return [
+            { value: 'smartPolicy', label: 'SmartPolicy' },
+            { value: 'fireNow', label: 'FireNow' },
+            { value: 'rescheduleNowWithExistingCount', label: 'RescheduleNowWithExistingCount' },
+            { value: 'rescheduleNowWithRemainingCount', label: 'RescheduleNowWithRemainingCount' },
+            { value: 'rescheduleNextWithRemainingCount', label: 'RescheduleNextWithRemainingCount' },
+            { value: 'rescheduleNextWithExistingCount', label: 'RescheduleNextWithExistingCount' },
+            { value: 'ignoreMisfirePolicy', label: 'IgnoreMisfirePolicy' }
+          ];
+        },
+
+        async loadCalendars() {
+          this.loading.calendars = true;
+          try {
+            const resp = await this.fetchApi('/calendars');
+            this.calendars = Array.isArray(resp) ? resp : (resp.data || []);
+            this.errors.calendars = null;
+            this.retryCounts.calendars = 0;
+          } catch (e) {
+            console.error('loadCalendars:', e);
+            this.errors.calendars = e.message;
+            this.showToast('Failed to load calendars: ' + e.message, 'error');
+          }
+          this.loading.calendars = false;
+        },
+
+        async createCalendar() {
+          try {
+            const body = {
+              name: this.newCalendar.name,
+              type: this.newCalendar.type,
+              description: this.newCalendar.description,
+              cronExpression: this.newCalendar.type === 'cron' ? this.newCalendar.cronExpression : null
+            };
+            await this.postApi('/calendars', body);
+            this.showCreateCalendarModal = false;
+            this.newCalendar = { name: '', type: 'holiday', cronExpression: '', description: '' };
+            await this.loadCalendars();
+            this.showToast('Calendar created', 'success');
+          } catch (e) { this.showToast('Failed to create calendar: ' + e.message, 'error'); }
+        },
+
+        async deleteCalendar(name) {
+          try {
+            const res = await fetch(this._api('/calendars/' + encodeURIComponent(name)), { method: 'DELETE' });
+            if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+            await this.loadCalendars();
+            this.showToast('Calendar deleted', 'success');
+          } catch (e) { this.showToast('Failed to delete calendar: ' + e.message, 'error'); }
         },
 
         // ========================= UI HELPERS =========================
@@ -1640,13 +1869,14 @@
           try { xLabels = ChartEngine.xAxisTimeLabels(data, 'minute', w, margin, 8); } catch(_){}
 
           const xScale = ChartEngine.scaleLinear(margin.left, w - margin.right, 0, data.length - 1);
+          const chartColors = this.getChartColors();
 
           const gridLines = yTicks.map(t =>
-            `<line x1="${margin.left}" y1="${t.y.toFixed(1)}" x2="${w - margin.right}" y2="${t.y.toFixed(1)}" stroke="rgba(255,255,255,0.04)" stroke-width="0.5" stroke-dasharray="3,3"/>`
+            `<line x1="${margin.left}" y1="${t.y.toFixed(1)}" x2="${w - margin.right}" y2="${t.y.toFixed(1)}" stroke="${chartColors.grid}" stroke-width="0.5" stroke-dasharray="3,3"/>`
           ).join('');
 
           const yLabels = yTicks.map(t =>
-            `<text x="${margin.left - 8}" y="${(t.y + 4).toFixed(1)}" text-anchor="end" fill="rgba(107,114,128,1)" font-size="9" font-family="ui-monospace,monospace">${t.label}</text>`
+            `<text x="${margin.left - 8}" y="${(t.y + 4).toFixed(1)}" text-anchor="end" fill="${chartColors.muted}" font-size="9" font-family="ui-monospace,monospace">${t.label}</text>`
           ).join('');
 
           const xLabelsSvg = xLabels.map(l => {
@@ -1655,10 +1885,10 @@
               const dt = new Date(label);
               if (!isNaN(dt.getTime())) label = dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
             } catch(_) {}
-            return `<text x="${l.x.toFixed(1)}" y="${h - margin.bottom + 14}" text-anchor="middle" fill="rgba(107,114,128,1)" font-size="8" font-family="ui-monospace,monospace">${label}</text>`;
+            return `<text x="${l.x.toFixed(1)}" y="${h - margin.bottom + 14}" text-anchor="middle" fill="${chartColors.muted}" font-size="8" font-family="ui-monospace,monospace">${label}</text>`;
           }).join('');
 
-          const dataSeries = this._buildGraphSeries(data, mode, w, h, margin, maxVal, maxValAxis, xScale);
+          const dataSeries = this._buildGraphSeries(data, mode, w, h, margin, maxVal, maxValAxis, xScale, chartColors);
 
           const legendY = h - margin.bottom + 34;
           const legendTextY = h - margin.bottom + 37;
@@ -1685,8 +1915,8 @@
             data-data-len="${data.length}" data-mode="${mode}">
             <defs>
               <linearGradient id="gcCountGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#818cf8" stop-opacity="0.18"/>
-                <stop offset="100%" stop-color="#818cf8" stop-opacity="0"/>
+                <stop offset="0%" stop-color="${chartColors.primary}" stop-opacity="0.18"/>
+                <stop offset="100%" stop-color="${chartColors.primary}" stop-opacity="0"/>
               </linearGradient>
               <filter id="gcGlow">
                 <feGaussianBlur stdDeviation="2" result="blur"/>
@@ -1696,20 +1926,20 @@
             <g class="gc-grid">${gridLines}</g>
             <g class="gc-yaxis">${yLabels}</g>
             <g class="gc-xaxis">${xLabelsSvg}</g>
-            <line x1="${margin.left}" y1="${h - margin.bottom}" x2="${w - margin.right}" y2="${h - margin.bottom}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+            <line x1="${margin.left}" y1="${h - margin.bottom}" x2="${w - margin.right}" y2="${h - margin.bottom}" stroke="${chartColors.border}" stroke-width="1"/>
             <g class="gc-series">${dataSeries}</g>
             <g>
-              <line x1="16" y1="${legendY}" x2="36" y2="${legendY}" stroke="#818cf8" stroke-width="2"/>
-              <text x="40" y="${legendTextY}" fill="rgba(156,163,175,1)" font-size="9">Count</text>
+              <line x1="16" y1="${legendY}" x2="36" y2="${legendY}" stroke="${chartColors.primary}" stroke-width="2"/>
+              <text x="40" y="${legendTextY}" fill="${chartColors.text}" font-size="9">Count</text>
               <line x1="100" y1="${legendY}" x2="120" y2="${legendY}" stroke="#34d399" stroke-width="2" stroke-dasharray="6,3"/>
-              <text x="124" y="${legendTextY}" fill="rgba(156,163,175,1)" font-size="9">Avg Dur</text>
+              <text x="124" y="${legendTextY}" fill="${chartColors.text}" font-size="9">Avg Dur</text>
               <line x1="190" y1="${legendY}" x2="210" y2="${legendY}" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,2"/>
-              <text x="214" y="${legendTextY}" fill="rgba(156,163,175,1)" font-size="9">Errors</text>
+              <text x="214" y="${legendTextY}" fill="${chartColors.text}" font-size="9">Errors</text>
             </g>
           </svg>`;
         },
 
-        _buildGraphSeries(data, mode, w, h, margin, maxVal, maxValAxis, xScale) {
+        _buildGraphSeries(data, mode, w, h, margin, maxVal, maxValAxis, xScale, chartColors) {
           if (mode === 'line' || mode === 'area') {
             if (data.length < 2) return '';
             const yScaleCount = ChartEngine.scaleLinear(h - margin.bottom, margin.top, 0, maxVal > 0 ? maxVal : 1);
@@ -1723,13 +1953,13 @@
             const errPath = ChartEngine.smoothPath(data, null, 'errorRate', xScale, yScaleErr);
             return `
               <path d="${countArea}" fill="url(#gcCountGrad)"/>
-              <path d="${countPath}" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#gcGlow)"/>
+              <path d="${countPath}" fill="none" stroke="${chartColors.primary}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#gcGlow)"/>
               <path d="${durPath}" fill="none" stroke="#34d399" stroke-width="1.5" stroke-dasharray="6,3" stroke-linecap="round" stroke-linejoin="round"/>
               <path d="${errPath}" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>`;
           } else if (mode === 'bar') {
             const barRects = ChartEngine.barRects(data, 'count', w, h, margin);
             return barRects.map(r =>
-              `<rect x="${r.x}" y="${r.y}" width="${r.width}" height="${r.height}" rx="2" fill="#818cf8" fill-opacity="0.7"/>`
+              `<rect x="${r.x}" y="${r.y}" width="${r.width}" height="${r.height}" rx="2" fill="${chartColors.primary}" fill-opacity="0.7"/>`
             ).join('');
           } else if (mode === 'heatmap') {
             const cells = ChartEngine.heatmapCells(data, 'count', w, h, margin, 8, Math.min(data.length, 60));
@@ -1841,7 +2071,7 @@
         },
 
         async retryAllFailed() {
-          const pages = ['jobs', 'triggers', 'executing', 'history', 'stats', 'timeline'];
+          const pages = ['jobs', 'triggers', 'executing', 'history', 'stats', 'timeline', 'calendars'];
           for (const page of pages) {
             if (this.errors[page]) {
               this.errors[page] = null;
@@ -1855,6 +2085,7 @@
             this.loadHistory(),
             this.loadStats(),
             this.loadTimeline(),
+            this.loadCalendars(),
           ]);
         },
 
@@ -1911,6 +2142,16 @@
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url; a.download = 'quartz-history.csv'; a.click();
+          URL.revokeObjectURL(url);
+        },
+
+        exportHistoryJSON() {
+          const rows = this.historyFiltered || this.history;
+          const json = JSON.stringify(rows, null, 2);
+          const blob = new Blob([json], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = 'quartz-history.json'; a.click();
           URL.revokeObjectURL(url);
         },
       }         // closes return object

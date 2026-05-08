@@ -2,6 +2,27 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.1.34] — 2026-05-08
+
+### Added
+- **Job execution log viewer** — "Logs" tab in job drawer shows `ExecutionLogBuffer` entries per job (timestamped, mono-font)
+- **Per-job history via direct API** — job drawer History tab now calls `/api/history?job=X` directly (no longer limited to locally loaded rows)
+- **Reschedule / edit trigger UI** — pencil icon in trigger row opens Edit modal; supports cron expression and simple interval editing; `PUT /api/triggers/{group}/{name}` backend
+- **Job data map editor** — collapsible key-value pair editor when manually triggering a job; passes `dataMap` in POST body
+- **Refire count tracking** — `RefireCount` added to `FireRecord`; orange "R" badge shown in history table when > 0
+- **Calendar management UI** — new Calendars page in sidebar; lists all calendars, create (holiday/monthly/weekly/daily/cron/annual), delete
+- **Misfire policy display** — human-readable misfire instruction label shown in trigger rows and detail; edit via trigger modal dropdown
+- **JSON export** — "Export JSON" button next to "Export CSV" on history page; downloads `quartz-history.json`
+- **Light mode chart colors** — graph and timeline charts detect `lightMode` and switch to indigo/gray palette appropriate for light backgrounds
+- **History pagination** — replaces "Load More" with numbered page buttons (Previous / 1 2 3 … / Next); shows Page X of Y
+- **`options.WebhookUrl`** — fire-and-forget HTTP POST on job failure; zero-code alerting for Slack/webhooks/PagerDuty; body includes jobKey, error, fireTime, durationMs
+- **Health page failure chart** — 24-bar SVG chart showing failures per hour for the last 24h; bars colored by severity (none=gray, 1-2=amber, 3+=red)
+- **95 tests** (up from 93) — new coverage for trigger update fields, dataMap injection, webhookUrl config exposure
+
+### Changed
+- `HistoryHandlers.GetFireHistory` now accepts `?job=group.name` query param to filter by job key
+- Config API response now includes `historyRetentionHours`, `hasPersistentHistory`, `webhookUrl` (redacted to boolean)
+
 ## [2.1.33] — 2026-05-09
 
 ### Added

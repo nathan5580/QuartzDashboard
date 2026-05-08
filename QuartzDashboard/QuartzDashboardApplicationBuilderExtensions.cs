@@ -216,7 +216,12 @@ public static class QuartzDashboardApplicationBuilderExtensions
             else if (method == "GET" && route is ["jobs", _, _])
                 result = await JobHandlers.GetJobDetail(sched, route[1], route[2]);
             else if (method == "POST" && route is ["jobs", _, _, "trigger"])
-                result = await JobHandlers.TriggerJob(sched, route[1], route[2], options);
+            {
+                Models.TriggerJobRequest? req = null;
+                if (ctx.Request.ContentLength > 0)
+                    req = await ctx.Request.ReadFromJsonAsync<Models.TriggerJobRequest>();
+                result = await JobHandlers.TriggerJob(sched, route[1], route[2], req, options);
+            }
             else if (method == "POST" && route is ["jobs", _, _, "pause"])
                 result = await JobHandlers.PauseJob(sched, route[1], route[2], options);
             else if (method == "POST" && route is ["jobs", _, _, "resume"])
@@ -280,6 +285,12 @@ public static class QuartzDashboardApplicationBuilderExtensions
                 var req = await ctx.Request
                     .ReadFromJsonAsync<Models.CreateTriggerRequest>();
                 result = await TriggerHandlers.CreateTrigger(sched, req, options);
+            }
+            else if (method == "PUT" && route is ["triggers", _, _])
+            {
+                var req = await ctx.Request
+                    .ReadFromJsonAsync<Models.UpdateTriggerRequest>();
+                result = await TriggerHandlers.UpdateTrigger(sched, route[1], route[2], req, options);
             }
             else if (method == "DELETE" && route is ["triggers", _, _])
                 result = await TriggerHandlers.DeleteTrigger(sched, route[1], route[2], options);

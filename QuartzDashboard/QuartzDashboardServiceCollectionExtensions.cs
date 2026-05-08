@@ -22,6 +22,7 @@ public static class QuartzDashboardServiceCollectionExtensions
         var options = new QuartzDashboardOptions();
         configure?.Invoke(options);
         services.AddSingleton(options);
+        services.AddHttpClient();
 
         // Fire history store — file-backed if PersistHistoryPath is set, otherwise in-memory
         if (!string.IsNullOrWhiteSpace(options.PersistHistoryPath))
@@ -67,6 +68,7 @@ internal sealed class DashboardListenerAttacher(
     ExecutionLogBuffer? logBuffer,
     ExecutionBucketService? bucketService,
     QuartzDashboardOptions options,
+    IHttpClientFactory? httpClientFactory,
     ILogger<DashboardListenerAttacher> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken ct)
@@ -74,7 +76,13 @@ internal sealed class DashboardListenerAttacher(
         try
         {
             var scheduler = await schedulerFactory.GetScheduler(ct);
-            scheduler.ListenerManager.AddJobListener(new DashboardJobListener(eventBus, fireHistoryStore, logBuffer, bucketService, options.OnJobFailed));
+            scheduler.ListenerManager.AddJobListener(new DashboardJobListener(
+                eventBus,
+                fireHistoryStore,
+                logBuffer,
+                bucketService,
+                options,
+                httpClientFactory));
             scheduler.ListenerManager.AddSchedulerListener(schedulerListener);
             logger.LogDebug("QuartzDashboard listeners attached");
         }
@@ -92,7 +100,8 @@ internal sealed class DashboardJobListener(
     IFireHistoryStore fireHistoryStore,
     ExecutionLogBuffer? logBuffer,
     ExecutionBucketService? bucketService,
-    Func<string, Exception, Task>? onJobFailed = null) : IJobListener
+    QuartzDashboardOptions options,
+    IHttpClientFactory? httpClientFactory) : IJobListener
 {
     public string Name => "QuartzDashboardListener";
 
@@ -126,7 +135,7 @@ internal sealed class DashboardJobListener(
         var success = jobException == null;
 
         // Record to fire history store
-        fireHistoryStore.RecordFire(jobKey, triggerKey, context.FireTimeUtc, duration, success);
+        fireHistoryStore.RecordFire(jobKey, triggerKey, context.FireTimeUtc, duration, success, context.RefireCount);
 
         // Update in-memory execution stats (buckets)
         bucketService?.Record(duration, success);
@@ -139,14 +148,43 @@ internal sealed class DashboardJobListener(
         // Publish to event bus for SignalR
         eventBus.Publish(new JobExecutedEvent(jobKey, triggerKey, context.FireInstanceId, duration, success, context.FireTimeUtc));
 
-        // Fire OnJobFailed callback if registered
-        if (!success && onJobFailed != null && jobException != null)
+        if (!success && jobException != null)
         {
-            _ = Task.Run(async () =>
+            if (options.OnJobFailed != null)
             {
-                try { await onJobFailed(jobKey, jobException); }
-                catch { /* never propagate callback exceptions */ }
-            });
+                _ = Task.Run(async () =>
+                {
+                    try { await options.OnJobFailed(jobKey, jobException); }
+                    catch { /* never propagate callback exceptions */ }
+                });
+            }
+
+            if (!string.IsNullOrWhiteSpace(options.WebhookUrl) && httpClientFactory != null)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var payload = System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            jobKey,
+                            triggerKey,
+                            error = jobException.Message,
+                            fireTime = context.FireTimeUtc,
+                            durationMs = Math.Round(duration.TotalMilliseconds),
+                            refireCount = context.RefireCount,
+                        });
+
+                        using var client = httpClientFactory.CreateClient();
+                        using var content = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
+                        await client.PostAsync(options.WebhookUrl, content, CancellationToken.None).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        // never propagate webhook exceptions
+                    }
+                });
+            }
         }
 
         return Task.CompletedTask;

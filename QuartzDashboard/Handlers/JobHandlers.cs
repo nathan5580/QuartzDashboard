@@ -49,6 +49,10 @@ internal static class JobHandlers
                     if (nft.HasValue && (!nearestNextFire.HasValue || nft < nearestNextFire))
                         nearestNextFire = nft;
 
+                    var cronTrigger = t as ICronTrigger;
+                    var isCron = cronTrigger != null;
+                    var simpleTrigger = t as ISimpleTrigger;
+
                     triggerData.Add(new
                     {
                         Name = t.Key.Name,
@@ -58,6 +62,12 @@ internal static class JobHandlers
                         NextFireTime = nft,
                         LastFireTime = t.GetPreviousFireTimeUtc(),
                         ScheduleDescription = ScheduleHelper.GetScheduleDescription(t),
+                        Priority = t.Priority,
+                        CronExpression = cronTrigger?.CronExpressionString,
+                        IntervalSeconds = simpleTrigger != null ? (int?)Math.Max(1, (int)Math.Round(simpleTrigger.RepeatInterval.TotalSeconds)) : null,
+                        RepeatCount = simpleTrigger?.RepeatCount,
+                        MisfireInstruction = TriggerHandlers.MisfireInstructionName(t.MisfireInstruction, isCron),
+                        MisfireInstructionValue = TriggerHandlers.MisfireInstructionValue(t.MisfireInstruction, isCron),
                     });
                 }
 
@@ -112,32 +122,56 @@ internal static class JobHandlers
             ConcurrentExecutionDisallowed = detail.ConcurrentExecutionDisallowed,
             JobDataMap = detail.JobDataMap.WrappedMap
                 .ToDictionary(k => k.Key.ToString(), k => k.Value?.ToString() ?? ""),
-            Triggers = triggers.Select(t => new
+            Triggers = triggers.Select(t =>
             {
-                Name = t.Key.Name,
-                Group = t.Key.Group,
-                Type = t.GetType().Name.Replace("Impl", ""),
-                StartTime = t.StartTimeUtc,
-                EndTime = t.EndTimeUtc,
-                LastFireTime = t.GetPreviousFireTimeUtc(),
-                NextFireTime = t.GetNextFireTimeUtc(),
-                MayFireAgain = t.GetMayFireAgain(),
-                Description = t.Description ?? "",
-                CalendarName = t.CalendarName ?? "",
-                FinalFireTime = t.FinalFireTimeUtc,
+                var cronTrigger = t as ICronTrigger;
+                var isCron = cronTrigger != null;
+                var simpleTrigger = t as ISimpleTrigger;
+                return new
+                {
+                    Name = t.Key.Name,
+                    Group = t.Key.Group,
+                    Type = t.GetType().Name.Replace("Impl", ""),
+                    StartTime = t.StartTimeUtc,
+                    EndTime = t.EndTimeUtc,
+                    LastFireTime = t.GetPreviousFireTimeUtc(),
+                    NextFireTime = t.GetNextFireTimeUtc(),
+                    MayFireAgain = t.GetMayFireAgain(),
+                    Description = t.Description ?? "",
+                    CalendarName = t.CalendarName ?? "",
+                    FinalFireTime = t.FinalFireTimeUtc,
+                    Priority = t.Priority,
+                    CronExpression = cronTrigger?.CronExpressionString,
+                    IntervalSeconds = simpleTrigger != null ? (int?)Math.Max(1, (int)Math.Round(simpleTrigger.RepeatInterval.TotalSeconds)) : null,
+                    RepeatCount = simpleTrigger?.RepeatCount,
+                    MisfireInstruction = TriggerHandlers.MisfireInstructionName(t.MisfireInstruction, isCron),
+                    MisfireInstructionValue = TriggerHandlers.MisfireInstructionValue(t.MisfireInstruction, isCron),
+                };
             }).ToList(),
             IsExecuting = executing.Any(j => j.JobDetail.Key.Equals(key)),
         });
     }
 
     public static async Task<IResult> TriggerJob(IScheduler sched, string group, string name,
-        QuartzDashboardOptions options)
+        TriggerJobRequest? req, QuartzDashboardOptions options)
     {
         if (options.ReadOnly) return Results.Forbid();
         var key = new JobKey(name, group);
         if (await sched.CheckExists(key))
         {
-            await sched.TriggerJob(key);
+            if (req?.DataMap?.Count > 0)
+            {
+                var dataMap = new JobDataMap();
+                foreach (var (mapKey, mapValue) in req.DataMap.Where(x => !string.IsNullOrWhiteSpace(x.Key)))
+                    dataMap.Put(mapKey, mapValue ?? string.Empty);
+
+                await sched.TriggerJob(key, dataMap);
+            }
+            else
+            {
+                await sched.TriggerJob(key);
+            }
+
             return Results.Ok(new { Status = "triggered" });
         }
         return Results.NotFound(new { Error = $"Job '{group}.{name}' not found" });

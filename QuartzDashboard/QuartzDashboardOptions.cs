@@ -107,4 +107,10 @@ public class QuartzDashboardOptions
     /// Example: <c>options.OnJobFailed = async (jobKey, ex) => await notifier.AlertAsync(jobKey, ex);</c>
     /// </summary>
     public Func<string, Exception, Task>? OnJobFailed { get; set; }
+
+    /// <summary>
+    /// Optional webhook URL that receives a JSON payload whenever a job execution fails.
+    /// Default: null
+    /// </summary>
+    public string? WebhookUrl { get; set; }
 }
