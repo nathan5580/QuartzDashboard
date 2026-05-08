@@ -98,6 +98,13 @@ internal static class JobHandlers
         }
 
         var total = allJobs.Count;
+        allJobs.Sort((a, b) =>
+        {
+            var ao = (dynamic)a;
+            var bo = (dynamic)b;
+            var g = string.Compare(ao.Group, bo.Group, StringComparison.OrdinalIgnoreCase);
+            return g != 0 ? g : string.Compare(ao.Name, bo.Name, StringComparison.OrdinalIgnoreCase);
+        });
         var page = allJobs.Skip(offset).Take(limit).ToList();
         return Results.Ok(new { data = page, total, offset, limit });
     }

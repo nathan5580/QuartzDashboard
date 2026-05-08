@@ -481,7 +481,7 @@
           for (const evt of this.timelineEvents) {
             if (!labels.includes(evt.jobKey)) labels.push(evt.jobKey);
           }
-          return labels;
+          return labels.sort((a, b) => a.localeCompare(b));
         },
 
         get now() {
@@ -502,7 +502,7 @@
           for (const evt of this.timelineVisibleEvents) {
             if (!labels.includes(evt.jobKey)) labels.push(evt.jobKey);
           }
-          return labels;
+          return labels.sort((a, b) => a.localeCompare(b));
         },
 
         get timelineLabelWidth() { return 160; },
@@ -1467,9 +1467,12 @@
               this.fetchApi('/executing').catch(() => ({ data: this.executingJobs })),
             ]);
             this.scheduler = scheduler;
-            this.jobs = Array.isArray(jobsResp) ? jobsResp : (Array.isArray(jobsResp?.data) ? jobsResp.data : []);
-            this.triggers = Array.isArray(triggersResp) ? triggersResp : (Array.isArray(triggersResp?.data) ? triggersResp.data : []);
-            this.executingJobs = Array.isArray(executingResp) ? executingResp : (Array.isArray(executingResp?.data) ? executingResp.data : []);
+            this.jobs = (Array.isArray(jobsResp) ? jobsResp : (Array.isArray(jobsResp?.data) ? jobsResp.data : []))
+              .sort((a, b) => (a.group + '.' + a.name).localeCompare(b.group + '.' + b.name));
+            this.triggers = (Array.isArray(triggersResp) ? triggersResp : (Array.isArray(triggersResp?.data) ? triggersResp.data : []))
+              .sort((a, b) => (a.jobGroup + '.' + a.jobName + '/' + a.group + '.' + a.name).localeCompare(b.jobGroup + '.' + b.jobName + '/' + b.group + '.' + b.name));
+            this.executingJobs = (Array.isArray(executingResp) ? executingResp : (Array.isArray(executingResp?.data) ? executingResp.data : []))
+              .sort((a, b) => (a.jobGroup + '.' + a.jobName).localeCompare(b.jobGroup + '.' + b.jobName));
             this.lastRefreshed = new Date();
           } catch (e) {
             console.error('Refresh error:', e);
@@ -1482,7 +1485,7 @@
 
         async loadJobs() {
           this.loading.jobs = true;
-          try { const resp = await this.fetchApi('/jobs'); this.jobs = Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []); this.errors.jobs = null; this.retryCounts.jobs = 0; } catch (e) { console.error('loadJobs:', e); this.errors.jobs = e.message; this.showToast('Failed to load jobs: ' + e.message, 'error'); this._retryLoad('jobs', () => this.loadJobs()); }
+          try { const resp = await this.fetchApi('/jobs'); this.jobs = (Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : [])).sort((a, b) => (a.group + '.' + a.name).localeCompare(b.group + '.' + b.name)); this.errors.jobs = null; this.retryCounts.jobs = 0; } catch (e) { console.error('loadJobs:', e); this.errors.jobs = e.message; this.showToast('Failed to load jobs: ' + e.message, 'error'); this._retryLoad('jobs', () => this.loadJobs()); }
           this.loading.jobs = false;
         },
 
@@ -1491,7 +1494,8 @@
           try {
             const resp = await this.fetchApi('/triggers');
             const list = Array.isArray(resp) ? resp : (resp.data ?? resp ?? []);
-            this.triggers = Array.isArray(list) ? list : [];
+            this.triggers = (Array.isArray(list) ? list : [])
+              .sort((a, b) => (a.jobGroup + '.' + a.jobName + '/' + a.group + '.' + a.name).localeCompare(b.jobGroup + '.' + b.jobName + '/' + b.group + '.' + b.name));
             this.errors.triggers = null; this.retryCounts.triggers = 0;
             const groups = {};
             for (const t of this.triggers) {
@@ -1508,7 +1512,8 @@
           const prevIds = this.knownExecutingIds;
           try {
             const resp = await this.fetchApi('/executing');
-            this.executingJobs = Array.isArray(resp) ? resp : (resp.data || []);
+            this.executingJobs = (Array.isArray(resp) ? resp : (resp.data || []))
+              .sort((a, b) => (a.jobGroup + '.' + a.jobName).localeCompare(b.jobGroup + '.' + b.jobName));
             this.knownExecutingIds = new Set(this.executingJobs.map(ej => ej.fireInstanceId));
             this.errors.executing = null; this.retryCounts.executing = 0;
           } catch (e) { console.error('loadExecutingJobs:', e); this.errors.executing = e.message; this.showToast('Failed to load executing jobs: ' + e.message, 'error'); this._retryLoad('executing', () => this.loadExecutingJobs()); }

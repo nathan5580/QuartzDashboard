@@ -353,21 +353,24 @@ public static class QuartzDashboardApplicationBuilderExtensions
     private static async Task<IResult> GetExecutingJobs(IScheduler sched)
     {
         var jobs = await sched.GetCurrentlyExecutingJobs();
-        return Results.Ok(jobs.Select(j => new
-        {
-            JobName = j.JobDetail.Key.Name,
-            JobGroup = j.JobDetail.Key.Group,
-            JobType = j.JobDetail.JobType.FullName,
-            TriggerName = j.Trigger.Key.Name,
-            TriggerGroup = j.Trigger.Key.Group,
-            FireTime = j.FireTimeUtc,
-            ScheduledFireTime = j.ScheduledFireTimeUtc,
-            PreviousFireTime = j.PreviousFireTimeUtc,
-            NextFireTime = j.NextFireTimeUtc,
-            RefireCount = j.RefireCount,
-            Recovering = j.Recovering,
-            Duration = DateTimeOffset.UtcNow - j.FireTimeUtc,
-        }));
+        return Results.Ok(jobs
+            .OrderBy(j => j.JobDetail.Key.Group, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(j => j.JobDetail.Key.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(j => new
+            {
+                JobName = j.JobDetail.Key.Name,
+                JobGroup = j.JobDetail.Key.Group,
+                JobType = j.JobDetail.JobType.FullName,
+                TriggerName = j.Trigger.Key.Name,
+                TriggerGroup = j.Trigger.Key.Group,
+                FireTime = j.FireTimeUtc,
+                ScheduledFireTime = j.ScheduledFireTimeUtc,
+                PreviousFireTime = j.PreviousFireTimeUtc,
+                NextFireTime = j.NextFireTimeUtc,
+                RefireCount = j.RefireCount,
+                Recovering = j.Recovering,
+                Duration = DateTimeOffset.UtcNow - j.FireTimeUtc,
+            }));
     }
 
     // ============= Execution Recording =============
