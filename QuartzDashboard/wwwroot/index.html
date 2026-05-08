@@ -452,8 +452,8 @@
           <div @click="currentPage = item.id"
                :class="['sidebar-item', currentPage === item.id ? 'active' : '', sidebarOpen ? '' : 'justify-center px-0']"
                :title="!sidebarOpen ? item.label : ''">
-            <span x-html="item.icon" class="w-5 h-5 flex-shrink-0"></span>
-            <span x-show="sidebarOpen" x-text="item.label" class="overflow-hidden text-[13px]"></span>
+            <span x-html="item.icon" style="flex-shrink:0;display:flex;align-items:center;justify-content:center"></span>
+            <span x-show="sidebarOpen" x-text="item.label" style="overflow:hidden;white-space:nowrap;font-size:13px"></span>
           </div>
         </template>
       </nav>
@@ -709,18 +709,46 @@
                 <span class="text-xs text-gray-600" x-text="executionBuckets.length + ' buckets'"></span>
               </div>
               <div class="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 overflow-x-auto">
-                <svg viewBox="0 0 720 180" class="w-full min-w-[210px] h-64">
+                <svg viewBox="0 0 720 180" class="w-full min-w-[210px] h-64" x-ref="failureChart">
+                  <!-- Y-axis -->
                   <line x1="36" y1="12" x2="36" y2="148" stroke="rgba(148,163,184,.25)" stroke-width="1"/>
+                  <!-- X-axis -->
                   <line x1="36" y1="148" x2="704" y2="148" stroke="rgba(148,163,184,.25)" stroke-width="1"/>
+                  <!-- Grid lines -->
+                  <line x1="36" y1="88" x2="704" y2="88" stroke="rgba(148,163,184,.08)" stroke-width="1" stroke-dasharray="4,4"/>
+                  <line x1="36" y1="28" x2="704" y2="28" stroke="rgba(148,163,184,.08)" stroke-width="1" stroke-dasharray="4,4"/>
+                  <!-- Y labels -->
+                  <text x="4" y="16" class="fill-gray-600 text-[9px]" style="font-size:9px;fill:#4b5563">100%</text>
+                  <text x="10" y="92" class="fill-gray-600 text-[9px]" style="font-size:9px;fill:#4b5563">50%</text>
+                  <text x="15" y="152" class="fill-gray-600 text-[9px]" style="font-size:9px;fill:#4b5563">0%</text>
+                  <!-- Bars + labels — dynamically spread across full chart width -->
                   <template x-for="(bucket, idx) in executionBuckets.slice(-24)" :key="idx">
                     <g>
-                      <rect :x="44 + idx * 27" :y="148 - Math.max(4, ((bucket.errorRate || 0) / 100) * 120)" width="16" :height="Math.max(4, ((bucket.errorRate || 0) / 100) * 120)" rx="3" fill="#ef4444" fill-opacity="0.78"></rect>
-                      <text :x="52 + idx * 27" y="165" text-anchor="middle" class="fill-gray-600 text-[9px]" x-text="bucket.label || ''"></text>
+                      <!-- Bar: spread evenly from x=36 to x=704 (668px inner width) -->
+                      <rect
+                        :x="36 + (idx + 0.5) * (668 / Math.max(executionBuckets.slice(-24).length, 1)) - Math.min(22, Math.max(6, (668 / Math.max(executionBuckets.slice(-24).length, 1)) * 0.6)) / 2"
+                        :y="148 - Math.max((bucket.errorRate || 0) > 0 ? 6 : 3, ((bucket.errorRate || 0) / 100) * 120)"
+                        :width="Math.min(22, Math.max(6, (668 / Math.max(executionBuckets.slice(-24).length, 1)) * 0.6))"
+                        :height="Math.max((bucket.errorRate || 0) > 0 ? 6 : 3, ((bucket.errorRate || 0) / 100) * 120)"
+                        rx="3"
+                        :fill="(bucket.errorRate || 0) > 0 ? '#ef4444' : '#22c55e'"
+                        :fill-opacity="(bucket.errorRate || 0) > 0 ? 0.78 : 0.25">
+                      </rect>
+                      <!-- X-axis label -->
+                      <text
+                        :x="36 + (idx + 0.5) * (668 / Math.max(executionBuckets.slice(-24).length, 1))"
+                        y="165"
+                        text-anchor="middle"
+                        style="font-size:9px;fill:#374151"
+                        x-text="bucket.label || ''">
+                      </text>
                     </g>
                   </template>
-                  <text x="8" y="16" class="fill-gray-600 text-[9px]">100%</text>
-                  <text x="14" y="86" class="fill-gray-600 text-[9px]">50%</text>
-                  <text x="19" y="152" class="fill-gray-600 text-[9px]">0%</text>
+                  <!-- Empty state overlay when no data -->
+                  <text x="360" y="90" text-anchor="middle" style="font-size:11px;fill:#4b5563" x-show="!executionBuckets.length">No data available</text>
+                  <!-- All-clear label when data exists but no failures -->
+                  <text x="360" y="90" text-anchor="middle" style="font-size:11px;fill:#22c55e;fill-opacity:0.7"
+                        x-show="executionBuckets.length > 0 && executionBuckets.slice(-24).every(b => !(b.errorRate || 0))">✓ No failures detected</text>
                 </svg>
               </div>
             </div>
