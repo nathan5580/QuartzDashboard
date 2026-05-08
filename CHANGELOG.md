@@ -2,6 +2,16 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.1.38] — 2026-05-08
+
+### Fixed
+- **Stable job order across refreshes** — jobs, triggers, executing jobs, and timeline lanes now sort deterministically by `group.name` on every refresh. Previously Quartz returned jobs/triggers in HashSet iteration order (non-deterministic), causing the table rows to shuffle on each auto-refresh cycle.
+  - `GetAllJobs`: sorted by `(Group, Name)` ascending before pagination
+  - `GetAllTriggers`: sorted by `(JobGroup, JobName, Group, Name)` ascending before pagination
+  - `GetExecutingJobs`: sorted by `(JobGroup, JobName)` ascending
+  - Frontend: defensive `.sort()` added at every assignment point for jobs, triggers, and executingJobs
+  - Timeline lane labels: `timelineVisibleLabels` and `timelineYLabels` sorted alphabetically so row positions are stable across live updates
+
 ## [2.1.37] — 2026-05-08
 
 ### Fixed
