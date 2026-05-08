@@ -2,6 +2,29 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.1.33] — 2026-05-09
+
+### Added
+- **`options.Title`** — custom title shown in the sidebar header and browser tab (injected server-side)
+- **`options.OnJobFailed`** — async callback fired on every job failure (use for Slack/webhook alerts)
+- **`options.HistoryRetentionHours`** — TTL pruning for fire history (default 24h). Records older than the threshold are pruned automatically on write and read
+- **`options.PersistHistoryPath`** — persist fire history to a JSON file; history survives restarts. Uses `System.Text.Json` — zero new dependencies
+- **Embedded SVG favicon** — clock/gear icon served at `{basePath}/favicon.svg`, linked in `<head>`
+- **OS theme detection** — inline script before Alpine loads reads `prefers-color-scheme` on first visit; no flash-of-wrong-theme
+- **Keyboard shortcuts overlay** — press `?` to show all shortcuts. Modal with nav keys, action keys, navigation numbers
+- **`T` key** — toggle light/dark theme
+- **`[` key** — toggle sidebar
+- **Multi-scheduler support** — `GET /api/schedulers` lists all registered schedulers; dropdown in sidebar when >1 scheduler detected; `?scheduler=Name` query param routes API calls to the selected scheduler
+- **Enhanced cmd+K** — search history records by job key; include trigger names; limit to 15 results when query is empty
+
+### Changed
+- Sidebar brand name now uses `config.title` from server instead of hardcoded "QuartzDash"
+- `filteredCommands` now includes history and trigger search, capped at 15 for default (no-query) state
+- `_api()` now appends `?scheduler=Name` automatically when a non-default scheduler is selected
+
+### Fixed
+- Escape key now also closes the shortcuts modal
+
 ## [2.1.31] — 2026-05-08
 
 ### Added

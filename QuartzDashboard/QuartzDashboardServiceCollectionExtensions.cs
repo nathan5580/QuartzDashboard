@@ -23,8 +23,11 @@ public static class QuartzDashboardServiceCollectionExtensions
         configure?.Invoke(options);
         services.AddSingleton(options);
 
-        // Fire history store
-        services.AddSingleton<IFireHistoryStore>(_ => new InMemoryFireHistoryStore(options.MaxFireHistory));
+        // Fire history store — file-backed if PersistHistoryPath is set, otherwise in-memory
+        if (!string.IsNullOrWhiteSpace(options.PersistHistoryPath))
+            services.AddSingleton<IFireHistoryStore>(_ => new FileFireHistoryStore(options.PersistHistoryPath, options.MaxFireHistory, options.HistoryRetentionHours));
+        else
+            services.AddSingleton<IFireHistoryStore>(_ => new InMemoryFireHistoryStore(options.MaxFireHistory, options.HistoryRetentionHours));
 
         // Execution log buffer
         services.AddSingleton(_ => new ExecutionLogBuffer(options.MaxExecutionLogsPerJob));
@@ -63,6 +66,7 @@ internal sealed class DashboardListenerAttacher(
     IFireHistoryStore fireHistoryStore,
     ExecutionLogBuffer? logBuffer,
     ExecutionBucketService? bucketService,
+    QuartzDashboardOptions options,
     ILogger<DashboardListenerAttacher> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken ct)
@@ -70,7 +74,7 @@ internal sealed class DashboardListenerAttacher(
         try
         {
             var scheduler = await schedulerFactory.GetScheduler(ct);
-            scheduler.ListenerManager.AddJobListener(new DashboardJobListener(eventBus, fireHistoryStore, logBuffer, bucketService));
+            scheduler.ListenerManager.AddJobListener(new DashboardJobListener(eventBus, fireHistoryStore, logBuffer, bucketService, options.OnJobFailed));
             scheduler.ListenerManager.AddSchedulerListener(schedulerListener);
             logger.LogDebug("QuartzDashboard listeners attached");
         }
@@ -87,7 +91,8 @@ internal sealed class DashboardJobListener(
     DashboardEventBus eventBus,
     IFireHistoryStore fireHistoryStore,
     ExecutionLogBuffer? logBuffer,
-    ExecutionBucketService? bucketService) : IJobListener
+    ExecutionBucketService? bucketService,
+    Func<string, Exception, Task>? onJobFailed = null) : IJobListener
 {
     public string Name => "QuartzDashboardListener";
 
@@ -133,6 +138,17 @@ internal sealed class DashboardJobListener(
 
         // Publish to event bus for SignalR
         eventBus.Publish(new JobExecutedEvent(jobKey, triggerKey, context.FireInstanceId, duration, success, context.FireTimeUtc));
+
+        // Fire OnJobFailed callback if registered
+        if (!success && onJobFailed != null && jobException != null)
+        {
+            _ = Task.Run(async () =>
+            {
+                try { await onJobFailed(jobKey, jobException); }
+                catch { /* never propagate callback exceptions */ }
+            });
+        }
+
         return Task.CompletedTask;
     }
 }

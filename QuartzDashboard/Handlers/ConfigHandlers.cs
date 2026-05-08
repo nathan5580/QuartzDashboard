@@ -32,6 +32,9 @@ internal static class ConfigHandlers
             isAuthenticated,
             basePath = options.Path,
             maxFireHistory = options.MaxFireHistory,
+            title = options.Title,
+            historyRetentionHours = options.HistoryRetentionHours,
+            hasPersistentHistory = !string.IsNullOrWhiteSpace(options.PersistHistoryPath),
         });
     }
 }

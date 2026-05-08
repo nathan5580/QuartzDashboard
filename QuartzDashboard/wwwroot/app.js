@@ -25,6 +25,10 @@
         config: { readOnly: false },
         currentTick: Date.now(),
 
+        // Multi-scheduler
+        schedulers: [],
+        activeSchedulerName: '',
+
         // Jobs page
         jobsFilter: '',
         expandedJobs: {},
@@ -215,6 +219,21 @@
         commandPaletteQuery: '',
         commandPaletteIndex: 0,
 
+        // ========================= SHORTCUTS MODAL =========================
+        showShortcutsModal: false,
+        shortcutsList: [
+          { key: '1', label: 'Overview' },
+          { key: '2', label: 'Jobs' },
+          { key: '3', label: 'Triggers' },
+          { key: '4', label: 'Executing' },
+          { key: '5', label: 'History' },
+          { key: '6', label: 'Graph' },
+          { key: '7', label: 'Timeline' },
+          { key: '8', label: 'Health' },
+          { key: '9', label: 'Settings' },
+          { key: 'J/K', label: 'Prev / Next row' },
+        ],
+
         // ========================= LIGHT MODE =========================
         lightMode: false,
 
@@ -366,13 +385,25 @@
           for (const job of this.jobs) {
             cmds.push({ id: 'trigger-' + job.group + '.' + job.name, label: 'Trigger job ' + job.group + '.' + job.name, icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 5v14l11-7z"/></svg>', action: 'triggerJob', group: job.group, name: job.name });
           }
+          // Add trigger names for quick navigation
+          for (const t of this.triggers) {
+            cmds.push({ id: 'view-trigger-' + t.key, label: 'View trigger ' + (t.key || t.name), icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', action: 'navigate', page: 'triggers' });
+          }
           return cmds;
         },
 
         get filteredCommands() {
-          if (!this.commandPaletteQuery) return this.commandPaletteCommands;
-          const q = this.commandPaletteQuery.toLowerCase();
-          return this.commandPaletteCommands.filter(c => c.label.toLowerCase().includes(q));
+          const q = this.commandPaletteQuery.toLowerCase().trim();
+          if (!q) return this.commandPaletteCommands.slice(0, 15);
+          const cmds = this.commandPaletteCommands.filter(c => c.label.toLowerCase().includes(q));
+          // Also search recent history by job key
+          if (cmds.length < 8) {
+            const historyHits = (this.history || []).filter(h => h.jobKey && h.jobKey.toLowerCase().includes(q)).slice(0, 5);
+            for (const h of historyHits) {
+              cmds.push({ id: 'history-' + h.jobKey + '-' + h.fireTime, label: 'History: ' + h.jobKey, icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', action: 'navigate', page: 'history' });
+            }
+          }
+          return cmds;
         },
 
         // ========================= TIMELINE COMPUTED =========================
@@ -613,9 +644,11 @@
 
         // ========================= INIT =========================
         async init() {
-          // Load theme preference
+          // Sync Alpine lightMode state with what the inline script already applied to <html>
           const savedTheme = localStorage.getItem('quartz-dashboard-theme');
-          if (savedTheme === 'light') {
+          const isLight = savedTheme === 'light' ||
+            (!savedTheme && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+          if (isLight) {
             this.lightMode = true;
             document.documentElement.classList.remove('dark');
             document.documentElement.classList.add('light');
@@ -654,6 +687,7 @@
           }, 5000);
 
           // Initial data load
+          await this.loadConfig();
           await this.refreshAll();
           await this.loadHistory();
           await this.loadStats();
@@ -845,6 +879,7 @@
           // Escape: close modals
           if (e.key === 'Escape') {
             if (this.showCommandPalette) { this.showCommandPalette = false; return; }
+            if (this.showShortcutsModal) { this.showShortcutsModal = false; return; }
             if (this.showCreateJobModal) { this.showCreateJobModal = false; return; }
             if (this.showCreateTriggerModal) { this.showCreateTriggerModal = false; return; }
             if (this.showDeleteConfirm) { this.showDeleteConfirm = false; return; }
@@ -915,6 +950,27 @@
             const jobs = this.filteredJobs || this.jobs || [];
             const job = jobs[this.selectedJobIndex];
             if (job) this.openJobDrawer(job);
+            return;
+          }
+
+          // ?: show keyboard shortcuts overlay
+          if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+            e.preventDefault();
+            this.showShortcutsModal = !this.showShortcutsModal;
+            return;
+          }
+
+          // t: toggle theme
+          if (e.key === 't' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+            e.preventDefault();
+            this.toggleLightMode();
+            return;
+          }
+
+          // [: toggle sidebar
+          if (e.key === '[' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+            e.preventDefault();
+            this.sidebarOpen = !this.sidebarOpen;
             return;
           }
         },
@@ -1229,7 +1285,14 @@
 
         // ========================= API =========================
         _base() { return window.__QUARTZ_BASE || '/quartz'; },
-        _api(path) { return this._base() + '/api' + path; },
+        _api(path) {
+          const base = this._base() + '/api' + path;
+          if (this.activeSchedulerName && !path.includes('scheduler')) {
+            const sep = base.includes('?') ? '&' : '?';
+            return base + sep + 'scheduler=' + encodeURIComponent(this.activeSchedulerName);
+          }
+          return base;
+        },
 
         async fetchApi(path) {
           const url = path.startsWith('http') ? path : this._api(path);
@@ -1243,6 +1306,36 @@
           const res = await fetch(url, { method: 'POST' });
           if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
           return res.json();
+        },
+
+        async loadConfig() {
+          try {
+            const cfg = await this.fetchApi('/config');
+            if (cfg) {
+              this.config = { ...this.config, ...cfg };
+              if (cfg.title && cfg.title !== 'QuartzDash') {
+                document.title = cfg.title;
+              }
+            }
+          } catch(e) { /* best-effort */ }
+
+          // Load scheduler list for multi-scheduler support
+          try {
+            const scheds = await this.fetchApi('/schedulers');
+            if (Array.isArray(scheds)) {
+              this.schedulers = scheds;
+              const current = scheds.find(s => s.isCurrent);
+              if (current) this.activeSchedulerName = current.name;
+            }
+          } catch(e) { /* single-scheduler mode — no /schedulers endpoint or error */ }
+        },
+
+        onSchedulerChange() {
+          // Append ?scheduler=name to all API calls by storing the active name
+          // fetchApi already appends it via _api()
+          this.refreshAll();
+          this.loadHistory();
+          this.loadStats();
         },
 
         async refreshAll() {
