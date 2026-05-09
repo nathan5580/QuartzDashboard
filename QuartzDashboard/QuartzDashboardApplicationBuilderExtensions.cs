@@ -228,6 +228,16 @@ public static class QuartzDashboardApplicationBuilderExtensions
                 result = await JobHandlers.ResumeJob(sched, route[1], route[2], options);
             else if (method == "POST" && route is ["jobs", _, _, "interrupt"])
                 result = await JobHandlers.InterruptJob(sched, route[1], route[2]);
+            else if (method == "POST" && route is ["jobs", "group", _, "pause"])
+            {
+                if (options.ReadOnly) { result = Results.Forbid(); }
+                else { await sched.PauseJobs(Quartz.Impl.Matchers.GroupMatcher<Quartz.JobKey>.GroupEquals(route[2])); result = Results.Ok(new { Status = "paused", Group = route[2] }); }
+            }
+            else if (method == "POST" && route is ["jobs", "group", _, "resume"])
+            {
+                if (options.ReadOnly) { result = Results.Forbid(); }
+                else { await sched.ResumeJobs(Quartz.Impl.Matchers.GroupMatcher<Quartz.JobKey>.GroupEquals(route[2])); result = Results.Ok(new { Status = "resumed", Group = route[2] }); }
+            }
             else if (method == "POST" && route is ["jobs"])
             {
                 var req = await ctx.Request
@@ -294,6 +304,16 @@ public static class QuartzDashboardApplicationBuilderExtensions
             }
             else if (method == "DELETE" && route is ["triggers", _, _])
                 result = await TriggerHandlers.DeleteTrigger(sched, route[1], route[2], options);
+            else if (method == "POST" && route is ["triggers", "group", _, "pause"])
+            {
+                if (options.ReadOnly) { result = Results.Forbid(); }
+                else { await sched.PauseTriggers(Quartz.Impl.Matchers.GroupMatcher<Quartz.TriggerKey>.GroupEquals(route[2])); result = Results.Ok(new { Status = "paused", Group = route[2] }); }
+            }
+            else if (method == "POST" && route is ["triggers", "group", _, "resume"])
+            {
+                if (options.ReadOnly) { result = Results.Forbid(); }
+                else { await sched.ResumeTriggers(Quartz.Impl.Matchers.GroupMatcher<Quartz.TriggerKey>.GroupEquals(route[2])); result = Results.Ok(new { Status = "resumed", Group = route[2] }); }
+            }
 
             // -- Executing --
             else if (method == "GET" && route is ["executing"])

@@ -37,6 +37,7 @@
 
         // Triggers page
         expandedTriggerGroups: {},
+        triggersFilter: '',
 
         // Executing page
         knownExecutingIds: new Set(),
@@ -52,6 +53,10 @@
         showTriggerJobModal: false,
         triggerJobTarget: null,
         triggerJobDataMap: [],
+
+        // Job data map editing
+        jobDrawerDataMapEditing: false,
+        jobDrawerDataMapEdits: [],
 
         // Stats trend
         statsPrev: null,
@@ -356,10 +361,29 @@
           const list = Array.isArray(this.triggers) ? this.triggers : [];
           for (const t of list) {
             const key = t.jobGroup + '.' + t.jobName;
-            if (!groups[key]) groups[key] = { jobName: key, triggers: [] };
+            if (!groups[key]) groups[key] = { jobName: key, jobGroup: t.jobGroup, jobNameOnly: t.jobName, triggers: [] };
             groups[key].triggers.push(t);
           }
           return Object.values(groups);
+        },
+
+        get filteredGroupedTriggers() {
+          const q = (this.triggersFilter || '').toLowerCase().trim();
+          if (!q) return this.groupedTriggers;
+          return this.groupedTriggers
+            .map(g => ({
+              ...g,
+              triggers: g.triggers.filter(t =>
+                t.name.toLowerCase().includes(q) ||
+                t.group.toLowerCase().includes(q) ||
+                t.jobName.toLowerCase().includes(q) ||
+                t.jobGroup.toLowerCase().includes(q) ||
+                (t.state || '').toLowerCase().includes(q) ||
+                (t.type || '').toLowerCase().includes(q) ||
+                (t.scheduleDescription || '').toLowerCase().includes(q)
+              )
+            }))
+            .filter(g => g.triggers.length > 0 || g.jobName.toLowerCase().includes(q));
         },
 
         get filteredHistory() {
@@ -1664,6 +1688,22 @@
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
         },
 
+        async pauseJobGroup(group) {
+          try {
+            await this.postApi('/jobs/group/' + encodeURIComponent(group) + '/pause');
+            await this.loadJobs();
+            this.showToast('Paused all jobs in group "' + group + '"', 'info');
+          } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
+        async resumeJobGroup(group) {
+          try {
+            await this.postApi('/jobs/group/' + encodeURIComponent(group) + '/resume');
+            await this.loadJobs();
+            this.showToast('Resumed all jobs in group "' + group + '"', 'success');
+          } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
         async interruptJob(group, name) {
           try {
             const res = await this.postApi('/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name) + '/interrupt');
@@ -1688,6 +1728,62 @@
             await this.postApi('/triggers/' + group + '/' + name + '/resume');
             await this.loadTriggers();
             this.showToast('Resumed trigger ' + group + '.' + name, 'success');
+          } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
+        async pauseTriggerGroup(group) {
+          try {
+            await this.postApi('/triggers/group/' + encodeURIComponent(group) + '/pause');
+            await this.loadTriggers();
+            this.showToast('Paused all triggers in group "' + group + '"', 'info');
+          } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
+        async resumeTriggerGroup(group) {
+          try {
+            await this.postApi('/triggers/group/' + encodeURIComponent(group) + '/resume');
+            await this.loadTriggers();
+            this.showToast('Resumed all triggers in group "' + group + '"', 'success');
+          } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
+        startEditDataMap() {
+          const map = (this.jobDrawerData && this.jobDrawerData.jobDataMap) || {};
+          this.jobDrawerDataMapEdits = Object.entries(map).map(([k, v]) => ({
+            key: k,
+            value: typeof v === 'object' ? JSON.stringify(v) : String(v)
+          }));
+          this.jobDrawerDataMapEditing = true;
+        },
+
+        cancelEditDataMap() {
+          this.jobDrawerDataMapEditing = false;
+          this.jobDrawerDataMapEdits = [];
+        },
+
+        addDataMapRow() {
+          this.jobDrawerDataMapEdits.push({ key: '', value: '' });
+        },
+
+        removeDataMapRow(idx) {
+          this.jobDrawerDataMapEdits.splice(idx, 1);
+        },
+
+        async saveDataMap() {
+          if (!this.jobDrawerData) return;
+          const { group, name } = this.jobDrawerData;
+          const jobDataMap = {};
+          for (const row of this.jobDrawerDataMapEdits) {
+            if (row.key.trim()) jobDataMap[row.key.trim()] = row.value;
+          }
+          try {
+            await this.putApi('/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name), { jobDataMap });
+            this.jobDrawerDataMapEditing = false;
+            this.jobDrawerDataMapEdits = [];
+            await this.loadJobs();
+            const refreshed = this.jobs.find(j => j.group === group && j.name === name);
+            if (refreshed) this.jobDrawerData = refreshed;
+            this.showToast('Data map saved', 'success');
           } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
         },
 

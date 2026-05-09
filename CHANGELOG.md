@@ -2,7 +2,23 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
-## [2.1.38] — 2026-05-08
+## [2.1.39] — 2026-05-09
+
+### Added
+- **Trigger search/filter** — search bar on the Triggers page filters in real-time across trigger name, group, job name, job group, state, type, and schedule description. Includes a clear (×) button.
+- **Job Data Map inline edit** — the Job Data section in the job detail drawer is now editable. Click **Edit** to enter edit mode with key/value input rows, **+ Add entry** to insert new entries, **×** to remove, and **Save** / **Cancel** to commit or discard changes. Calls `PUT /jobs/{group}/{name}` with the updated data map.
+- **Group Pause / Resume** — Jobs page group header rows now show **Pause** / **Resume** buttons (hidden in read-only mode) that pause or resume all jobs in the group at once via `POST /jobs/group/{group}/pause` and `/resume`. Triggers page job rows show equivalent buttons that pause/resume the parent job (and all its triggers).
+- **Stale data banner** — a top-of-page banner appears when the scheduler is stopped (`!isStarted`), in standby mode (`isStandbyMode`), or when the real-time SignalR connection is lost (`!signalRConnected`). Shows last-updated time and uses colour-coded severity (red/amber/blue).
+- **Distinct sparklines on overview cards** — the four Overview stat cards now show different metrics:
+  - *Jobs*: total execution count (unchanged)
+  - *Triggers*: success rate trend
+  - *Executing Now*: average duration trend
+  - *Total Executions*: total execution count (unchanged)
+
+### Fixed
+- Trigger group Pause/Resume correctly targets the parent job (pausing the job pauses all its triggers) rather than the trigger group name.
+
+
 
 ### Fixed
 - **Stable job order across refreshes** — jobs, triggers, executing jobs, and timeline lanes now sort deterministically by `group.name` on every refresh. Previously Quartz returned jobs/triggers in HashSet iteration order (non-deterministic), causing the table rows to shuffle on each auto-refresh cycle.
