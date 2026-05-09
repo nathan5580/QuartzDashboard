@@ -369,7 +369,8 @@
           return Math.round((success / h.length) * 1000) / 10;
         },
 
-        // ========================= COMMAND PALETTE =========================        showCommandPalette: false,
+        // ========================= COMMAND PALETTE =========================
+        showCommandPalette: false,
         commandPaletteQuery: '',
         commandPaletteIndex: 0,
 
