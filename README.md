@@ -47,9 +47,18 @@ builder.Services.AddQuartzDashboard(options =>
     options.AllowedRoles = [];               // role whitelist — checked if no policy set (403 if fails)
 
     // History limits
-    options.MaxFireHistory = 100;            // max fire records in memory
+    options.MaxFireHistory = 500;            // max fire records in memory (default: 500)
     options.MaxExecutionLogsPerJob = 50;     // max log lines per job
+    options.HistoryRetentionHours = 24;      // auto-prune records older than this (0 = keep all)
     options.UseSystemFonts = false;          // true = use system fonts, skip 286KB embedded fonts
+    options.Title = "My App Dashboard";      // custom title in sidebar + browser tab
+
+    // Persistence (survive restarts)
+    options.PersistHistoryPath = "quartz-history.json";  // persist history to disk as JSON
+
+    // Callbacks
+    options.OnJobFailed = async (jobKey, ex) => { /* Slack/PagerDuty alert */ };
+    options.WebhookUrl = "https://hooks.slack.com/...";  // POST JSON on job failure
 });
 
 --- APPSETTINGS BINDING (bind a config section directly) ---
@@ -64,7 +73,7 @@ builder.Services.AddQuartzDashboard(options =>
     "RequireAuthentication": false,
     "RequiredPolicy": "",
     "AllowedRoles": [],
-    "MaxFireHistory": 100,
+    "MaxFireHistory": 500,
     "MaxExecutionLogsPerJob": 50
   }
 }
@@ -90,22 +99,23 @@ builder.Services.AddQuartzDashboard(options =>
 GET  /scheduler           - scheduler metadata, status, uptime
 POST /scheduler/start     - start or resume from standby
 POST /scheduler/standby   - put scheduler in standby
-GET  /jobs                - all jobs with triggers and schedule descriptions
+GET  /jobs                - all jobs with triggers (?offset=0&limit=50)
 GET  /jobs/{group}/{name} - single job detail with JobDataMap
 POST /jobs/{group}/{name}/trigger  - fire job immediately
 POST /jobs/{group}/{name}/pause    - pause job
 POST /jobs/{group}/{name}/resume   - resume job
 POST /jobs/{group}/{name}/interrupt - interrupt executing job
 DELETE /jobs/{group}/{name}        - delete job
-GET  /triggers            - all triggers with schedule descriptions
+GET  /triggers            - all triggers (?offset=0&limit=50)
 POST /triggers/{group}/{name}/pause   - pause trigger
 POST /triggers/{group}/{name}/resume  - resume trigger
 GET  /executing           - currently running jobs with duration
-GET  /history             - last N fire events
-GET  /stats               - per-minute execution buckets + rates
+GET  /history             - paginated fire events (?offset=0&limit=50)
+GET  /stats               - per-minute execution buckets + rates + P50/P95/P99
 GET  /stats/history       - rolling history for the graph
-GET  /health              - scheduler health, success rate, failure list
-GET  /timeline            - execution timeline data
+GET  /health              - scheduler health, success rate, thread pool, failure list
+GET  /timeline            - execution timeline data (up to 500 records)
+GET  /calendars           - calendar list
 GET  /config              - dashboard config (readonly flag etc.)
 
 --- SIGNALR HUB ---
@@ -127,9 +137,12 @@ POST {Path}/hub/negotiate?negotiateVersion=1  → 200 when working
 
 - **See** all your Quartz jobs, triggers, fire schedules, and currently executing work
 - **Control** the scheduler — start, standby, trigger jobs, pause/resume/delete jobs and triggers
-- **Track** execution history with per-minute bucketed stats and live SVG charts
-- **Monitor** execution rate, average duration, and error trends in real time
+- **Track** execution history with server-side pagination, per-minute bucketed stats, and live SVG charts
+- **Monitor** execution rate, average duration, P50/P95/P99 percentiles, and error trends in real time
+- **Visualize** execution timeline with full-width color-coded bars, tooltips, and auto-fit range
 - **Secure** your dashboard with authentication, role-based access, and authorization policies
+- **Persist** fire history to disk with optional JSON file-backed storage
+- **Alert** on job failures via callbacks or webhook notifications
 - **Zero build step** — single HTML SPA with Alpine.js + Tailwind CDN, all embedded in the DLL
 
 ## Quick Start
@@ -166,18 +179,18 @@ Open **`/quartz`** in your browser.
 
 | Page | What you see |
 |------|-------------|
-| **Overview** | Scheduler info + stat cards with SVG sparkline execution trends |
-| **Jobs** | All jobs with inline trigger details, live search/filter, trigger/pause/resume/delete |
-| **Triggers** | Grouped by job (accordion), schedule descriptions, relative fire times |
+| **Overview** | Scheduler info + stat cards with SVG sparkline execution trends + last error card |
+| **Jobs** | All jobs with inline trigger details, last run time, live search/filter, server-side pagination, trigger/pause/resume/delete, batch operations |
+| **Triggers** | Grouped by job (accordion with persistent expand/collapse state), schedule descriptions, relative fire times |
 | **Executing** | Currently running jobs with animated duration bars |
-| **History** | Last N fire events with relative duration bars, job filter |
-| **Graph** | Dual-line SVG chart: execution count + avg duration, zoom toggles |
-| **Timeline** | Color-coded execution dots with tooltips, real-time now-line |
-| **Health** | Success rate, failed executions, pool utilization, scheduler diagnostics |
+| **History** | Paginated fire events with relative duration bars, job filter, history count badge |
+| **Graph** | Dual-line SVG chart: execution count + avg duration + error rate, zoom toggles, duration overlay |
+| **Timeline** | Full-width color-coded execution bars with crosshair tooltip, auto-fit range, pulsing now-marker |
+| **Health** | Success rate, failed executions, thread pool utilization bar, scheduler diagnostics |
 | **Calendars** | Quartz calendars list with type badges and descriptions |
-| **Settings** | Refresh interval slider, per-page auto-refresh toggles, data management |
+| **Settings** | Refresh interval slider, per-page auto-refresh toggles, history retention info, data management |
 
-Auto-refreshes every 5 seconds. Dark theme, responsive, collapsible sidebar.
+Auto-refreshes every 5 seconds. Dark/light theme with OS auto-detection. Responsive. Collapsible sidebar. Sticky table headers. Keyboard shortcuts.
 
 ## Configuration
 
@@ -195,8 +208,10 @@ builder.Services.AddQuartzDashboard(options =>
     options.RequiredPolicy = "CanViewDashboard"; // named policy (takes priority over roles)
 
     // History limits
-    options.MaxFireHistory = 100;
+    options.MaxFireHistory = 500;
     options.MaxExecutionLogsPerJob = 50;
+    options.HistoryRetentionHours = 24;
+    options.Title = "My App Dashboard";
 });
 ```
 
@@ -212,8 +227,10 @@ builder.Services.AddQuartzDashboard(options =>
     "RequireAuthentication": false,
     "RequiredPolicy": "",
     "AllowedRoles": [],
-    "MaxFireHistory": 100,
-    "MaxExecutionLogsPerJob": 50
+    "MaxFireHistory": 500,
+    "MaxExecutionLogsPerJob": 50,
+    "HistoryRetentionHours": 24,
+    "Title": "QuartzDash"
   }
 }
 ```
@@ -289,7 +306,7 @@ All endpoints under `{basePath}/api/` (default: `/quartz/api/`).
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/jobs` | All jobs with triggers + schedule descriptions |
+| GET | `/jobs` | All jobs with triggers + schedule descriptions (paginated: `?offset=0&limit=50`) |
 | GET | `/jobs/{group}/{name}` | Single job detail with JobDataMap |
 | POST | `/jobs/{group}/{name}/trigger` | Fire job immediately |
 | POST | `/jobs/{group}/{name}/pause` | Pause job |
@@ -301,7 +318,7 @@ All endpoints under `{basePath}/api/` (default: `/quartz/api/`).
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/triggers` | All triggers with schedule descriptions |
+| GET | `/triggers` | All triggers with schedule descriptions (paginated: `?offset=0&limit=50`) |
 | GET | `/triggers/{group}/{name}` | Single trigger detail |
 | POST | `/triggers/{group}/{name}/pause` | Pause trigger |
 | POST | `/triggers/{group}/{name}/resume` | Resume trigger |
@@ -311,11 +328,12 @@ All endpoints under `{basePath}/api/` (default: `/quartz/api/`).
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/executing` | Currently executing jobs with duration |
-| GET | `/history` | Last N fire events |
-| GET | `/stats` | Per-minute execution buckets, rate, avg duration |
+| GET | `/history` | Paginated fire events (`?offset=0&limit=50&job=key`) |
+| GET | `/stats` | Per-minute execution buckets, rate, avg duration, P50/P95/P99 |
 | GET | `/stats/history` | Rolling history for the graph |
-| GET | `/health` | Success rate, pool utilization, failure list |
-| GET | `/timeline` | Execution timeline data |
+| GET | `/health` | Success rate, thread pool utilization, failure list |
+| GET | `/timeline` | Execution timeline data (up to 500 records) |
+| GET | `/calendars` | Quartz calendars list |
 | GET | `/config` | Dashboard config snapshot |
 
 ## SignalR Real-Time Updates
@@ -338,12 +356,29 @@ curl -X POST http://localhost:5000/quartz/hub/negotiate?negotiateVersion=1
 
 `AddQuartzDashboard()` automatically registers an `IJobListener` that:
 
-- Records the last **N fire events** in a `ConcurrentQueue<FireRecord>` (configurable via `MaxFireHistory`)
+- Records the last **N fire events** (configurable via `MaxFireHistory`, default 500)
+- Optionally persists history to a JSON file (`PersistHistoryPath`) — survives restarts
+- Auto-prunes records older than `HistoryRetentionHours` (default 24h)
 - Buckets executions **per-minute** into 120 rolling `ExecutionBucket` entries
 - Tracks per-bucket: count, total duration, error count
 - Powers `/api/stats`, `/api/stats/history`, and the SVG execution graph
 
-No external storage — all in-memory, ~7 KB for 120 buckets.
+No external storage required — in-memory by default (~7 KB for 120 buckets). Optional file persistence for production resilience.
+
+## Testing
+
+```bash
+# Run core unit tests (95 tests)
+dotnet test QuartzDashboard.Tests -c Release
+
+# Run integration tests (61 tests — real WebApplicationFactory with Quartz scheduler)
+dotnet test QuartzDashboard.IntegrationTests -c Release
+
+# Run all tests (156 total)
+dotnet test -c Release
+```
+
+Integration tests verify: endpoint responses, auth flows, config options, SignalR hub connectivity, read-only mode, host app coexistence, and history tracking — all with a realistic simulated API host.
 
 ## Common Issues
 
@@ -387,52 +422,30 @@ dotnet run -- --readonly       # disable write actions
 dotnet run -- -p 5000 --auth --readonly
 ```
 
-5 demo jobs with diverse schedules: HealthCheck (15s), CacheWarmup (30s), ReportGeneration (2min), DataSync (CRON :00/:30), ManualNotification (durable, fire from UI).
+6 demo jobs with diverse schedules: HealthCheck (15s), CacheWarmup (30s), ReportGeneration (2min), DataSync (CRON :00/:30), UnstableImport (~30% fail rate), ManualNotification (durable, fire from UI).
 
 ## Changelog
 
+See [CHANGELOG.md](CHANGELOG.md) for the full version history.
+
+### v2.2.0 (2026-05-09)
+- Server-side table pagination for jobs, triggers, and history
+- Full-width execution timeline (removed offset bug)
+- 61 integration tests via WebApplicationFactory
+- Light mode contrast overhaul, sticky headers, skeleton animations, favicon
+- CI integration test job in GitHub Actions
+
+### v2.1.47 (2026-05-09)
+- Trigger accordion state persists on refresh (keyed by stable job name)
+
+### v2.1.46 (2026-05-09)
+- Timeline/history limit increased to 500, history count badge, last error card, jobs last run column, fit button, thread pool bar, pulsing now marker
+
+### v2.1.43 (2026-05-09)
+- Skeleton loading polish, consistent sort ordering across all pages
+
 ### v2.1.26 (2026-05-04)
-- Fixed: browser caching — asset URLs now include the package version as a query string (`app.js?v=2.1.26`, `charts.js?v=2.1.26`, `app.css?v=2.1.26`), busting the browser cache on every release
-- The version is injected at serve time from the assembly version — no hardcoded strings
-
-### v2.1.24 (2026-05-04)
-- Improved timeline UX: vertical crosshair line follows cursor position
-- Hovering the timeline now shows a tooltip with the time at cursor and all executions whose bars overlap that X position
-- Hovering a specific bar highlights it and shows its exact duration and status
-- Row highlight follows mouse Y position (not just bar hover events)
-- Fixed: tooltip / row highlight no longer gets stuck after chart auto-refresh
-
-### v2.1.23 (2026-05-04)
-- Fixed: jobs table was rendering 0 rows when jobs were grouped (nested `x-for` inside a `<table>` is not supported reliably in Alpine.js v3)
-- Replaced nested `x-for` with a flat `jobRows` getter returning interleaved group-header and job items, rendered with a single `x-for`
-
-### v2.1.10 (2026-05-04)
-- Fixed: `/quartz` (no trailing slash) now automatically redirects to `/quartz/` — relative asset URLs (`app.js`, `app.css`) were resolving to the wrong base path
-
-### v2.1.9 (2026-05-04)
-- Consolidated setup: `UseSignalR = true` now registers the SignalR hub internally — no manual `app.MapHub<QuartzDashboardHub>()` required
-- All configuration keys aligned with `QuartzDashboardOptions` property names (`Path`, `RequiredPolicy`, `TrackHistory`)
-
-### v2.0.0 (2026-05-03)
-- Breaking: `QuartzDashboardOptions` additions: `Enabled`, `RequireAuthentication`, `AllowedRoles`, `RequiredPolicy`, `MaxFireHistory`, `MaxExecutionLogsPerJob`
-- `UseQuartzDashboard()` is a no-op when `Enabled = false`
-- Authentication support with role-based and policy-based authorization
-- Strong-named assembly for GAC/enterprise scenarios
-- Package icon and SourceLink support
-- New demo CLI flags: `-p`, `--auth`, `--readonly`
-
-### v1.0.0 (2026-05-02)
-- Complete UI/UX overhaul: glassmorphism, collapsible sidebar, animations, responsive
-- Live execution graph: SVG dual-line chart with zoom toggles and tooltips
-- New `/api/stats` endpoint with per-minute execution buckets
-- Schedule descriptions on triggers ("Every 00:00:30", CRON expressions)
-- Expandable job rows with inline trigger details
-
-### v0.3.0 (2026-05-02)
-- Fixed routing via `app.Use()` for Blazor WASM compatibility (replaced `app.Map()`)
-
-### v0.2.0 (2026-05-02)
-- Raw middleware approach, all endpoints verified
+- Fixed: browser caching — asset URLs now include the package version as a query string
 
 ## License
 
