@@ -1,9 +1,12 @@
     function dashboard() {
       return {
         // ========================= STATE =========================
+        appReady: false,
+        appBootPhase: 'Initializing...',
         currentPage: 'overview',
         sidebarOpen: true,
         lastRefreshed: null,
+        lastDataPulse: 0,
         loading: { global: false, jobs: false, triggers: false, executing: false, history: false, stats: false, timeline: false, calendars: false, health: false },
         errors: { jobs: null, triggers: null, executing: null, history: null, stats: null, timeline: null, calendars: null },
         retryCounts: { jobs: 0, triggers: 0, executing: 0, history: 0, stats: 0, timeline: 0, calendars: 0 },
@@ -1275,6 +1278,7 @@
           setInterval(() => { this.currentTick = Date.now(); this.nowTick = Date.now(); }, 1000);
 
           // Start SignalR connection
+          this.appBootPhase = 'Connecting to SignalR...';
           await this.connectSignalR();
 
           // Fallback: if SignalR doesn't connect in 5 seconds, start polling
@@ -1287,11 +1291,15 @@
           }, 5000);
 
           // Initial data load
+          this.appBootPhase = 'Loading scheduler data...';
           await this.loadConfig();
           await this.refreshAll();
+          this.appBootPhase = 'Loading history...';
           await this.loadHistory();
           await this.loadStats();
           this.loadHeatmap();
+
+          this.appReady = true;
 
           this.startAutoRefresh();
           this.$watch('currentPage', (val) => { this.onPageChange(val); window.location.hash = val; });
@@ -1380,6 +1388,7 @@
 
             this.connection.on('jobExecutedBatch', (events) => {
               events.forEach(e => this.handleJobExecuted(e));
+              this.lastDataPulse = Date.now();
 
               // Show failure toast for failed executions
               for (const e of events) {
@@ -1392,10 +1401,12 @@
 
             this.connection.on('jobTriggeredBatch', (events) => {
               events.forEach(e => this.handleJobTriggered(e));
+              this.lastDataPulse = Date.now();
             });
 
             this.connection.on('schedulerStatus', (data) => {
               this.handleSchedulerStatus(data);
+              this.lastDataPulse = Date.now();
             });
 
             this.connection.on('jobsUpdated', (data) => {
@@ -1404,6 +1415,7 @@
 
             this.connection.onreconnecting(() => {
               this.signalRConnected = false;
+              this.showToast('Connection lost — reconnecting...', 'warning');
             });
 
             this.connection.onreconnected(() => {
@@ -1411,6 +1423,7 @@
               this.signalRPolling = false;
               this.stopPollingFallback();
               this.refreshAll();
+              this.showToast('Reconnected via SignalR', 'success');
             });
 
             this.connection.onclose(() => {
@@ -1419,6 +1432,7 @@
                 this.signalRPolling = true;
                 this.lastPollingTime = Date.now();
                 this.startPollingFallback();
+                this.showToast('SignalR closed — falling back to polling', 'warning');
               }
             });
 

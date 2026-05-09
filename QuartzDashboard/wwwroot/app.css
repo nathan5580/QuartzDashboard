@@ -1134,4 +1134,20 @@
 .empty-state-title { font-size: 16px; font-weight: 600; color: #e2e8f0; margin-bottom: 8px; }
 .empty-state-desc { font-size: 13px; color: #64748b; }
 .light .empty-state-title { color: #1e293b; }
+
+/* ========================= APP BOOT LOADER ========================= */
+.app-boot-loader { position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #030712; gap: 16px; }
+.boot-logo { animation: boot-float 2s ease-in-out infinite; }
+@keyframes boot-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.boot-spinner { width: 28px; height: 28px; border: 2px solid rgba(99,102,241,0.15); border-top-color: #6366f1; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.boot-phase { font-size: 13px; color: #94a3b8; letter-spacing: 0.02em; }
+.boot-sub { font-size: 10px; color: #475569; letter-spacing: 0.05em; text-transform: uppercase; }
+.light .app-boot-loader { background: #ffffff; }
+.light .boot-phase { color: #64748b; }
+.light .boot-sub { color: #94a3b8; }
+
+/* Data pulse indicator — flashes when SignalR pushes data */
+.data-pulse-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #6366f1; margin-left: 4px; animation: data-pulse 0.6s ease-out; vertical-align: middle; }
+@keyframes data-pulse { 0% { transform: scale(1.8); opacity: 1; } 100% { transform: scale(1); opacity: 0.6; } }
 </style>
