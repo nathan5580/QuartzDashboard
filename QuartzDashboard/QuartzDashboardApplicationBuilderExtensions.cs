@@ -215,18 +215,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
 
             // -- Multi-scheduler: list all schedulers --
             else if (method == "GET" && route is ["schedulers"])
-            {
-                var allSchedulers = await schedFactory.GetAllSchedulers();
-                result = Results.Ok(allSchedulers.Select(s => new
-                {
-                    name = s.SchedulerName,
-                    instanceId = s.SchedulerInstanceId,
-                    isStarted = s.IsStarted,
-                    isInStandbyMode = s.InStandbyMode,
-                    isShutdown = s.IsShutdown,
-                    isCurrent = s.SchedulerName == sched.SchedulerName,
-                }).ToList());
-            }
+                result = await SchedulerHandlers.GetSchedulers(schedFactory);
 
             // -- Scheduler --
             else if (method == "GET" && route is ["scheduler"])
@@ -364,6 +353,8 @@ public static class QuartzDashboardApplicationBuilderExtensions
             // -- Timeline --
             else if (method == "GET" && route is ["timeline"])
                 result = HistoryHandlers.GetTimeline(ctx);
+            else if (method == "GET" && route is ["heatmap"])
+                result = HistoryHandlers.GetHeatmap(ctx);
 
             // -- Calendars --
             else if (method == "GET" && route is ["calendars"])
