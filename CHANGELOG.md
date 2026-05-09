@@ -2,6 +2,26 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.1.44] — 2026-05-09
+
+### Fixed
+- **Green circle artifact on Health page** — Removed `filter="url(#chartGlow)"` from all sparkline SVGs. The `feGaussianBlur` filter created glow artifacts that bled through `overflow:hidden` on stat cards, appearing as large green arcs across the page background.
+- **Reduced chartGlow filter region** — Shrunk filter bounds from ±20%/140% to ±10%/120% to prevent any future bleed.
+
+### Improved
+- **Light mode contrast overhaul** — Complete rewrite of all light mode CSS overrides for better readability:
+  - Headings now use `#0f172a` (near-black) instead of `#111827`.
+  - Body text uses `#1e293b` slate-900 for primary, `#334155` for secondary — proper WCAG AA contrast on white.
+  - Labels (`text-gray-500`) now map to `#64748b` (slate-500) instead of the too-light `#9ca3af`.
+  - Cards use solid `#ffffff` background with `box-shadow` instead of semi-transparent rgba.
+  - Badge colors have higher opacity (0.10) and explicit text colors for readability.
+  - Toast notifications use deeper background tints and darker text colors.
+  - Borders use 0.08 opacity (up from 0.06) for clearer card boundaries.
+  - Modals/command palette get solid white backgrounds with subtle drop shadows.
+  - SVG chart labels and axis lines adapted for light backgrounds.
+  - Spinner border-top now uses indigo accent color in light mode.
+  - Drawer backgrounds (`bg-gray-900/950`) override to white/slate-50.
+
 ## [2.1.43] — 2026-05-09
 
 ### Added
