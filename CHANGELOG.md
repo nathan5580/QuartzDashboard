@@ -2,6 +2,11 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.1.47] — 2026-05-09
+
+### Fixed
+- **Trigger accordion state persists on refresh** — Collapsed/expanded state of trigger groups no longer resets when the page auto-refreshes or the user clicks Refresh. State is keyed by stable job key (`Group.Name`) instead of array index, and `loadTriggers()` merges new groups into existing state rather than replacing it.
+
 ## [2.1.46] — 2026-05-09
 
 ### Changed

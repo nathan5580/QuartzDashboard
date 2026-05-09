@@ -1684,11 +1684,11 @@
             <!-- Triggers -->
             <template x-if="!loading.triggers">
               <div class="space-y-2">
-                <template x-for="(group, gIdx) in filteredGroupedTriggers" :key="gIdx">
+                <template x-for="(group, gIdx) in filteredGroupedTriggers" :key="group.jobName">
                   <div class="card-gradient p-0 overflow-hidden">
-                    <div @click="toggleTriggerGroup(gIdx)" class="flex items-center gap-2 px-5 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors">
+                    <div @click="toggleTriggerGroup(group.jobName)" class="flex items-center gap-2 px-5 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors">
                       <svg class="w-4 h-4 text-gray-500 flex-shrink-0 transition-transform duration-200"
-                           :class="expandedTriggerGroups[gIdx] ? 'rotate-90' : ''"
+                           :class="expandedTriggerGroups[group.jobName] ? 'rotate-90' : ''"
                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="9 18 15 12 9 6"/>
                       </svg>
@@ -1701,7 +1701,7 @@
                                 class="px-2 py-0.5 text-[10px] rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors">Resume</button>
                       </div>
                     </div>
-                    <div x-show="expandedTriggerGroups[gIdx]" class="accordion-enter">
+                    <div x-show="expandedTriggerGroups[group.jobName]" class="accordion-enter">
                       <div class="table-wrap rounded-none border-0 border-t border-white/[0.04]">
                         <table>
                           <thead>
