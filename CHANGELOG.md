@@ -2,6 +2,12 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.3.2] — 2026-05-09
+
+### Fixed
+- **Boot loader actually visible** — Moved boot loader outside `x-cloak` wrapper so it renders immediately on page load (before Alpine.js initializes), giving instant branded feedback instead of a blank screen.
+- **README updated** — Added all v2.3.x features: global search, keyboard shortcuts, execution detail drawer, CRON builder, heatmap, embed mode, mobile nav, boot loader, data pulse, and new API endpoints.
+
 ## [2.3.1] — 2026-05-09
 
 ### Added

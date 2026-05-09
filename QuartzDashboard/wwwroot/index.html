@@ -28,10 +28,10 @@
   <script src="charts.js?v=__QUARTZ_VERSION__"></script>
   <link rel="stylesheet" href="app.css?v=__QUARTZ_VERSION__" />
 </head>
-<body class="bg-gray-950 text-gray-200 antialiased" :class="embedMode ? 'embed-mode' : ''" x-data="dashboard()" x-init="init()" x-cloak>
+<body class="bg-gray-950 text-gray-200 antialiased" :class="embedMode ? 'embed-mode' : ''" x-data="dashboard()" x-init="init()">
 
-  <!-- ===================== APP BOOT LOADER ===================== -->
-  <div x-show="!appReady" class="app-boot-loader" style="display:none" x-transition:leave="transition ease-in duration-300" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+  <!-- ===================== APP BOOT LOADER (visible immediately, no x-cloak) ===================== -->
+  <div x-show="!appReady" class="app-boot-loader" x-transition:leave="transition ease-in duration-300" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
     <div class="boot-logo">
       <svg viewBox="0 0 40 40" class="w-12 h-12">
         <rect width="40" height="40" rx="10" fill="#6366f1"/>
@@ -42,6 +42,9 @@
     <div class="boot-phase" x-text="appBootPhase"></div>
     <div class="boot-sub">Quartz Dashboard</div>
   </div>
+
+  <!-- Main dashboard content (hidden until ready) -->
+  <div x-cloak>
 
   <!-- ChartEngine filters and gradients (static, both prefixes) -->
   <svg height="0" width="0" style="position:absolute">
@@ -3013,6 +3016,8 @@
       <span>Settings</span>
     </button>
   </div>
+
+  </div><!-- close x-cloak wrapper -->
 
   <script src="app.js?v=__QUARTZ_VERSION__"></script>
 </body>

@@ -140,10 +140,15 @@ POST {Path}/hub/negotiate?negotiateVersion=1  → 200 when working
 - **Track** execution history with server-side pagination, per-minute bucketed stats, and live SVG charts
 - **Monitor** execution rate, average duration, P50/P95/P99 percentiles, and error trends in real time
 - **Visualize** execution timeline with full-width color-coded bars, tooltips, and auto-fit range
+- **Search** globally across jobs, triggers, and history with `Ctrl+K`
+- **Navigate** with keyboard shortcuts — press `?` to see all
+- **Inspect** execution details — click any history row for full stacktraces and metadata
+- **Build** CRON expressions visually with the built-in builder and presets
+- **Embed** the dashboard in iframes with `?embed=true` (strips sidebar/header)
 - **Secure** your dashboard with authentication, role-based access, and authorization policies
 - **Persist** fire history to disk with optional JSON file-backed storage
-- **Alert** on job failures via callbacks or webhook notifications
-- **Zero build step** — single HTML SPA with Alpine.js + Tailwind CDN, all embedded in the DLL
+- **Alert** on job failures via callbacks, webhooks, or the health notification badge
+- **Zero build step** — single HTML SPA with Alpine.js + Tailwind, all embedded in the DLL
 
 ## Quick Start
 
@@ -190,7 +195,7 @@ Open **`/quartz`** in your browser.
 | **Calendars** | Quartz calendars list with type badges and descriptions |
 | **Settings** | Refresh interval slider, per-page auto-refresh toggles, history retention info, data management |
 
-Auto-refreshes every 5 seconds. Dark/light theme with OS auto-detection. Responsive. Collapsible sidebar. Sticky table headers. Keyboard shortcuts.
+Auto-refreshes every 5 seconds. Dark/light theme with OS auto-detection. Responsive mobile layout with bottom tab bar. Collapsible sidebar. Sticky table headers. Sortable columns. Keyboard shortcuts (`?` to see all). Global search (`Ctrl+K`). Branded boot loader. SignalR reconnection toasts. Data pulse indicator. Embed mode (`?embed=true`).
 
 ## Configuration
 
@@ -333,7 +338,9 @@ All endpoints under `{basePath}/api/` (default: `/quartz/api/`).
 | GET | `/stats/history` | Rolling history for the graph |
 | GET | `/health` | Success rate, thread pool utilization, failure list |
 | GET | `/timeline` | Execution timeline data (up to 500 records) |
+| GET | `/heatmap` | Execution density grid (day-of-week × hour-of-day with success rates) |
 | GET | `/calendars` | Quartz calendars list |
+| GET | `/schedulers` | All registered schedulers (name, instance ID, status) |
 | GET | `/config` | Dashboard config snapshot |
 
 ## SignalR Real-Time Updates
@@ -427,6 +434,27 @@ dotnet run -- -p 5000 --auth --readonly
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
+
+### v2.3.1 (2026-05-09)
+- Branded boot loader with phase text while dashboard initializes
+- SignalR reconnection toasts (drop/reconnect/polling fallback feedback)
+- Data pulse indicator in footer when live data arrives
+- Fixed hardcoded version in About section
+
+### v2.3.0 (2026-05-09)
+- Global search (`Ctrl+K`) across jobs, triggers, and history
+- Keyboard shortcuts overlay (`?`) with full navigation shortcuts
+- Execution detail drawer — click history rows for stacktraces and metadata
+- CRON expression builder with visual editor and presets
+- Execution heatmap (day-of-week × hour-of-day density grid)
+- Sortable column headers on jobs, triggers, and history tables
+- Empty state illustrations when no data exists
+- Health notification badge (red dot when success rate < 95%)
+- Mobile responsive bottom nav bar on screens < 768px
+- Breadcrumb navigation in header
+- Embed mode (`?embed=true`) for iframe integration
+- Multi-scheduler endpoint and UI infrastructure
+- Backend: `/api/heatmap` and `/api/schedulers` endpoints
 
 ### v2.2.0 (2026-05-09)
 - Server-side table pagination for jobs, triggers, and history
