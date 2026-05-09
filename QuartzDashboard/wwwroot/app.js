@@ -1437,7 +1437,9 @@
             });
 
             await this.connection.start();
-            await this.connection.invoke('Subscribe');
+            if (this.connection.state === 'Connected') {
+              await this.connection.invoke('Subscribe');
+            }
             this.signalRConnected = true;
             if (this.signalRTimeout) {
               clearTimeout(this.signalRTimeout);
