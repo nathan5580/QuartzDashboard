@@ -35,7 +35,9 @@ jobs:
       run: dotnet build -c Release --no-restore
 
     - name: Test
-      run: dotnet test -c Release --no-build --verbosity normal
+      run: |
+        dotnet test QuartzDashboard.Tests/QuartzDashboard.Tests.csproj -c Release --no-build --verbosity normal
+        dotnet test QuartzDashboard.IntegrationTests/QuartzDashboard.IntegrationTests.csproj -c Release --no-build --verbosity normal
 
     - name: Pack
       run: dotnet pack -c Release --no-build
@@ -120,6 +122,14 @@ jobs:
           --api-key "${{ secrets.NUGET_API_KEY }}" \
           --source https://api.nuget.org/v3/index.json \
           --skip-duplicate
+
+    - name: Deprecate old package (Dot.QuartzPanel)
+      run: |
+        dotnet nuget deprecate Dot.QuartzPanel \
+          --api-key "${{ secrets.NUGET_API_KEY }}" \
+          --source https://api.nuget.org/v3/index.json \
+          --alternate-package Dot.QuartzDashboard \
+          --message "This package is obsolete. Use Dot.QuartzDashboard instead — a maintained, feature-rich Quartz.NET scheduler dashboard with real-time monitoring, job management, SignalR support, and more." || echo "Deprecation skipped (may already be deprecated or API key mismatch)"
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
