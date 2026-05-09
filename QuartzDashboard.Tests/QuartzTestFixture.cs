@@ -1,4 +1,5 @@
 using System.Net;
+using System.Reflection;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -6,6 +7,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Quartz;
+using Quartz.Logging;
 using Xunit;
 
 namespace QuartzDashboard.Tests;
@@ -22,6 +24,15 @@ public sealed class QuartzTestFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // Clear Quartz's static LogProvider to avoid ObjectDisposedException from
+        // a previous test fixture that disposed its LoggerFactory. This is needed
+        // because Quartz caches the ILogProvider statically and will try to use
+        // a disposed one when the new DI container creates its own logger.
+        var logProviderType = typeof(LogProvider);
+        var currentField = logProviderType.GetField("s_currentLogProvider",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        currentField?.SetValue(null, null);
+
         Host = await new HostBuilder()
             .ConfigureWebHost(webBuilder =>
             {

@@ -5,6 +5,7 @@ using Xunit;
 
 namespace QuartzDashboard.Tests;
 
+[Collection("QuartzDashboard")]
 public class TriggerHandlerTests : IClassFixture<QuartzTestFixture>
 {
     private readonly QuartzTestFixture _fixture;

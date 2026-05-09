@@ -6,9 +6,9 @@ namespace QuartzDashboard.Tests;
 
 /// <summary>
 /// Tests that scheduler API endpoints return correct responses via TestServer.
-/// Uses IClassFixture to share a single test host across all tests in this class,
-/// avoiding Quartz LogProvider static logger disposal conflicts.
+/// Uses shared CollectionFixture to avoid Quartz LogProvider disposal conflicts.
 /// </summary>
+[Collection("QuartzDashboard")]
 public class SchedulerHandlerTests : IClassFixture<QuartzTestFixture>
 {
     private readonly QuartzTestFixture _fixture;

@@ -3,11 +3,7 @@ using Xunit;
 
 namespace QuartzDashboard.Tests;
 
-/// <summary>
-/// Tests that the embedded static assets (SignalR JS, Alpine.js, app.css, etc.) are
-/// served correctly — ensuring the NuGet is fully autonomous with no CDN dependencies
-/// for the critical JS runtime.
-/// </summary>
+[Collection("QuartzDashboard")]
 public class EmbeddedAssetsTests : IClassFixture<QuartzTestFixture>
 {
     private readonly HttpClient _client;
@@ -17,6 +13,11 @@ public class EmbeddedAssetsTests : IClassFixture<QuartzTestFixture>
         _client = fixture.Client;
     }
 
+    /// <summary>
+    /// Tests that the embedded static assets (SignalR JS, Alpine.js, app.css, etc.) are
+    /// served correctly — ensuring the NuGet is fully autonomous with no CDN dependencies
+    /// for the critical JS runtime.
+    /// </summary>
     [Fact]
     public async Task SignalRJs_IsServedFromEmbeddedResources()
     {

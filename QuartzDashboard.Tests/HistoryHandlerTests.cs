@@ -4,6 +4,7 @@ using Xunit;
 
 namespace QuartzDashboard.Tests;
 
+[Collection("QuartzDashboard")]
 public class HistoryHandlerTests : IClassFixture<QuartzTestFixture>
 {
     private readonly QuartzTestFixture _fixture;
