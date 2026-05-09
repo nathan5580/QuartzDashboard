@@ -3,10 +3,8 @@ using QuartzDashboard;
 
 namespace QuartzDashboard.Tests;
 
-/// <summary>
-/// Tests that QuartzDashboardOptions have correct default values.
-/// </summary>
-public class BasicConfigTests
+[Collection("QuartzDashboard")]
+public class BasicConfigTests : IClassFixture<QuartzTestFixture>
 {
     [Fact]
     public void DefaultOptions_HaveCorrectPath()

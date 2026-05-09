@@ -5,9 +5,7 @@ using Xunit;
 
 namespace QuartzDashboard.Tests;
 
-/// <summary>
-/// Debug test to inspect the actual stats endpoint response.
-/// </summary>
+[Collection("QuartzDashboard")]
 public class DebugStatsTests : IClassFixture<QuartzTestFixture>
 {
     private readonly HttpClient _client;
@@ -17,6 +15,9 @@ public class DebugStatsTests : IClassFixture<QuartzTestFixture>
         _client = fixture.Client;
     }
 
+    /// <summary>
+    /// Debug test to inspect the actual stats endpoint response.
+    /// </summary>
     [Fact]
     public async Task Debug_Stats_Endpoint()
     {
