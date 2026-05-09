@@ -2,6 +2,20 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.1.42] — 2026-05-09
+
+### Added
+- **URL deep linking** — pages are bookmarkable/shareable via URL hash (`#jobs`, `#history`, `#graph`, etc.). Hash updates on navigation and restores on load.
+- **P50/P95/P99 latency percentiles** — overview shows global and per-job percentile cards (P50 green, P95 amber, P99 red) with sample count. Backend computes from fire history.
+- **Pinned/favorite jobs** — pin jobs from the Jobs table to see them on the Overview page. Persisted in localStorage. Click to open drawer, shows status + success rate.
+- **Mini execution sparkline** — job drawer History tab shows a duration trend polyline above the history list.
+- **Schedule preview** — overview shows next 24h upcoming fires with countdown labels.
+- **Fullscreen mode** — toggle via button in top toolbar or `F` keyboard shortcut. Shows expand/collapse icon.
+- **Duplicate job** — "Duplicate" button in job drawer pre-fills the Create Job modal with the job's config.
+- **Sound alerts** — optional audio tone on job failure (toggle in Settings, test button). Uses Web Audio API, no external files.
+- **Print summary report** — Settings → About → "Print Report" opens a printable summary with stats, percentiles, job list, and recent failures.
+- **Accessibility** — ARIA `role` and `aria-label` on sidebar/main, `aria-current` on active nav item, `:focus-visible` outlines, `.sr-only` utility class.
+
 ## [2.1.41] — 2026-05-09
 
 ### Added
