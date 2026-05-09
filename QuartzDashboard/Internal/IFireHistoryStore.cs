@@ -41,7 +41,7 @@ internal sealed class InMemoryFireHistoryStore : IFireHistoryStore
     private readonly int _maxRecords;
     private readonly int _retentionHours;
 
-    public InMemoryFireHistoryStore(int maxRecords = 100, int retentionHours = 24)
+    public InMemoryFireHistoryStore(int maxRecords = 500, int retentionHours = 24)
     {
         _maxRecords = maxRecords;
         _retentionHours = retentionHours;
@@ -114,7 +114,7 @@ internal sealed class FileFireHistoryStore : IFireHistoryStore
     private readonly string _filePath;
     private readonly object _writeLock = new();
 
-    public FileFireHistoryStore(string filePath, int maxRecords = 100, int retentionHours = 24)
+    public FileFireHistoryStore(string filePath, int maxRecords = 500, int retentionHours = 24)
     {
         _filePath = filePath;
         _inner = new InMemoryFireHistoryStore(maxRecords, retentionHours);

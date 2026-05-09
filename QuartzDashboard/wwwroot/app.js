@@ -268,12 +268,40 @@
           return Math.round(successes / this.history.length * 100);
         },
         get failedHistory() { return this.history ? this.history.filter(h => h.success === false) : []; },
+        get lastErrorEntry() {
+          const failed = this.failedHistory;
+          if (!failed.length) return null;
+          return failed.reduce((latest, entry) => {
+            if (!latest) return entry;
+            return new Date(entry.fireTime).getTime() > new Date(latest.fireTime).getTime() ? entry : latest;
+          }, null);
+        },
         jobSuccessRate(group, name) {
           const key = group + '.' + name;
           const relevant = (this.history || []).filter(h => h.jobKey === key);
           if (!relevant.length) return null;
           const success = relevant.filter(h => h.success).length;
           return Math.round((success / relevant.length) * 100);
+        },
+        getJobLastExecution(group, name) {
+          const key = group + '.' + name;
+          const relevant = (this.history || []).filter(h => h.jobKey === key && h.fireTime);
+          if (!relevant.length) return null;
+          return relevant.reduce((latest, entry) => {
+            if (!latest) return entry;
+            return new Date(entry.fireTime).getTime() > new Date(latest.fireTime).getTime() ? entry : latest;
+          }, null);
+        },
+        truncateText(value, max = 120) {
+          if (!value) return '';
+          const text = String(value);
+          return text.length > max ? text.slice(0, Math.max(0, max - 1)) + '…' : text;
+        },
+        formatDurationAxis(ms) {
+          if (!Number.isFinite(ms) || ms <= 0) return '0ms';
+          if (ms >= 10000) return Math.round(ms / 1000) + 's';
+          if (ms >= 1000) return (ms / 1000).toFixed(1) + 's';
+          return Math.round(ms) + 'ms';
         },
         togglePinJob(group, name) {
           const key = group + '.' + name;
@@ -789,7 +817,11 @@
 
           const nowX = labelW + chartWidth;
           const nowLine = `<line x1="${nowX}" y1="0" x2="${nowX}" y2="${chartH - axisH}" stroke="${chartColors.primary}" stroke-width="2" stroke-dasharray="4,3" opacity="0.9"/>
-            <text x="${nowX - 3}" y="${chartH - axisH - 4}" text-anchor="end" fill="${chartColors.primary}" font-size="8" font-family="ui-monospace,monospace" opacity="0.8">now</text>`;
+            <g transform="translate(${nowX}, 12)">
+              <circle class="timeline-now-ring" cx="0" cy="0" r="7" fill="${chartColors.primary}" fill-opacity="0.2"></circle>
+              <circle class="timeline-now-dot" cx="0" cy="0" r="4.5" fill="${chartColors.primary}"></circle>
+            </g>
+            <text x="${nowX - 10}" y="15" text-anchor="end" fill="${chartColors.primary}" font-size="10" font-family="ui-monospace,monospace" font-weight="600" opacity="0.95">NOW</text>`;
 
           const axisLabels = gridLines.map(gl =>
             `<text x="${labelW + gl.x}" y="${chartH - axisH + 18}" text-anchor="middle" fill="${chartColors.muted}" font-size="9" font-family="ui-monospace,monospace">${gl.label}</text>`
@@ -1499,22 +1531,26 @@
           this.loading.health = false;
         },
 
+        applyTimelineAutoFit() {
+          if (!this.timelineEvents.length) return;
+          const timestamps = this.timelineEvents
+            .map(e => new Date(e.fireTime).getTime())
+            .filter(t => Number.isFinite(t));
+          if (!timestamps.length) return;
+          const spanMin = (Date.now() - Math.min(...timestamps)) / 60000;
+          if (spanMin <= 5) this.timelineRange = 10;
+          else if (spanMin <= 20) this.timelineRange = 30;
+          else if (spanMin <= 45) this.timelineRange = 60;
+          else this.timelineRange = 180;
+        },
+
         async loadTimeline() {
           this.loading.timeline = true;
           try {
             const data = await this.fetchApi('/timeline');
-            this.timelineEvents = data.slice(0, 50);
+            this.timelineEvents = data;
             this.errors.timeline = null; this.retryCounts.timeline = 0;
-            // Auto-fit timeline range to data spread
-            if (this.timelineEvents.length > 0) {
-              const now = Date.now();
-              const oldest = Math.min(...this.timelineEvents.map(e => new Date(e.fireTime).getTime()));
-              const spanMin = (now - oldest) / 60000;
-              if (spanMin <= 5) this.timelineRange = 10;
-              else if (spanMin <= 20) this.timelineRange = 30;
-              else if (spanMin <= 45) this.timelineRange = 60;
-              else this.timelineRange = 180;
-            }
+            this.applyTimelineAutoFit();
           } catch (e) {
             console.error('loadTimeline:', e);
             this.errors.timeline = e.message;
@@ -1535,7 +1571,7 @@
             errorMessage: data.errorMessage || data.exceptionMessage || null,
           };
           this.timelineEvents.unshift(evt);
-          if (this.timelineEvents.length > 50) this.timelineEvents.length = 50;
+          if (this.timelineEvents.length > 500) this.timelineEvents.length = 500;
         },
 
         updateGraphSize() {
@@ -2224,6 +2260,12 @@
             `<text x="${margin.left - 8}" y="${(t.y + 4).toFixed(1)}" text-anchor="end" fill="${chartColors.muted}" font-size="9" font-family="ui-monospace,monospace">${t.label}</text>`
           ).join('');
 
+          const maxDur = Math.max(...data.map(b => b.avgDurationMs || 0), 1);
+          const durTicks = ChartEngine.yAxisTicks(maxDur, h, margin, 5);
+          const durLabels = durTicks.map(t =>
+            `<text x="${w - margin.right + 8}" y="${(t.y + 4).toFixed(1)}" text-anchor="start" fill="#34d399" font-size="9" font-family="ui-monospace,monospace">${this.formatDurationAxis(t.value)}</text>`
+          ).join('');
+
           const xLabelsSvg = xLabels.map(l => {
             let label = l.label || '';
             try {
@@ -2245,10 +2287,12 @@
               existingSvg.dataset.mode === mode) {
             const seriesG = existingSvg.querySelector('.gc-series');
             const yAxisG  = existingSvg.querySelector('.gc-yaxis');
+            const yAxisRightG = existingSvg.querySelector('.gc-yaxis-right');
             const xAxisG  = existingSvg.querySelector('.gc-xaxis');
             const gridG   = existingSvg.querySelector('.gc-grid');
             if (seriesG) seriesG.innerHTML = dataSeries;
             if (yAxisG)  yAxisG.innerHTML  = yLabels;
+            if (yAxisRightG) yAxisRightG.innerHTML = durLabels;
             if (xAxisG)  xAxisG.innerHTML  = xLabelsSvg;
             if (gridG)   gridG.innerHTML   = gridLines;
             return;
@@ -2270,6 +2314,7 @@
             </defs>
             <g class="gc-grid">${gridLines}</g>
             <g class="gc-yaxis">${yLabels}</g>
+            <g class="gc-yaxis-right">${durLabels}</g>
             <g class="gc-xaxis">${xLabelsSvg}</g>
             <line x1="${margin.left}" y1="${h - margin.bottom}" x2="${w - margin.right}" y2="${h - margin.bottom}" stroke="${chartColors.border}" stroke-width="1"/>
             <g class="gc-series">${dataSeries}</g>

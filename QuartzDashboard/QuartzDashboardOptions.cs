@@ -59,7 +59,7 @@ public class QuartzDashboardOptions
     /// Only applies when using the default in-memory store.
     /// Default: 100
     /// </summary>
-    public int MaxFireHistory { get; set; } = 100;
+    public int MaxFireHistory { get; set; } = 500;
 
     /// <summary>
     /// Maximum number of execution log entries per job.
