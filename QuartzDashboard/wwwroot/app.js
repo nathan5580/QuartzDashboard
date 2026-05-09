@@ -33,12 +33,18 @@
 
         // Jobs page
         jobsFilter: '',
+        jobsPage: 1,
+        jobsPageSize: 25,
+        jobsTotal: 0,
         expandedJobs: {},
         pinnedJobs: JSON.parse(localStorage.getItem('quartz-pinned-jobs') || '[]'),
 
         // Triggers page
         expandedTriggerGroups: {},
         triggersFilter: '',
+        triggersPage: 1,
+        triggersPageSize: 50,
+        triggersTotal: 0,
 
         // Executing page
         knownExecutingIds: new Set(),
@@ -453,6 +459,10 @@
           );
         },
 
+        get jobsTotalPages() {
+          return Math.max(1, Math.ceil((this.jobsTotal || 0) / this.jobsPageSize));
+        },
+
         get pinnedJobDetails() {
           return (this.allJobs || []).filter(j => this.pinnedJobs.includes(j.group + '.' + j.name));
         },
@@ -502,6 +512,10 @@
               )
             }))
             .filter(g => g.triggers.length > 0 || g.jobName.toLowerCase().includes(q));
+        },
+
+        get triggersTotalPages() {
+          return Math.max(1, Math.ceil((this.triggersTotal || 0) / this.triggersPageSize));
         },
 
         get filteredHistory() {
@@ -830,7 +844,7 @@
           // Separator line between label panel and chart area
           const separator = `<line x1="${labelW}" y1="0" x2="${labelW}" y2="${chartH - axisH}" stroke="${chartColors.border}" stroke-width="1"/>`;
 
-          el.innerHTML = `<svg width="${w}" height="${chartH}" style="width:100%;display:block;overflow:visible">
+          el.innerHTML = `<svg width="${w}" height="${chartH}" viewBox="0 0 ${w} ${chartH}" style="width:100%;display:block;overflow:visible">
             <defs>
               <clipPath id="tl-clip"><rect x="${labelW}" y="0" width="${chartWidth}" height="${chartH - axisH}"/></clipPath>
               ${gradDefs}
@@ -928,6 +942,40 @@
 
           this.startAutoRefresh();
           this.$watch('currentPage', (val) => { this.onPageChange(val); window.location.hash = val; });
+          this.$watch('jobsFilter', () => {
+            this.debounce(() => {
+              if (this.jobsPage !== 1) {
+                this.jobsPage = 1;
+                this.loadJobs();
+              }
+            }, 'jobs-filter', 200);
+          });
+          this.$watch('triggersFilter', () => {
+            this.debounce(() => {
+              if (this.triggersPage !== 1) {
+                this.triggersPage = 1;
+                this.loadTriggers();
+              }
+            }, 'triggers-filter', 200);
+          });
+          this.$watch('historyFilterObj.search', () => {
+            this.debounce(() => {
+              this.historyCurrentPage = 1;
+              this.loadHistory();
+            }, 'history-filter-search', 200);
+          });
+          this.$watch('historyFilterObj.status', () => {
+            this.historyCurrentPage = 1;
+            this.loadHistory();
+          });
+          this.$watch('historyFilterObj.dateFrom', () => {
+            this.historyCurrentPage = 1;
+            this.loadHistory();
+          });
+          this.$watch('historyFilterObj.dateTo', () => {
+            this.historyCurrentPage = 1;
+            this.loadHistory();
+          });
           // Deep linking via URL hash
           const hash = window.location.hash.replace('#', '');
           if (hash && this.navItems.find(n => n.id === hash)) {
@@ -960,7 +1008,10 @@
             if (tc) resizeObserver.observe(tc);
           });
           // Fallback for window resize
-          window.addEventListener('resize', () => this.updateGraphSize());
+          window.addEventListener('resize', () => {
+            this.updateGraphSize();
+            this.updateTimelineChart();
+          });
         },
 
         // ========================= SIGNALR =========================
@@ -1029,13 +1080,15 @@
         },
 
         handleJobExecuted(data) {
-          // Append to history
+          // Append to history without breaking server-side pagination
           if (data.jobKey) {
-            this.history.unshift(data);
-            if (this.history.length > 500) this.history.length = 500;
-            // Update maxHistoryDuration
-            const d = data.durationMs || 0;
-            if (d > this.maxHistoryDuration) this.maxHistoryDuration = d;
+            this.historyTotal = (this.historyTotal || 0) + 1;
+            if (this.historyCurrentPage === 1) {
+              this.history.unshift(data);
+              if (this.history.length > this.historyPageSize) this.history.length = this.historyPageSize;
+              const d = data.durationMs || 0;
+              if (d > this.maxHistoryDuration) this.maxHistoryDuration = d;
+            }
           }
 
           // Job run result feedback: check if this was a manually triggered job
@@ -1581,7 +1634,7 @@
           }
           const tlContainer = this.$refs && this.$refs.timelineContainer;
           if (tlContainer) {
-            this.timelineWidth = Math.max(600, tlContainer.clientWidth - 144 || 800);
+            this.timelineWidth = Math.max(600, tlContainer.clientWidth || 800);
             this.timelineHeight = Math.max(200, tlContainer.clientHeight || 400);
           }
         },
@@ -1598,7 +1651,7 @@
           if (page === 'calendars') this.loadCalendars();
           if (page === 'timeline') {
             this.loadTimeline();
-            requestAnimationFrame(() => requestAnimationFrame(() => this.updateGraphSize()));
+            requestAnimationFrame(() => requestAnimationFrame(() => { this.updateGraphSize(); this.updateTimelineChart(); }));
           }
         },
 
@@ -1724,17 +1777,21 @@
 
         async refreshAll() {
           try {
+            const jobsOffset = (this.jobsPage - 1) * this.jobsPageSize;
+            const triggersOffset = (this.triggersPage - 1) * this.triggersPageSize;
             const [scheduler, jobsResp, triggersResp, executingResp] = await Promise.all([
               this.fetchApi('/scheduler').catch(() => this.scheduler),
-              this.fetchApi('/jobs').catch(() => ({ data: this.jobs })),
-              this.fetchApi('/triggers').catch(() => ({ data: this.triggers })),
+              this.fetchApi('/jobs?offset=' + jobsOffset + '&limit=' + this.jobsPageSize).catch(() => ({ data: this.jobs, total: this.jobsTotal })),
+              this.fetchApi('/triggers?offset=' + triggersOffset + '&limit=' + this.triggersPageSize).catch(() => ({ data: this.triggers, total: this.triggersTotal })),
               this.fetchApi('/executing').catch(() => ({ data: this.executingJobs })),
             ]);
             this.scheduler = scheduler;
             this.jobs = (Array.isArray(jobsResp) ? jobsResp : (Array.isArray(jobsResp?.data) ? jobsResp.data : []))
               .sort((a, b) => (a.group + '.' + a.name).localeCompare(b.group + '.' + b.name));
+            this.jobsTotal = Number.isFinite(jobsResp?.total) ? jobsResp.total : this.jobs.length;
             this.triggers = (Array.isArray(triggersResp) ? triggersResp : (Array.isArray(triggersResp?.data) ? triggersResp.data : []))
               .sort((a, b) => (a.jobGroup + '.' + a.jobName + '/' + a.group + '.' + a.name).localeCompare(b.jobGroup + '.' + b.jobName + '/' + b.group + '.' + b.name));
+            this.triggersTotal = Number.isFinite(triggersResp?.total) ? triggersResp.total : this.triggers.length;
             this.executingJobs = (Array.isArray(executingResp) ? executingResp : (Array.isArray(executingResp?.data) ? executingResp.data : []))
               .sort((a, b) => (a.jobGroup + '.' + a.jobName).localeCompare(b.jobGroup + '.' + b.jobName));
             this.lastRefreshed = new Date();
@@ -1747,19 +1804,55 @@
           }
         },
 
-        async loadJobs() {
+        async loadJobs(page) {
           this.loading.jobs = true;
-          try { const resp = await this.fetchApi('/jobs'); this.jobs = (Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : [])).sort((a, b) => (a.group + '.' + a.name).localeCompare(b.group + '.' + b.name)); this.errors.jobs = null; this.retryCounts.jobs = 0; } catch (e) { console.error('loadJobs:', e); this.errors.jobs = e.message; this.showToast('Failed to load jobs: ' + e.message, 'error'); this._retryLoad('jobs', () => this.loadJobs()); }
+          try {
+            if (page) this.jobsPage = page;
+            if (this.jobsPage < 1) this.jobsPage = 1;
+            const offset = (this.jobsPage - 1) * this.jobsPageSize;
+            const resp = await this.fetchApi('/jobs?offset=' + offset + '&limit=' + this.jobsPageSize);
+            this.jobs = (Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []))
+              .sort((a, b) => (a.group + '.' + a.name).localeCompare(b.group + '.' + b.name));
+            this.jobsTotal = Number.isFinite(resp?.total) ? resp.total : this.jobs.length;
+            const lastPage = Math.max(1, Math.ceil((this.jobsTotal || 0) / this.jobsPageSize));
+            if (this.jobsPage > lastPage) {
+              this.jobsPage = lastPage;
+              return await this.loadJobs();
+            }
+            this.errors.jobs = null; this.retryCounts.jobs = 0;
+          } catch (e) { console.error('loadJobs:', e); this.errors.jobs = e.message; this.showToast('Failed to load jobs: ' + e.message, 'error'); this._retryLoad('jobs', () => this.loadJobs()); }
           this.loading.jobs = false;
         },
 
-        async loadTriggers() {
+        async jobsGoToPage(page) {
+          if (page < 1 || page > this.jobsTotalPages || page === this.jobsPage) return;
+          await this.loadJobs(page);
+        },
+
+        async jobsPrevPage() {
+          await this.jobsGoToPage(this.jobsPage - 1);
+        },
+
+        async jobsNextPage() {
+          await this.jobsGoToPage(this.jobsPage + 1);
+        },
+
+        async loadTriggers(page) {
           this.loading.triggers = true;
           try {
-            const resp = await this.fetchApi('/triggers');
+            if (page) this.triggersPage = page;
+            if (this.triggersPage < 1) this.triggersPage = 1;
+            const offset = (this.triggersPage - 1) * this.triggersPageSize;
+            const resp = await this.fetchApi('/triggers?offset=' + offset + '&limit=' + this.triggersPageSize);
             const list = Array.isArray(resp) ? resp : (resp.data ?? resp ?? []);
             this.triggers = (Array.isArray(list) ? list : [])
               .sort((a, b) => (a.jobGroup + '.' + a.jobName + '/' + a.group + '.' + a.name).localeCompare(b.jobGroup + '.' + b.jobName + '/' + b.group + '.' + b.name));
+            this.triggersTotal = Number.isFinite(resp?.total) ? resp.total : this.triggers.length;
+            const lastPage = Math.max(1, Math.ceil((this.triggersTotal || 0) / this.triggersPageSize));
+            if (this.triggersPage > lastPage) {
+              this.triggersPage = lastPage;
+              return await this.loadTriggers();
+            }
             this.errors.triggers = null; this.retryCounts.triggers = 0;
             // Merge new groups into existing expanded state — preserve open/closed
             for (const t of this.triggers) {
@@ -1770,6 +1863,19 @@
             }
           } catch (e) { console.error('loadTriggers:', e); this.errors.triggers = e.message; this.showToast('Failed to load triggers: ' + e.message, 'error'); this._retryLoad('triggers', () => this.loadTriggers()); }
           this.loading.triggers = false;
+        },
+
+        async triggersGoToPage(page) {
+          if (page < 1 || page > this.triggersTotalPages || page === this.triggersPage) return;
+          await this.loadTriggers(page);
+        },
+
+        async triggersPrevPage() {
+          await this.triggersGoToPage(this.triggersPage - 1);
+        },
+
+        async triggersNextPage() {
+          await this.triggersGoToPage(this.triggersPage + 1);
         },
 
         async loadExecutingJobs() {
@@ -1793,9 +1899,20 @@
             if (this.historyCurrentPage < 1) this.historyCurrentPage = 1;
             this.historyLimit = pageSize;
             this.historyOffset = (this.historyCurrentPage - 1) * pageSize;
-            const resp = await this.fetchApi('/history?limit=' + pageSize + '&offset=' + this.historyOffset);
+            const params = new URLSearchParams({ limit: String(pageSize), offset: String(this.historyOffset) });
+            if (this.historyFilterObj.search) params.set('search', this.historyFilterObj.search);
+            if (this.historyFilterObj.status && this.historyFilterObj.status !== 'all') params.set('status', this.historyFilterObj.status);
+            if (this.historyFilterObj.dateFrom) params.set('dateFrom', this.historyFilterObj.dateFrom);
+            if (this.historyFilterObj.dateTo) params.set('dateTo', this.historyFilterObj.dateTo);
+            const resp = await this.fetchApi('/history?' + params.toString());
             this.history = resp.data || [];
             this.historyTotal = resp.total || 0;
+            const lastPage = Math.max(1, Math.ceil((this.historyTotal || 0) / pageSize));
+            if (this.historyCurrentPage > lastPage) {
+              this.historyCurrentPage = lastPage;
+              return await this.loadHistory();
+            }
+            this.historyOffset = Number.isFinite(resp?.offset) ? resp.offset : this.historyOffset;
             this.maxHistoryDuration = 0;
             for (const h of this.history) {
               const d = h.duration || h.durationMs || 0;
@@ -1812,12 +1929,20 @@
           await this.loadHistory(page);
         },
 
+        async historyPrevPage() {
+          await this.historyGoToPage(this.historyCurrentPage - 1);
+        },
+
+        async historyNextPage() {
+          await this.historyGoToPage(this.historyCurrentPage + 1);
+        },
+
         async loadStats() {
           this.loading.stats = true;
           try {
             const newStats = await this.fetchApi('/stats');
-            newStats.totalJobs = this.jobs.length;
-            newStats.totalTriggers = this.triggers.length;
+            newStats.totalJobs = this.jobsTotal || this.jobs.length;
+            newStats.totalTriggers = this.triggersTotal || this.triggers.length;
             newStats.executing = this.executingJobs.length;
             newStats.totalExecutions = newStats.totalExecutions ?? this.scheduler.numberOfJobsExecuted ?? 0;
             // Track trend: move current to prev after 15s

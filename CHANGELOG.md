@@ -2,6 +2,26 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.2.0] — 2026-05-09
+
+### Added
+- **Server-side table pagination** — Jobs, triggers, and history tables now have proper page controls with server-side offset/limit. Current page is preserved during auto-refresh.
+- **Integration test project** — 61 new xUnit integration tests via `WebApplicationFactory` covering endpoints, auth, config, coexistence, SignalR, read-only mode, and history tracking. Simulates a real-world API plugging in the NuGet.
+- **CI integration tests** — GitHub Actions workflow now runs integration tests as a separate job before publishing.
+- **Favicon** — Inline SVG "Q" icon in the browser tab (zero external dependencies).
+- **Sticky table headers** — Table headers stay visible when scrolling long lists.
+- **Skeleton loading animations** — Shimmer effect for loading states with light mode support.
+- **Connection status indicator CSS** — Pulsing dot styles for connected/polling/disconnected states.
+- **Smoother page transitions** — Improved enter/leave CSS transitions between dashboard pages.
+
+### Fixed
+- **Timeline fills full width** — Removed erroneous 144px offset; SVG now uses 100% of container width with proper ResizeObserver and double-RAF sizing on page change.
+- **Light mode contrast** — Comprehensive button, table, input, drawer, badge, tooltip, and pagination overrides for proper readability in light mode. Buttons no longer appear white-on-white.
+
+### Changed
+- Pagination state persists during dynamic refresh — page numbers don't reset when auto-refresh fires.
+- History live updates no longer corrupt pagination state.
+
 ## [2.1.47] — 2026-05-09
 
 ### Fixed

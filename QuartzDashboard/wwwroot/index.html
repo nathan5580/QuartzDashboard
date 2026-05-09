@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>__QUARTZ_TITLE__</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=__QUARTZ_VERSION__" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%236366f1'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='white' font-family='system-ui' font-weight='700' font-size='18'%3EQ%3C/text%3E%3C/svg%3E" />
   <script>window.__QUARTZ_BASE = '__QUARTZ_BASE__';</script>
   <script>
     // Apply OS theme before Alpine loads to avoid flash
@@ -1056,7 +1056,7 @@
             <div class="flex items-center justify-between flex-wrap gap-3">
               <div>
                 <h1 class="text-lg font-semibold tracking-tight text-gray-100">Jobs</h1>
-                <p class="text-xs text-gray-500 mt-0.5"><span x-text="filteredJobs.length"></span> of <span x-text="jobs.length"></span> jobs — click a row to inspect</p>
+                <p class="text-xs text-gray-500 mt-0.5"><span x-text="filteredJobs.length"></span> of <span x-text="jobs.length"></span> on this page · <span x-text="jobsTotal"></span> total jobs</p>
               </div>
               <div class="flex items-center gap-2">
                 <div class="relative">
@@ -1233,9 +1233,33 @@
                         </template>
                       </tbody>
                     </table>
+                    <div class="flex items-center justify-between px-4 py-3 border-t border-white/[0.04]" x-show="jobsTotal > 0">
+                      <span class="text-xs text-gray-500" x-text="jobsTotal + ' total jobs'"></span>
+                      <div class="flex items-center gap-1">
+                        <button @click="jobsPrevPage()" :disabled="jobsPage <= 1" class="btn-icon" :class="jobsPage <= 1 ? 'opacity-30' : ''">
+                          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                        </button>
+                        <span class="text-xs text-gray-400 tabular-nums px-2" x-text="jobsPage + ' / ' + jobsTotalPages"></span>
+                        <button @click="jobsNextPage()" :disabled="jobsPage >= jobsTotalPages" class="btn-icon" :class="jobsPage >= jobsTotalPages ? 'opacity-30' : ''">
+                          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </template>
 
+                <div x-show="!filteredJobs.length && jobsTotal > 0" class="flex items-center justify-between px-4 py-3 border border-white/[0.04] rounded-xl bg-white/[0.02]">
+                  <span class="text-xs text-gray-500" x-text="jobsTotal + ' total jobs'"></span>
+                  <div class="flex items-center gap-1">
+                    <button @click="jobsPrevPage()" :disabled="jobsPage <= 1" class="btn-icon" :class="jobsPage <= 1 ? 'opacity-30' : ''">
+                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
+                    <span class="text-xs text-gray-400 tabular-nums px-2" x-text="jobsPage + ' / ' + jobsTotalPages"></span>
+                    <button @click="jobsNextPage()" :disabled="jobsPage >= jobsTotalPages" class="btn-icon" :class="jobsPage >= jobsTotalPages ? 'opacity-30' : ''">
+                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                  </div>
+                </div>
                 <!-- Empty: no match -->
                 <div x-show="!filteredJobs.length && jobs.length > 0" class="card-gradient text-center py-10">
                   <svg class="w-10 h-10 mx-auto text-gray-600 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -1642,7 +1666,7 @@
             <div class="flex items-center justify-between">
               <div>
                 <h1 class="text-lg font-semibold tracking-tight text-gray-100">Triggers</h1>
-                <p class="text-xs text-gray-500 mt-0.5">Grouped by job</p>
+                <p class="text-xs text-gray-500 mt-0.5"><span x-text="triggers.length"></span> shown on this page · <span x-text="triggersTotal"></span> total triggers</p>
               </div>
               <div class="flex items-center gap-2 flex-wrap">
                 <div class="relative">
@@ -1749,6 +1773,18 @@
                     </div>
                   </div>
                 </template>
+                <div x-show="triggersTotal > 0" class="flex items-center justify-between px-4 py-3 border border-white/[0.04] rounded-xl bg-white/[0.02]">
+                  <span class="text-xs text-gray-500" x-text="triggersTotal + ' total triggers'"></span>
+                  <div class="flex items-center gap-1">
+                    <button @click="triggersPrevPage()" :disabled="triggersPage <= 1" class="btn-icon" :class="triggersPage <= 1 ? 'opacity-30' : ''">
+                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
+                    <span class="text-xs text-gray-400 tabular-nums px-2" x-text="triggersPage + ' / ' + triggersTotalPages"></span>
+                    <button @click="triggersNextPage()" :disabled="triggersPage >= triggersTotalPages" class="btn-icon" :class="triggersPage >= triggersTotalPages ? 'opacity-30' : ''">
+                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                  </div>
+                </div>
                 <div x-show="!filteredGroupedTriggers.length" class="card-gradient text-center py-12">
                   <svg class="w-12 h-12 mx-auto text-gray-600 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
@@ -2015,19 +2051,22 @@
                     </tbody>
                   </table>
                 </div>
-                <div x-show="historyTotal > 0" class="pt-4 mt-3 border-t border-white/[0.04] flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div class="text-xs text-gray-500">Showing <span x-text="historyTotal ? (historyOffset + 1) : 0"></span>–<span x-text="Math.min(historyOffset + history.length, historyTotal)"></span> of <span x-text="historyTotal"></span></div>
-                  <div class="flex items-center gap-1 flex-wrap justify-center">
-                    <button @click="historyGoToPage(historyCurrentPage - 1)" :disabled="historyCurrentPage === 1" class="btn btn-ghost text-xs">Previous</button>
-                    <template x-for="(page, idx) in historyPageNumbers" :key="idx">
-                      <template x-if="page === '…'">
-                        <span class="px-2 text-xs text-gray-600">…</span>
-                      </template>
-                      <template x-if="page !== '…'">
-                        <button @click="historyGoToPage(page)" :class="page === historyCurrentPage ? 'btn btn-primary text-xs' : 'btn btn-ghost text-xs'" x-text="page"></button>
-                      </template>
+                <div x-show="historyTotal > 0" class="pt-4 mt-3 border-t border-white/[0.04] flex items-center justify-between gap-3">
+                  <span class="text-xs text-gray-500" x-text="historyTotal + ' total records'"></span>
+                  <div class="flex items-center gap-1">
+                    <template x-for="_ in [historyCurrentPage]" :key="'history-prev'">
+                      <button @click="historyPrevPage()" :disabled="historyCurrentPage <= 1" class="btn-icon" :class="historyCurrentPage <= 1 ? 'opacity-30' : ''">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                      </button>
                     </template>
-                    <button @click="historyGoToPage(historyCurrentPage + 1)" :disabled="historyCurrentPage === historyPageCount" class="btn btn-ghost text-xs">Next</button>
+                    <template x-for="_ in [historyCurrentPage]" :key="'history-page-indicator'">
+                      <span class="text-xs text-gray-400 tabular-nums px-2" x-text="historyCurrentPage + ' / ' + historyPageCount"></span>
+                    </template>
+                    <template x-for="_ in [historyCurrentPage]" :key="'history-next'">
+                      <button @click="historyNextPage()" :disabled="historyCurrentPage >= historyPageCount" class="btn-icon" :class="historyCurrentPage >= historyPageCount ? 'opacity-30' : ''">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                      </button>
+                    </template>
                   </div>
                 </div>
                 <div x-show="!filteredHistory.length && history.length > 0" class="card-gradient text-center py-10">
@@ -2259,8 +2298,8 @@
               </template>
 
               <template x-if="!loading.timeline && timelineVisibleEvents.length">
-                <div class="relative" x-ref="timelineContainer"
-                     x-effect="if (currentPage === 'timeline') { requestAnimationFrame(() => { updateGraphSize(); updateTimelineChart(); }); }"
+                <div class="relative w-full m-0 p-0" x-ref="timelineContainer"
+                     x-effect="if (currentPage === 'timeline') { requestAnimationFrame(() => requestAnimationFrame(() => { updateGraphSize(); updateTimelineChart(); })); }"
                      @mousemove="onTimelineMouseMove($event)"
                      @mouseleave="timelineCursor.show = false">
 
@@ -2281,7 +2320,7 @@
                   </svg>
 
                   <!-- Chart rendered via innerHTML to bypass Alpine SVG namespace issues -->
-                  <div x-ref="timelineChartWrap"
+                  <div class="w-full m-0 p-0" x-ref="timelineChartWrap"
                        x-effect="timelineEvents.length + '|' + timelineRange && updateTimelineChart()">
                   </div>
 
