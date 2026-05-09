@@ -630,6 +630,25 @@
               </div>
             </div>
 
+            <div class="card-gradient mt-4" x-show="lastErrorEntry">
+              <div class="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <h3 class="text-xs font-semibold text-red-400 uppercase tracking-wider">Last Error</h3>
+                  <p class="text-[10px] text-gray-600 mt-1">Most recent failed execution in loaded history</p>
+                </div>
+                <span class="badge badge-error text-[10px]">Needs attention</span>
+              </div>
+              <div class="rounded-lg border border-red-500/10 bg-red-500/[0.04] px-4 py-3">
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                  <div class="min-w-0">
+                    <div class="text-sm font-medium text-gray-100 truncate" x-text="lastErrorEntry?.jobKey || 'Unknown job'"></div>
+                    <div class="text-[11px] text-gray-500 mt-1" x-text="lastErrorEntry ? formatDate(lastErrorEntry.fireTime) : ''"></div>
+                  </div>
+                  <span class="text-[11px] text-red-300 max-w-[28rem] truncate" x-text="lastErrorEntry ? truncateText(lastErrorEntry.exceptionMessage || lastErrorEntry.errorMessage || 'Execution failed', 140) : ''"></span>
+                </div>
+              </div>
+            </div>
+
             <!-- Pinned Jobs -->
             <div class="card-gradient mt-4" x-show="pinnedJobDetails.length > 0">
               <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">📌 Pinned Jobs</h3>
@@ -892,6 +911,23 @@
             </div>
 
             <div class="card-gradient">
+              <div class="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <h2 class="text-sm font-semibold text-gray-200">Thread Pool Utilization</h2>
+                  <p class="text-xs text-gray-500 mt-0.5">Current workers in use vs configured pool capacity</p>
+                </div>
+                <span class="text-xs font-medium tabular-nums" :class="poolUtilization >= 80 ? 'text-amber-400' : 'text-emerald-400'" x-text="poolUtilization.toFixed(0) + '%' "></span>
+              </div>
+              <div class="w-full h-3 rounded-full bg-white/[0.05] overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-500" :class="poolUtilization >= 80 ? 'bg-amber-500' : 'bg-emerald-500'" :style="'width: ' + Math.min(poolUtilization, 100) + '%' "></div>
+              </div>
+              <div class="flex items-center justify-between mt-2 text-[11px] text-gray-500">
+                <span><span x-text="executingJobs.length"></span> active threads</span>
+                <span><span x-text="scheduler.threadPoolSize || 10"></span> total</span>
+              </div>
+            </div>
+
+            <div class="card-gradient">
               <div class="flex items-center justify-between mb-4">
                 <div>
                   <h2 class="text-sm font-semibold text-gray-200">Failure Rate (last 24h)</h2>
@@ -1092,6 +1128,7 @@
                           <th class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden sm:table-cell">Status</th>
                           <th class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden lg:table-cell">Triggers</th>
                           <th class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500">Next Fire</th>
+                          <th class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden xl:table-cell">Last Run</th>
                           <th class="py-2.5 px-4 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500">Actions</th>
                         </tr>
                       </thead>
@@ -1110,7 +1147,7 @@
                                  : (openJobDrawer(item.job), selectedJobIndex = filteredJobs.indexOf(item.job))">
 
                             <!-- ── HEADER cells (group row) ── -->
-                            <td x-show="item.isHeader" colspan="7" class="py-2 px-4">
+                            <td x-show="item.isHeader" colspan="8" class="py-2 px-4">
                               <div class="flex items-center gap-2">
                                 <svg class="w-3.5 h-3.5 text-gray-500 transition-transform duration-150 flex-shrink-0"
                                      :class="item.isCollapsed ? '' : 'rotate-90'"
@@ -1161,6 +1198,12 @@
                                     :class="item.job && item.job.nextFireTime ? 'text-gray-300' : 'text-gray-600'"
                                     :title="item.job && item.job.nextFireTime ? formatDate(item.job.nextFireTime) : ''"
                                     x-text="item.job && formatCountdown(item.job.nextFireTime)"></span>
+                            </td>
+                            <td x-show="!item.isHeader" class="py-3.5 px-4 hidden xl:table-cell" data-label="Last Run">
+                              <span class="text-xs mono"
+                                    :class="item.job && getJobLastExecution(item.job.group, item.job.name) ? 'text-gray-300' : 'text-gray-600'"
+                                    :title="item.job && getJobLastExecution(item.job.group, item.job.name) ? formatDate(getJobLastExecution(item.job.group, item.job.name).fireTime) : ''"
+                                    x-text="item.job && getJobLastExecution(item.job.group, item.job.name) ? formatDate(getJobLastExecution(item.job.group, item.job.name).fireTime) : '—'"></span>
                             </td>
                             <td x-show="!item.isHeader" class="py-3.5 px-4 text-right" data-label="Actions">
                               <div class="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
@@ -1849,8 +1892,11 @@
           <div class="space-y-4">
             <div class="flex items-center justify-between flex-wrap gap-3">
               <div>
-                <h1 class="text-lg font-semibold tracking-tight text-gray-100">Fire History</h1>
-                <p class="text-xs text-gray-500 mt-0.5"><span x-text="filteredHistory.length"></span> of <span x-text="history.length"></span> records</p>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h1 class="text-lg font-semibold tracking-tight text-gray-100">History</h1>
+                  <span class="badge badge-normal text-[10px]" x-text="(historyTotal || 0) + ' records'"></span>
+                </div>
+                <p class="text-xs text-gray-500 mt-0.5">Showing <span x-text="filteredHistory.length"></span> on this page · page <span x-text="historyCurrentPage"></span> of <span x-text="historyPageCount"></span></p>
               </div>
               <div class="flex items-center gap-2 flex-wrap">
                 <button @click="exportHistoryCSV()" class="btn btn-ghost text-xs" title="Export CSV">
@@ -1970,7 +2016,7 @@
                   </table>
                 </div>
                 <div x-show="historyTotal > 0" class="pt-4 mt-3 border-t border-white/[0.04] flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div class="text-xs text-gray-500">Page <span x-text="historyCurrentPage"></span> of <span x-text="historyPageCount"></span></div>
+                  <div class="text-xs text-gray-500">Showing <span x-text="historyTotal ? (historyOffset + 1) : 0"></span>–<span x-text="Math.min(historyOffset + history.length, historyTotal)"></span> of <span x-text="historyTotal"></span></div>
                   <div class="flex items-center gap-1 flex-wrap justify-center">
                     <button @click="historyGoToPage(historyCurrentPage - 1)" :disabled="historyCurrentPage === 1" class="btn btn-ghost text-xs">Previous</button>
                     <template x-for="(page, idx) in historyPageNumbers" :key="idx">
@@ -2160,6 +2206,10 @@
                             x-text="r < 60 ? r + 'm' : (r/60) + 'h'">
                     </button>
                   </template>
+                  <button @click="applyTimelineAutoFit()"
+                          class="px-2.5 py-1 rounded text-xs font-medium transition-all text-emerald-300 hover:text-emerald-200 hover:bg-emerald-500/10">
+                    Fit
+                  </button>
                 </div>
                 <button @click="loadTimeline()" class="btn btn-ghost">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
@@ -2422,6 +2472,28 @@
             <div>
               <h1 class="text-lg font-semibold tracking-tight text-gray-100">Settings</h1>
               <p class="text-xs text-gray-500 mt-0.5">Dashboard preferences and configuration</p>
+            </div>
+
+            <div class="card-gradient space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4 text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+                </div>
+                <div>
+                  <h2 class="text-sm font-semibold text-gray-100">History Retention</h2>
+                  <p class="text-xs text-gray-500">Current dashboard storage limits from the config endpoint</p>
+                </div>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-3">
+                  <div class="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Max Fire History</div>
+                  <div class="text-2xl font-semibold text-gray-100 tabular-nums" x-text="config.maxFireHistory ?? '—'"></div>
+                </div>
+                <div class="rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-3">
+                  <div class="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Retention Window</div>
+                  <div class="text-2xl font-semibold text-gray-100 tabular-nums"><span x-text="config.historyRetentionHours ?? '—'"></span><span class="text-sm text-gray-500 ml-1">hours</span></div>
+                </div>
+              </div>
             </div>
 
             <!-- Refresh interval -->

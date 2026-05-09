@@ -58,10 +58,10 @@ public class BasicConfigTests
     }
 
     [Fact]
-    public void DefaultOptions_MaxFireHistoryIs100()
+    public void DefaultOptions_MaxFireHistoryIs500()
     {
         var options = new QuartzDashboardOptions();
-        Assert.Equal(100, options.MaxFireHistory);
+        Assert.Equal(500, options.MaxFireHistory);
     }
 
     [Fact]

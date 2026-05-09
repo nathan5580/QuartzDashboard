@@ -43,7 +43,7 @@ internal static class HistoryHandlers
     public static IResult GetTimeline(HttpContext ctx)
     {
         var store = ctx.RequestServices.GetRequiredService<IFireHistoryStore>();
-        var events = store.GetRecent(100).Select(f => new
+        var events = store.GetRecent(500).Select(f => new
         {
             jobKey = f.JobKey,
             triggerKey = f.TriggerKey,

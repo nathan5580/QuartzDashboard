@@ -2,6 +2,21 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.1.46] — 2026-05-09
+
+### Changed
+- **Timeline limit increased 50→500** — Timeline, history store, and backend all now store up to 500 fire records (was 50 client-side, 100 backend). `MaxFireHistory` option default bumped to 500.
+- **Timeline "Fit" button** — New button next to range picker auto-calculates optimal range from data spread.
+- **Timeline pulsing "now" marker** — The right-edge "now" indicator now pulses for better visibility.
+
+### Added
+- **History page total count** — Header shows "X records" badge and "Showing X–Y of Z" pagination info.
+- **Jobs table "Last Run" column** — Shows when each job last executed, derived from fire history.
+- **Overview "Last Error" card** — Displays the most recent failure with job name, time, and truncated error message for quick diagnostics.
+- **Health thread pool utilization bar** — Visual progress bar showing active threads vs total pool size.
+- **Settings retention info** — Displays `MaxFireHistory` and `HistoryRetentionHours` from the running configuration.
+- **Execution Graph duration overlay** — Green duration axis on the right side of the graph for avg duration per bucket.
+
 ## [2.1.45] — 2026-05-09
 
 ### Fixed
