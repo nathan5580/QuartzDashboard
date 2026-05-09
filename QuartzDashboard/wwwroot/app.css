@@ -581,146 +581,156 @@
     /* Light mode overrides */
     .light body,
     body.light {
-      background: #f9fafb !important;
+      background: #f8fafc !important;
+      color: #1e293b !important;
     }
     .light .card-gradient {
-      background: rgba(255,255,255,0.85) !important;
-      border-color: rgba(0,0,0,0.06) !important;
+      background: #ffffff !important;
+      border-color: rgba(0,0,0,0.08) !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }
     .light .card-gradient::before {
-      background: linear-gradient(to right, transparent, rgba(99,102,241,0.15), transparent) !important;
+      background: linear-gradient(to right, transparent, rgba(99,102,241,0.18), transparent) !important;
     }
     .light .stat-card {
-      background: rgba(255,255,255,0.85) !important;
-      border-color: rgba(0,0,0,0.06) !important;
+      background: #ffffff !important;
+      border-color: rgba(0,0,0,0.08) !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }
     .light .stat-card::before {
-      background: linear-gradient(to right, transparent, rgba(99,102,241,0.12), transparent) !important;
+      background: linear-gradient(to right, transparent, rgba(99,102,241,0.15), transparent) !important;
     }
     .light .table-wrap {
-      border-color: rgba(0,0,0,0.06) !important;
+      border-color: rgba(0,0,0,0.08) !important;
     }
     .light .table-wrap th {
-      background: rgba(243,244,246,0.9) !important;
-      color: #6b7280 !important;
-      border-bottom-color: rgba(0,0,0,0.06) !important;
+      background: #f1f5f9 !important;
+      color: #475569 !important;
+      border-bottom-color: rgba(0,0,0,0.08) !important;
     }
     .light .table-wrap td {
-      color: #374151 !important;
-      border-bottom-color: rgba(0,0,0,0.03) !important;
+      color: #334155 !important;
+      border-bottom-color: rgba(0,0,0,0.05) !important;
     }
-    .light .table-wrap tbody tr:hover { background: rgba(0,0,0,0.02) !important; }
-    .light .table-wrap tbody tr:nth-child(even) { background: rgba(0,0,0,0.01) !important; }
+    .light .table-wrap tbody tr:hover { background: rgba(99,102,241,0.03) !important; }
+    .light .table-wrap tbody tr:nth-child(even) { background: rgba(0,0,0,0.015) !important; }
     .light .sidebar-border {
-      border-image: linear-gradient(to bottom, rgba(99,102,241,0.08), transparent 60%) 1 !important;
+      border-image: linear-gradient(to bottom, rgba(99,102,241,0.12), transparent 60%) 1 !important;
     }
     .light .footer-bar {
-      background: rgba(255,255,255,0.85) !important;
-      border-top-color: rgba(0,0,0,0.06) !important;
-      color: #6b7280 !important;
+      background: #ffffff !important;
+      border-top-color: rgba(0,0,0,0.08) !important;
+      color: #475569 !important;
     }
     .light .glass-input {
-      background: white !important;
-      border-color: rgba(0,0,0,0.1) !important;
-      color: #374151 !important;
+      background: #ffffff !important;
+      border-color: rgba(0,0,0,0.15) !important;
+      color: #1e293b !important;
     }
-    .light .glass-input::placeholder { color: #9ca3af !important; }
+    .light .glass-input::placeholder { color: #94a3b8 !important; }
     .light .glass-select {
-      background: white !important;
-      border-color: rgba(0,0,0,0.1) !important;
-      color: #374151 !important;
+      background: #ffffff !important;
+      border-color: rgba(0,0,0,0.15) !important;
+      color: #1e293b !important;
     }
     .light .glass-textarea {
-      background: white !important;
-      border-color: rgba(0,0,0,0.1) !important;
-      color: #374151 !important;
+      background: #ffffff !important;
+      border-color: rgba(0,0,0,0.15) !important;
+      color: #1e293b !important;
     }
     .light .modal-card {
-      background: rgba(255,255,255,0.97) !important;
-      border-color: rgba(0,0,0,0.08) !important;
+      background: #ffffff !important;
+      border-color: rgba(0,0,0,0.1) !important;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.15) !important;
     }
     .light .command-palette-card {
-      background: rgba(255,255,255,0.97) !important;
-      border-color: rgba(0,0,0,0.08) !important;
+      background: #ffffff !important;
+      border-color: rgba(0,0,0,0.1) !important;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.15) !important;
     }
-    .light .badge { --badge-bg: rgba(0,0,0,0.04); }
-    .light .btn-ghost { background: rgba(0,0,0,0.03); color: #6b7280; }
-    .light .btn-ghost:hover { background: rgba(0,0,0,0.06); color: #374151; }
-    .light .sidebar-item { color: #6b7280; }
-    .light .sidebar-item:hover { background: rgba(0,0,0,0.03); color: #374151; }
-    .light .sidebar-item.active { background: rgba(99,102,241,0.06); color: #4f46e5; }
-    .light h1, .light h2, .light h3, .light h4 { color: #111827 !important; }
-    .light .text-gray-100 { color: #111827 !important; }
-    .light .text-gray-200 { color: #1f2937 !important; }
-    .light .text-gray-300 { color: #374151 !important; }
-    .light .text-gray-400 { color: #6b7280 !important; }
-    .light .text-gray-500 { color: #9ca3af !important; }
-    .light .text-gray-600 { color: #9ca3af !important; }
-    .light .toggle-off { background: #d1d5db; }
-    .light .timeline-tooltip { background: rgba(255,255,255,0.95) !important; border-color: rgba(0,0,0,0.08) !important; }
-    .light .graph-tooltip { background: rgba(255,255,255,0.95) !important; border-color: rgba(0,0,0,0.08) !important; }
-    .light .graph-tooltip::after { background: rgba(255,255,255,0.95) !important; border-color: rgba(0,0,0,0.08) !important; }
-    .light .shimmer, .light .sk { background: rgba(200,200,210,0.3) !important; }
-    .light .spinner { border-color: rgba(0,0,0,0.1) !important; }
+    .light .badge { --badge-bg: rgba(0,0,0,0.05); }
+    .light .btn-ghost { background: rgba(0,0,0,0.04); color: #475569; }
+    .light .btn-ghost:hover { background: rgba(0,0,0,0.07); color: #1e293b; }
+    .light .sidebar-item { color: #475569; }
+    .light .sidebar-item:hover { background: rgba(0,0,0,0.04); color: #1e293b; }
+    .light .sidebar-item.active { background: rgba(99,102,241,0.08); color: #4338ca; }
+    .light h1, .light h2, .light h3, .light h4 { color: #0f172a !important; }
+    .light .text-gray-100 { color: #0f172a !important; }
+    .light .text-gray-200 { color: #1e293b !important; }
+    .light .text-gray-300 { color: #334155 !important; }
+    .light .text-gray-400 { color: #475569 !important; }
+    .light .text-gray-500 { color: #64748b !important; }
+    .light .text-gray-600 { color: #94a3b8 !important; }
+    .light .toggle-off { background: #cbd5e1; }
+    .light .timeline-tooltip { background: #ffffff !important; border-color: rgba(0,0,0,0.1) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; }
+    .light .graph-tooltip { background: #ffffff !important; border-color: rgba(0,0,0,0.1) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; }
+    .light .graph-tooltip::after { background: #ffffff !important; border-color: rgba(0,0,0,0.1) !important; }
+    .light .shimmer, .light .sk { background: rgba(148,163,184,0.2) !important; }
+    .light .spinner { border-color: rgba(0,0,0,0.12) !important; }
 
     /* Light mode — comprehensive overrides */
     .light main {
-      background: #f9fafb !important;
+      background: #f8fafc !important;
     }
     .light aside {
       background: #ffffff !important;
-      border-right-color: rgba(0,0,0,0.06) !important;
+      border-right-color: rgba(0,0,0,0.08) !important;
     }
     .light .sidebar-border {
       border-image: none !important;
-      border-right: 1px solid rgba(0,0,0,0.06) !important;
+      border-right: 1px solid rgba(0,0,0,0.08) !important;
     }
     .light .card-gradient:hover,
     .light .stat-card:hover {
-      box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1) !important;
     }
     .light .toast {
-      box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important;
-      border-color: rgba(0,0,0,0.08) !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15) !important;
+      border-color: rgba(0,0,0,0.1) !important;
     }
-    .light .toast-success { background: rgba(16,185,129,0.12) !important; color: #059669 !important; }
-    .light .toast-error { background: rgba(239,68,68,0.12) !important; color: #dc2626 !important; }
-    .light .toast-info { background: rgba(99,102,241,0.12) !important; color: #4f46e5 !important; }
-    .light .scrollbar-thin::-webkit-scrollbar-thumb { background: #d1d5db !important; }
-    .light .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #9ca3af !important; }
-    .light .btn-icon:hover { background: rgba(0,0,0,0.04) !important; color: #374151 !important; }
-    .light .btn-primary { box-shadow: 0 4px 14px rgba(99,102,241,0.15) !important; }
-    .light .btn-danger { background: rgba(239,68,68,0.08) !important; color: #ef4444 !important; }
-    .light .btn-warning { background: rgba(245,158,11,0.08) !important; color: #d97706 !important; }
-    .light .btn-success { background: rgba(16,185,129,0.08) !important; color: #059669 !important; }
-    .light .badge-running { background: rgba(16,185,129,0.06) !important; }
-    .light .badge-paused { background: rgba(245,158,11,0.06) !important; }
-    .light .badge-idle { background: rgba(107,114,128,0.06) !important; }
-    .light .badge-error { background: rgba(239,68,68,0.06) !important; }
-    .light .badge-normal { background: rgba(99,102,241,0.06) !important; }
-    .light .glass-select option { background: #ffffff !important; color: #374151 !important; }
-    .light .sk { background-image: linear-gradient(90deg, rgba(200,200,210,0.3) 25%, rgba(180,180,195,0.4) 50%, rgba(200,200,210,0.3) 75%) !important; }
-    .light .text-indigo-400 { color: #4f46e5 !important; }
-    .light .text-indigo-300 { color: #6366f1 !important; }
-    .light .text-emerald-400 { color: #059669 !important; }
-    .light .text-emerald-300 { color: #10b981 !important; }
-    .light .text-amber-400, .light .text-amber-300 { color: #d97706 !important; }
-    .light .text-red-400, .light .text-red-300 { color: #dc2626 !important; }
+    .light .toast-success { background: rgba(16,185,129,0.15) !important; color: #047857 !important; }
+    .light .toast-error { background: rgba(239,68,68,0.15) !important; color: #b91c1c !important; }
+    .light .toast-info { background: rgba(99,102,241,0.15) !important; color: #4338ca !important; }
+    .light .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1 !important; }
+    .light .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #94a3b8 !important; }
+    .light .btn-icon:hover { background: rgba(0,0,0,0.05) !important; color: #1e293b !important; }
+    .light .btn-primary { box-shadow: 0 4px 14px rgba(99,102,241,0.2) !important; }
+    .light .btn-danger { background: rgba(239,68,68,0.1) !important; color: #dc2626 !important; }
+    .light .btn-warning { background: rgba(245,158,11,0.1) !important; color: #b45309 !important; }
+    .light .btn-success { background: rgba(16,185,129,0.1) !important; color: #047857 !important; }
+    .light .badge-running { background: rgba(16,185,129,0.1) !important; color: #047857 !important; }
+    .light .badge-paused { background: rgba(245,158,11,0.1) !important; color: #b45309 !important; }
+    .light .badge-idle { background: rgba(107,114,128,0.1) !important; color: #475569 !important; }
+    .light .badge-error { background: rgba(239,68,68,0.1) !important; color: #b91c1c !important; }
+    .light .badge-normal { background: rgba(99,102,241,0.1) !important; color: #4338ca !important; }
+    .light .glass-select option { background: #ffffff !important; color: #1e293b !important; }
+    .light .sk { background-image: linear-gradient(90deg, rgba(148,163,184,0.2) 25%, rgba(148,163,184,0.35) 50%, rgba(148,163,184,0.2) 75%) !important; }
+    .light .text-indigo-400 { color: #4338ca !important; }
+    .light .text-indigo-300 { color: #4f46e5 !important; }
+    .light .text-emerald-400 { color: #047857 !important; }
+    .light .text-emerald-300 { color: #059669 !important; }
+    .light .text-amber-400, .light .text-amber-300 { color: #b45309 !important; }
+    .light .text-red-400, .light .text-red-300 { color: #b91c1c !important; }
     .light .bg-white\/\[0\.03\], .light .bg-white\/\[0\.04\], .light .bg-white\/\[0\.05\],
     .light .bg-white\/\[0\.06\], .light .bg-white\/\[0\.08\] {
-      background: rgba(0,0,0,0.02) !important;
+      background: rgba(0,0,0,0.025) !important;
     }
     .light .border-white\/\[0\.06\], .light .border-white\/\[0\.08\] {
-      border-color: rgba(0,0,0,0.06) !important;
+      border-color: rgba(0,0,0,0.08) !important;
     }
     .light .command-item:hover, .light .command-item.active {
-      background: rgba(99,102,241,0.06) !important;
-      color: #4f46e5 !important;
+      background: rgba(99,102,241,0.08) !important;
+      color: #4338ca !important;
     }
-    .light .footer-bar .text-gray-500 { color: #9ca3af !important; }
-    .light .duration-bar { background: rgba(99,102,241,0.12) !important; }
-    .light .timeline-tooltip { color: #374151 !important; }
-    .light .graph-tooltip { color: #374151 !important; }
+    .light .footer-bar .text-gray-500 { color: #64748b !important; }
+    .light .duration-bar { background: rgba(99,102,241,0.15) !important; }
+    .light .timeline-tooltip { color: #1e293b !important; }
+    .light .graph-tooltip { color: #1e293b !important; }
+    /* Light mode SVG chart labels */
+    .light svg text { fill: #475569 !important; }
+    .light svg line { stroke: rgba(71,85,105,0.2) !important; }
+    /* Sparkline visibility in light mode */
+    .light .sparkline-container { opacity: 0.18; }
 
     /* ── Mobile responsive ─────────────────────────────────────── */
     @media (max-width: 768px) {
@@ -821,10 +831,18 @@
     .toast-enter { animation: toast-in 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
     .toast-exit { animation: toast-out 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
 
-    .light *::-webkit-scrollbar-thumb { background: rgba(156,163,175,0.45); }
-    .light *::-webkit-scrollbar-thumb:hover { background: rgba(107,114,128,0.5); }
-    .light .spinner { border-color: rgba(0,0,0,0.12); }
+    .light *::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.4); }
+    .light *::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.5); }
+    .light .spinner { border-color: rgba(0,0,0,0.15); border-top-color: #4338ca; }
     .light .card-gradient:hover,
-    .light .stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important; }
+    .light .stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1) !important; }
+    /* Light mode: drawer panel */
+    .light .bg-gray-900 { background: #ffffff !important; }
+    .light .bg-gray-950 { background: #f8fafc !important; }
+    .light .border-gray-800 { border-color: rgba(0,0,0,0.08) !important; }
+    .light .divide-gray-800 > * + * { border-color: rgba(0,0,0,0.06) !important; }
+    /* Light mode: SVG chart axis lines — more specific to avoid overriding colored strokes */
+    .light svg line[stroke*="rgba(148"] { stroke: rgba(71,85,105,0.15) !important; }
+    .light svg text[style*="fill:#4b5563"], .light svg text[style*="fill:#374151"] { fill: #475569 !important; }
   </style>
   <style id="light-mode-override"></style>
