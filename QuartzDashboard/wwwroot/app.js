@@ -34,6 +34,7 @@
         // Jobs page
         jobsFilter: '',
         expandedJobs: {},
+        pinnedJobs: JSON.parse(localStorage.getItem('quartz-pinned-jobs') || '[]'),
 
         // Triggers page
         expandedTriggerGroups: {},
@@ -72,6 +73,8 @@
         // Keyboard navigation
         selectedJobIndex: -1,
         _gPressed: false,
+        isFullscreen: false,
+        soundAlerts: JSON.parse(localStorage.getItem('quartz-sound-alerts') || 'false'),
 
         // Graph page
         graphView: 'live',
@@ -193,6 +196,20 @@
         resumeJobFromDrawer() {
           if (this.jobDrawerData) this.resumeJob(this.jobDrawerData.group, this.jobDrawerData.name);
         },
+        duplicateJob(job) {
+          this.newJob = {
+            name: (job?.name || '') + '-copy',
+            group: job?.group || 'DEFAULT',
+            description: job?.description || '',
+            jobType: job?.jobType || '',
+            isDurable: job?.isDurable ?? job?.durable ?? false,
+            durable: job?.durable || false,
+            requestsRecovery: job?.requestsRecovery || false,
+            disallowConcurrentExecution: job?.disallowConcurrentExecution || false,
+            persistJobDataAfterExecution: job?.persistJobDataAfterExecution || false,
+          };
+          this.showCreateJobModal = true;
+        },
         get jobDrawerTriggers() {
           if (!this.jobDrawerData) return [];
           return this.jobDrawerData.triggers || [];
@@ -238,6 +255,16 @@
           if (!relevant.length) return null;
           const success = relevant.filter(h => h.success).length;
           return Math.round((success / relevant.length) * 100);
+        },
+        togglePinJob(group, name) {
+          const key = group + '.' + name;
+          const idx = this.pinnedJobs.indexOf(key);
+          if (idx >= 0) this.pinnedJobs.splice(idx, 1);
+          else this.pinnedJobs.push(key);
+          localStorage.setItem('quartz-pinned-jobs', JSON.stringify(this.pinnedJobs));
+        },
+        isJobPinned(group, name) {
+          return this.pinnedJobs.includes(group + '.' + name);
         },
         get failuresByHour() {
           const now = new Date();
@@ -365,6 +392,10 @@
         ],
 
         // ========================= COMPUTED =========================
+        get allJobs() {
+          return this.jobs || [];
+        },
+
         get filteredJobs() {
           if (!this.jobsFilter) return this.jobs;
           const q = this.jobsFilter.toLowerCase();
@@ -373,6 +404,27 @@
             j.group.toLowerCase().includes(q) ||
             (j.jobType || '').toLowerCase().includes(q)
           );
+        },
+
+        get pinnedJobDetails() {
+          return (this.allJobs || []).filter(j => this.pinnedJobs.includes(j.group + '.' + j.name));
+        },
+
+        get schedulePreview() {
+          const now = Date.now();
+          const end = now + 86400000;
+          const events = [];
+          for (const job of (this.allJobs || [])) {
+            for (const trig of (job.triggers || [])) {
+              if (trig.nextFireTime) {
+                const t = new Date(trig.nextFireTime).getTime();
+                if (t >= now && t <= end) {
+                  events.push({ time: t, jobKey: job.group + '.' + job.name, triggerName: trig.name });
+                }
+              }
+            }
+          }
+          return events.sort((a, b) => a.time - b.time).slice(0, 20);
         },
 
         get groupedTriggers() {
@@ -800,6 +852,7 @@
 
           // Setup keyboard shortcuts
           document.addEventListener('keydown', (e) => this.handleKeydown(e));
+          document.addEventListener('fullscreenchange', () => { this.isFullscreen = !!document.fullscreenElement; });
 
           // Live-tick every second for executing-job duration display and countdowns
           setInterval(() => { this.currentTick = Date.now(); this.nowTick = Date.now(); }, 1000);
@@ -823,7 +876,18 @@
           await this.loadStats();
 
           this.startAutoRefresh();
-          this.$watch('currentPage', (val) => { this.onPageChange(val); });
+          this.$watch('currentPage', (val) => { this.onPageChange(val); window.location.hash = val; });
+          // Deep linking via URL hash
+          const hash = window.location.hash.replace('#', '');
+          if (hash && this.navItems.find(n => n.id === hash)) {
+            this.currentPage = hash;
+          }
+          window.addEventListener('hashchange', () => {
+            const h = window.location.hash.replace('#', '');
+            if (h && this.navItems.find(n => n.id === h) && this.currentPage !== h) {
+              this.currentPage = h;
+            }
+          });
           this.$watch('settings.refreshInterval', () => { this.startAutoRefresh(); this.saveSettings(); });
           this.$watch('sidebarOpen', () => this.saveSettings());
           this.$watch('graphChartMode', () => this.saveSettings());
@@ -863,6 +927,7 @@
               for (const e of events) {
                 if (!e.success) {
                   this.showToast('⚠ ' + e.jobKey + ' failed' + (e.exceptionMessage ? ': ' + e.exceptionMessage.substring(0, 80) : ''), 'error');
+                  this.playAlertSound();
                 }
               }
             });
@@ -1075,6 +1140,8 @@
             return;
           }
 
+          if (e.key === 'f' && !e.ctrlKey && !e.metaKey) { this.toggleFullscreen(); e.preventDefault(); return; }
+
           // g + key: navigate to page
           if (e.key === 'g') {
             this._gPressed = true;
@@ -1123,6 +1190,69 @@
             this.sidebarOpen = !this.sidebarOpen;
             return;
           }
+        },
+
+        toggleFullscreen() {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().then(() => { this.isFullscreen = true; }).catch(() => {});
+          } else {
+            document.exitFullscreen().then(() => { this.isFullscreen = false; }).catch(() => {});
+          }
+        },
+
+        playAlertSound() {
+          if (!this.soundAlerts) return;
+          try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 440;
+            osc.type = 'sine';
+            gain.gain.value = 0.15;
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc.stop(ctx.currentTime + 0.3);
+          } catch(_) {}
+        },
+
+        printReport() {
+          const w = window.open('', '_blank');
+          if (!w) return;
+          const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+          const jobs = this.allJobs || [];
+          const h = this.history || [];
+          const successCount = h.filter(x => x.success).length;
+          const failCount = h.filter(x => !x.success).length;
+          const perc = this.stats?.percentiles || {};
+
+          let jobRows = jobs.map(j => `<tr><td>${esc(j.group)}.${esc(j.name)}</td><td>${esc(j.status)}</td><td>${esc(j.jobType || '—')}</td><td>${esc((j.triggers || []).length)}</td></tr>`).join('');
+          let failRows = h.filter(x => !x.success).slice(0, 10).map(f => `<tr><td>${esc(f.jobKey)}</td><td>${esc(new Date(f.fireTime).toLocaleString())}</td><td>${esc(f.exceptionMessage || f.errorMessage || 'Failed')}</td></tr>`).join('');
+
+          w.document.write(`<!DOCTYPE html><html><head><title>Quartz Dashboard Report</title>
+            <style>body{font-family:-apple-system,sans-serif;padding:40px;color:#333}h1{color:#4f46e5}table{border-collapse:collapse;width:100%;margin:16px 0}th,td{border:1px solid #e5e7eb;padding:8px 12px;text-align:left;font-size:13px}th{background:#f9fafb;font-weight:600}.stats{display:flex;gap:24px;margin:16px 0}.stat{padding:16px;border:1px solid #e5e7eb;border-radius:8px;text-align:center;flex:1}.stat .val{font-size:24px;font-weight:700;color:#4f46e5}.stat .lbl{font-size:11px;color:#6b7280;text-transform:uppercase;margin-top:4px}.perc{display:flex;gap:16px;margin:12px 0}.perc>div{flex:1;text-align:center;padding:8px;background:#f9fafb;border-radius:6px}.perc .val{font-size:18px;font-weight:700}.ok{color:#059669}.warn{color:#d97706}.bad{color:#dc2626}@media print{body{padding:20px}}</style></head><body>
+            <h1>⚡ Quartz Dashboard Report</h1>
+            <p style="color:#6b7280">Generated ${esc(new Date().toLocaleString())} · Scheduler: ${esc(this.scheduler?.schedulerName || this.scheduler?.name || '—')}</p>
+            <div class="stats">
+              <div class="stat"><div class="val">${jobs.length}</div><div class="lbl">Jobs</div></div>
+              <div class="stat"><div class="val">${this.stats?.totalExecutions || 0}</div><div class="lbl">Total Executions</div></div>
+              <div class="stat"><div class="val">${h.length ? Math.round(successCount / h.length * 100) : 100}%</div><div class="lbl">Success Rate</div></div>
+              <div class="stat"><div class="val">${failCount}</div><div class="lbl">Failures</div></div>
+            </div>
+            <h2>Latency Percentiles</h2>
+            <div class="perc">
+              <div><div class="val ok">${perc.p50 || 0}ms</div><div class="lbl">P50</div></div>
+              <div><div class="val warn">${perc.p95 || 0}ms</div><div class="lbl">P95</div></div>
+              <div><div class="val bad">${perc.p99 || 0}ms</div><div class="lbl">P99</div></div>
+            </div>
+            <h2>Jobs (${jobs.length})</h2>
+            <table><thead><tr><th>Job</th><th>Status</th><th>Type</th><th>Triggers</th></tr></thead><tbody>${jobRows}</tbody></table>
+            ${failCount > 0 ? `<h2>Recent Failures</h2><table><thead><tr><th>Job</th><th>Time</th><th>Error</th></tr></thead><tbody>${failRows}</tbody></table>` : '<p style="color:#059669">✓ No recent failures</p>'}
+            <hr style="margin:24px 0;border-color:#e5e7eb"><p style="font-size:11px;color:#9ca3af">Dot.QuartzDashboard · n8.lu</p>
+            </body></html>`);
+          w.document.close();
+          w.print();
         },
 
         // ========================= COMMAND PALETTE =========================

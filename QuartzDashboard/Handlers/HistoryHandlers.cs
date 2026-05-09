@@ -57,7 +57,7 @@ internal static class HistoryHandlers
         return Results.Ok(events);
     }
 
-    public static async Task<IResult> GetStats(IScheduler sched, ExecutionBucketService bucketService)
+    public static async Task<IResult> GetStats(IScheduler sched, ExecutionBucketService bucketService, IFireHistoryStore historyStore)
     {
         var meta = await sched.GetMetaData();
         var buckets = bucketService.GetBuckets()
@@ -95,6 +95,7 @@ internal static class HistoryHandlers
             AverageDurationMs = buckets.Count > 0
                 ? Math.Round(buckets.Average(b => b.AvgDurationMs), 1)
                 : 0,
+            Percentiles = ComputePercentiles(historyStore),
         });
     }
 
@@ -130,5 +131,49 @@ internal static class HistoryHandlers
             .ToList();
 
         return Results.Ok(buckets);
+    }
+
+    private static object ComputePercentiles(IFireHistoryStore store)
+    {
+        var all = store.GetRecent(1000, 0).ToList();
+        if (all.Count == 0) return new { p50 = 0.0, p95 = 0.0, p99 = 0.0, count = 0, perJob = Array.Empty<object>() };
+
+        var durations = all.Select(r => r.Duration.TotalMilliseconds).OrderBy(d => d).ToList();
+        double Percentile(List<double> sorted, double p)
+        {
+            var idx = (p / 100.0) * (sorted.Count - 1);
+            var lower = (int)Math.Floor(idx);
+            var upper = (int)Math.Ceiling(idx);
+            if (lower == upper) return Math.Round(sorted[lower], 1);
+            return Math.Round(sorted[lower] + (idx - lower) * (sorted[upper] - sorted[lower]), 1);
+        }
+
+        var perJob = all
+            .GroupBy(r => r.JobKey)
+            .Select(g =>
+            {
+                var d = g.Select(r => r.Duration.TotalMilliseconds).OrderBy(x => x).ToList();
+                var successCount = g.Count(r => r.Success);
+                return new
+                {
+                    jobKey = g.Key,
+                    count = g.Count(),
+                    successRate = g.Count() > 0 ? Math.Round((double)successCount / g.Count() * 100, 1) : 100.0,
+                    p50 = Percentile(d, 50),
+                    p95 = Percentile(d, 95),
+                    p99 = Percentile(d, 99),
+                };
+            })
+            .OrderBy(j => j.jobKey, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new
+        {
+            p50 = Percentile(durations, 50),
+            p95 = Percentile(durations, 95),
+            p99 = Percentile(durations, 99),
+            count = all.Count,
+            perJob,
+        };
     }
 }

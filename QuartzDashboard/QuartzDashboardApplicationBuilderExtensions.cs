@@ -328,7 +328,9 @@ public static class QuartzDashboardApplicationBuilderExtensions
             {
                 var bucketService = ctx.RequestServices
                     .GetRequiredService<ExecutionBucketService>();
-                result = await HistoryHandlers.GetStats(sched, bucketService);
+                var historyStore = ctx.RequestServices
+                    .GetRequiredService<IFireHistoryStore>();
+                result = await HistoryHandlers.GetStats(sched, bucketService, historyStore);
             }
             else if (method == "GET" && route is ["stats", "history"])
                 result = HistoryHandlers.GetHistoryBuckets(ctx);
