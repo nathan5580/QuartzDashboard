@@ -1505,6 +1505,16 @@
             const data = await this.fetchApi('/timeline');
             this.timelineEvents = data.slice(0, 50);
             this.errors.timeline = null; this.retryCounts.timeline = 0;
+            // Auto-fit timeline range to data spread
+            if (this.timelineEvents.length > 0) {
+              const now = Date.now();
+              const oldest = Math.min(...this.timelineEvents.map(e => new Date(e.fireTime).getTime()));
+              const spanMin = (now - oldest) / 60000;
+              if (spanMin <= 5) this.timelineRange = 10;
+              else if (spanMin <= 20) this.timelineRange = 30;
+              else if (spanMin <= 45) this.timelineRange = 60;
+              else this.timelineRange = 180;
+            }
           } catch (e) {
             console.error('loadTimeline:', e);
             this.errors.timeline = e.message;
