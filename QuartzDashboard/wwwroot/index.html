@@ -67,7 +67,7 @@
   <!-- Loading overlay -->
   <div x-show="loading.global" class="fixed inset-0 bg-gray-950/40 backdrop-blur-sm flex items-center justify-center z-40" style="display: none;">
     <div class="flex items-center gap-3 bg-gray-900/80 border border-white/5 rounded-xl px-5 py-3 shadow-2xl">
-      <div class="spinner w-5 h-5"></div>
+      <div class="spinner" style="--spinner-size: 20px;"></div>
       <span class="text-sm text-gray-300">Processing...</span>
     </div>
   </div>
@@ -253,7 +253,10 @@
           </div>
           <div class="flex justify-end gap-2 pt-2">
             <button @click="closeTriggerJobModal()" class="btn btn-ghost">Cancel</button>
-            <button @click="triggerJob(triggerJobTarget.group, triggerJobTarget.name)" class="btn btn-primary" :disabled="!triggerJobTarget">Run Job</button>
+            <button @click="triggerJob(triggerJobTarget.group, triggerJobTarget.name)" class="btn btn-primary gap-2" :disabled="!triggerJobTarget || isActionPending('trigger', triggerJobTarget?.group, triggerJobTarget?.name)">
+              <span x-show="isActionPending('trigger', triggerJobTarget?.group, triggerJobTarget?.name)" class="spinner" style="display: none;"></span>
+              <span x-text="isActionPending('trigger', triggerJobTarget?.group, triggerJobTarget?.name) ? 'Running...' : 'Run Job'"></span>
+            </button>
           </div>
         </div>
       </div>
@@ -353,7 +356,10 @@
         <p class="text-sm text-gray-300 mb-6" x-text="deleteConfirmMessage"></p>
         <div class="flex justify-end gap-2">
           <button @click="showDeleteConfirm = false" class="btn btn-ghost">Cancel</button>
-          <button @click="executeDelete()" class="btn btn-danger">Delete</button>
+          <button @click="executeDelete()" class="btn btn-danger gap-2" :disabled="isActionPending(deletePending?.type === 'trigger' ? 'delete-trigger' : 'delete-job', deletePending?.group, deletePending?.name)">
+            <span x-show="isActionPending(deletePending?.type === 'trigger' ? 'delete-trigger' : 'delete-job', deletePending?.group, deletePending?.name)" class="spinner" style="display: none;"></span>
+            <span x-text="isActionPending(deletePending?.type === 'trigger' ? 'delete-trigger' : 'delete-job', deletePending?.group, deletePending?.name) ? 'Deleting...' : 'Delete'"></span>
+          </button>
         </div>
       </div>
     </div>
@@ -530,7 +536,7 @@
         <span x-show="lastRefreshed" class="ml-auto text-xs opacity-60" x-text="'Last updated ' + (lastRefreshed ? lastRefreshed.toLocaleTimeString() : '')"></span>
       </div>
       <!-- ===================== OVERVIEW PAGE ===================== -->
-      <div x-show="currentPage === 'overview'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+      <div x-show="currentPage === 'overview'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-50" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-6">
             <!-- Header -->
             <div class="flex items-center justify-between">
@@ -560,8 +566,8 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div class="stat-card">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Jobs</div>
-                <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100">
-                  <template x-if="statsLoading"><div class="sk h-8 w-16"></div></template>
+                <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100 stat-value">
+                  <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
                   <span x-show="!statsLoading" x-text="stats.totalJobs ?? jobs.length"></span>
                   <span x-show="statsPrev && statsPrev.totalJobs !== undefined && stats.totalJobs !== statsPrev.totalJobs"
                         class="text-[9px] ml-1" :class="stats.totalJobs > (statsPrev?.totalJobs || 0) ? 'text-emerald-400' : 'text-red-400'"
@@ -576,8 +582,8 @@
               </div>
               <div class="stat-card">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Triggers</div>
-                <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100">
-                  <template x-if="statsLoading"><div class="sk h-8 w-16"></div></template>
+                <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100 stat-value">
+                  <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
                   <span x-show="!statsLoading" x-text="stats.totalTriggers ?? triggers.length"></span>
                   <span x-show="statsPrev && statsPrev.totalTriggers !== undefined && stats.totalTriggers !== statsPrev.totalTriggers"
                         class="text-[9px] ml-1" :class="stats.totalTriggers > (statsPrev?.totalTriggers || 0) ? 'text-emerald-400' : 'text-red-400'"
@@ -592,8 +598,8 @@
               </div>
               <div class="stat-card">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Executing Now</div>
-                <div class="text-3xl font-bold tabular-nums tracking-tight">
-                  <template x-if="statsLoading"><div class="sk h-8 w-16"></div></template>
+                <div class="text-3xl font-bold tabular-nums tracking-tight stat-value">
+                  <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
                   <span x-show="!statsLoading" x-text="stats.executing ?? executingJobs.length" :class="(stats.executing ?? executingJobs.length) > 0 ? 'text-emerald-400' : 'text-gray-100'"></span>
                   <span x-show="statsPrev && statsPrev.executing !== undefined && stats.executing !== statsPrev.executing"
                         class="text-[9px] ml-1" :class="stats.executing > (statsPrev?.executing || 0) ? 'text-emerald-400' : 'text-red-400'"
@@ -608,8 +614,8 @@
               </div>
               <div class="stat-card">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Total Executions</div>
-                <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100">
-                  <template x-if="statsLoading"><div class="sk h-8 w-16"></div></template>
+                <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100 stat-value">
+                  <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
                   <span x-show="!statsLoading" x-text="(stats.totalExecutions ?? scheduler.numberOfJobsExecuted ?? 0)"></span>
                   <span x-show="statsPrev && statsPrev.totalExecutions !== undefined && stats.totalExecutions !== statsPrev.totalExecutions"
                         class="text-[9px] ml-1" :class="stats.totalExecutions > (statsPrev?.totalExecutions || 0) ? 'text-emerald-400' : 'text-red-400'"
@@ -777,7 +783,7 @@
             </div>
           </div>
         </div>
-      <div x-show="currentPage === 'health'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+      <div x-show="currentPage === 'health'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-50" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-6">
             <!-- Header -->
             <div class="flex items-center justify-between">
@@ -797,11 +803,42 @@
               </div>
             </div>
 
-            <!-- Stat cards -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Health skeleton -->
+            <template x-if="loading.health && !healthData">
+              <div class="space-y-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <template x-for="i in 4" :key="i">
+                    <div class="stat-card">
+                      <div class="sk h-3 w-20 mb-3"></div>
+                      <div class="sk h-8 w-24 mb-2"></div>
+                      <div class="sk h-5 w-16 rounded-full"></div>
+                    </div>
+                  </template>
+                </div>
+                <div class="card-gradient">
+                  <div class="sk h-4 w-32 mb-4"></div>
+                  <div class="sk h-48 w-full rounded-lg"></div>
+                </div>
+                <div class="card-gradient">
+                  <div class="sk h-4 w-40 mb-4"></div>
+                  <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                    <template x-for="i in 6" :key="i">
+                      <div>
+                        <div class="sk h-2.5 w-16 mb-1.5"></div>
+                        <div class="sk h-4 w-24"></div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <div x-show="!loading.health || healthData" class="space-y-6">
+              <!-- Stat cards -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div class="stat-card">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Success Rate</div>
-                <div class="text-3xl font-bold tabular-nums tracking-tight"
+                <div class="text-3xl font-bold tabular-nums tracking-tight stat-value"
                      :class="successRate >= 95 ? 'text-emerald-400' : successRate >= 80 ? 'text-amber-400' : 'text-red-400'">
                   <span x-text="successRate"></span><span class="text-lg">%</span>
                 </div>
@@ -815,7 +852,7 @@
               <div class="stat-card">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Failed Executions</div>
                 <div class="flex items-end gap-2">
-                  <div class="text-3xl font-bold tabular-nums tracking-tight"
+                  <div class="text-3xl font-bold tabular-nums tracking-tight stat-value"
                        :class="failedCount > 0 ? 'text-red-400' : 'text-gray-100'">
                     <span x-text="failedCount"></span>
                   </div>
@@ -837,7 +874,7 @@
               </div>
               <div class="stat-card">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Pool Utilization</div>
-                <div class="text-3xl font-bold tabular-nums tracking-tight"
+                <div class="text-3xl font-bold tabular-nums tracking-tight stat-value"
                      :class="poolUtilization > 80 ? 'text-amber-400' : 'text-gray-100'">
                   <span x-text="poolUtilization.toFixed(0)"></span><span class="text-lg">%</span>
                 </div>
@@ -847,7 +884,7 @@
               </div>
               <div class="stat-card">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Misfired Triggers</div>
-                <div class="text-3xl font-bold tabular-nums tracking-tight"
+                <div class="text-3xl font-bold tabular-nums tracking-tight stat-value"
                      :class="misfiredCount > 0 ? 'text-red-400' : 'text-gray-100'">
                   <span x-text="misfiredCount"></span>
                 </div>
@@ -971,12 +1008,13 @@
                 </div>
               </div>
             </template>
+            </div>
           </div>
         </div>
 
 
       <!-- ===================== JOBS PAGE ===================== -->
-      <div x-show="currentPage === 'jobs'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+      <div x-show="currentPage === 'jobs'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-50" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
             <!-- Header -->
             <div class="flex items-center justify-between flex-wrap gap-3">
@@ -1059,7 +1097,7 @@
                       </thead>
                       <tbody class="divide-y divide-white/[0.04]">
                         <template x-for="item in jobRows" :key="item.key">
-                          <tr :class="[
+                          <tr class="table-row-hover" :class="[
                                 item.isHeader
                                   ? 'cursor-pointer hover:bg-white/[0.02] bg-white/[0.015]'
                                   : 'group cursor-pointer hover:bg-white/[0.025] transition-colors duration-100',
@@ -1135,11 +1173,13 @@
                                 <button @click="item.job && openTriggerJobModal(item.job.group, item.job.name)" class="btn btn-primary p-1.5" title="Run Now">
                                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                                 </button>
-                                <button x-show="item.job && item.job.status !== 'Paused'" @click="item.job && pauseJob(item.job.group, item.job.name)" class="btn btn-warning p-1.5" title="Pause">
-                                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                                <button x-show="item.job && item.job.status !== 'Paused'" @click="item.job && pauseJob(item.job.group, item.job.name)" class="btn btn-warning p-1.5" title="Pause" :disabled="item.job && isActionPending('pause', item.job.group, item.job.name)">
+                                  <span x-show="item.job && isActionPending('pause', item.job.group, item.job.name)" class="spinner" style="display: none;"></span>
+                                  <svg x-show="!(item.job && isActionPending('pause', item.job.group, item.job.name))" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
                                 </button>
-                                <button x-show="item.job && item.job.status === 'Paused'" @click="item.job && resumeJob(item.job.group, item.job.name)" class="btn btn-success p-1.5" title="Resume">
-                                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                                <button x-show="item.job && item.job.status === 'Paused'" @click="item.job && resumeJob(item.job.group, item.job.name)" class="btn btn-success p-1.5" title="Resume" :disabled="item.job && isActionPending('resume', item.job.group, item.job.name)">
+                                  <span x-show="item.job && isActionPending('resume', item.job.group, item.job.name)" class="spinner" style="display: none;"></span>
+                                  <svg x-show="!(item.job && isActionPending('resume', item.job.group, item.job.name))" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                                 </button>
                                 <button x-show="!config.readOnly" @click="item.job && deleteJob(item.job.group, item.job.name)" class="btn btn-danger p-1.5" title="Delete">
                                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
@@ -1180,19 +1220,19 @@
              x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0"
              x-transition:enter-end="opacity-100"
-             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave="transition ease-in duration-50"
              x-transition:leave-start="opacity-100"
              x-transition:leave-end="opacity-0"
              @click="closeJobDrawer()"
              @keydown.escape.window="closeJobDrawer()"
-             class="fixed inset-0 bg-gray-950/60 backdrop-blur-[2px] z-40">
+             class="fixed inset-0 bg-gray-950/60 backdrop-blur-sm z-30">
           </div>
           <!-- Drawer panel -->
           <div
              x-transition:enter="transition ease-out duration-250"
              x-transition:enter-start="opacity-0 translate-x-8"
              x-transition:enter-end="opacity-100 translate-x-0"
-             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave="transition ease-in duration-150"
              x-transition:leave-start="opacity-100 translate-x-0"
              x-transition:leave-end="opacity-0 translate-x-8"
              class="fixed right-0 top-0 h-full w-full max-w-lg bg-gray-900 border-l border-white/[0.08] shadow-2xl z-50 flex flex-col"
@@ -1229,13 +1269,15 @@
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                     Run Now
                   </button>
-                  <button x-show="jobDrawerData.status !== 'Paused'" @click="pauseJobFromDrawer()" class="btn btn-warning flex-1 text-xs justify-center gap-1.5">
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                    Pause
+                  <button x-show="jobDrawerData.status !== 'Paused'" @click="pauseJobFromDrawer()" class="btn btn-warning flex-1 text-xs justify-center gap-1.5" :disabled="isActionPending('pause', jobDrawerData?.group, jobDrawerData?.name)">
+                    <span x-show="isActionPending('pause', jobDrawerData?.group, jobDrawerData?.name)" class="spinner" style="display: none;"></span>
+                    <svg x-show="!isActionPending('pause', jobDrawerData?.group, jobDrawerData?.name)" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                    <span x-text="isActionPending('pause', jobDrawerData?.group, jobDrawerData?.name) ? 'Pausing...' : 'Pause'"></span>
                   </button>
-                  <button x-show="jobDrawerData.status === 'Paused'" @click="resumeJobFromDrawer()" class="btn btn-success flex-1 text-xs justify-center gap-1.5">
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                    Resume
+                  <button x-show="jobDrawerData.status === 'Paused'" @click="resumeJobFromDrawer()" class="btn btn-success flex-1 text-xs justify-center gap-1.5" :disabled="isActionPending('resume', jobDrawerData?.group, jobDrawerData?.name)">
+                    <span x-show="isActionPending('resume', jobDrawerData?.group, jobDrawerData?.name)" class="spinner" style="display: none;"></span>
+                    <svg x-show="!isActionPending('resume', jobDrawerData?.group, jobDrawerData?.name)" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    <span x-text="isActionPending('resume', jobDrawerData?.group, jobDrawerData?.name) ? 'Resuming...' : 'Resume'"></span>
                   </button>
                   <button @click="duplicateJob(jobDrawerData)" class="btn btn-ghost text-xs" title="Duplicate job" x-show="!config.readOnly">
                     <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
@@ -1552,7 +1594,7 @@
         </div>
 
       <!-- ===================== TRIGGERS PAGE ===================== -->
-      <div x-show="currentPage === 'triggers'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+      <div x-show="currentPage === 'triggers'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-50" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
             <div class="flex items-center justify-between">
               <div>
@@ -1678,7 +1720,7 @@
         </div>
 
       <!-- ===================== EXECUTING PAGE ===================== -->
-      <div x-show="currentPage === 'executing'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+      <div x-show="currentPage === 'executing'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-50" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
             <div class="flex items-center justify-between">
               <div>
@@ -1803,7 +1845,7 @@
         </div>
 
       <!-- ===================== HISTORY PAGE ===================== -->
-      <div x-show="currentPage === 'history'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+      <div x-show="currentPage === 'history'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-50" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
             <div class="flex items-center justify-between flex-wrap gap-3">
               <div>
@@ -1845,23 +1887,24 @@
 
             <!-- Loading skeleton -->
             <template x-if="loading.history">
-              <div class="card-gradient p-5">
-                <div class="flex items-center gap-4 pb-3 mb-3 border-b border-white/[0.04]">
-                  <div class="sk h-3 w-24"></div>
-                  <div class="sk h-3 w-20"></div>
-                  <div class="sk h-3 w-16"></div>
-                  <div class="sk h-3 w-24"></div>
-                  <div class="sk h-5 w-10 rounded-full ml-auto"></div>
+              <div class="card-gradient overflow-hidden">
+                <div class="flex items-center gap-3 px-4 py-3 border-b border-white/[0.04]">
+                  <div class="sk h-7 w-40 rounded-lg"></div>
+                  <div class="sk h-7 w-28 rounded-lg"></div>
+                  <div class="sk h-3 w-20 ml-auto"></div>
                 </div>
-                <template x-for="i in 5" :key="i">
-                  <div class="flex items-center gap-4 py-2 border-b border-white/[0.02] last:border-0">
-                    <div class="sk h-3 w-24"></div>
-                    <div class="sk h-3 w-20"></div>
-                    <div class="sk h-3 w-16"></div>
-                    <div class="sk h-2 w-24 rounded-full"></div>
-                    <div class="sk h-5 w-10 rounded-full ml-auto"></div>
-                  </div>
-                </template>
+                <div class="divide-y divide-white/[0.03]">
+                  <template x-for="i in 8" :key="i">
+                    <div class="flex items-center gap-4 px-4 py-3">
+                      <div class="sk h-2 w-2 rounded-full flex-shrink-0"></div>
+                      <div class="sk h-3.5 w-1/4"></div>
+                      <div class="sk h-3 w-1/5"></div>
+                      <div class="sk h-5 w-14 rounded-full"></div>
+                      <div class="sk h-3 w-12 ml-auto"></div>
+                      <div class="sk h-3 w-20"></div>
+                    </div>
+                  </template>
+                </div>
               </div>
             </template>
 
@@ -1893,7 +1936,7 @@
                     <tbody>
                       <template x-for="(h, idx) in filteredHistory" :key="idx">
                         <template x-if="true">
-                          <tr @click="h.exceptionMessage ? (historyExpandedRows = {...historyExpandedRows, [h.fireTime]: !historyExpandedRows[h.fireTime]}) : null"
+                          <tr class="table-row-hover" @click="h.exceptionMessage ? (historyExpandedRows = {...historyExpandedRows, [h.fireTime]: !historyExpandedRows[h.fireTime]}) : null"
                               :class="h.exceptionMessage ? 'cursor-pointer' : ''">
                             <td class="mono text-xs text-gray-400" data-label="Time" x-text="formatDate(h.fireTime)"></td>
                             <td class="font-medium text-gray-100 text-xs" data-label="Job">
@@ -1954,7 +1997,7 @@
         </div>
 
       <!-- ===================== GRAPH PAGE (ChartEngine) ===================== -->
-      <div x-show="currentPage === 'graph'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+      <div x-show="currentPage === 'graph'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-50" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
             <!-- Header -->
             <div class="flex items-center justify-between">
@@ -2098,7 +2141,7 @@
         </div>
 
       <!-- ===================== TIMELINE PAGE ===================== -->
-      <div x-show="currentPage === 'timeline'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+      <div x-show="currentPage === 'timeline'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-50" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
 
             <!-- Header -->
@@ -2149,20 +2192,19 @@
             <div class="card-gradient overflow-hidden">
               <template x-if="loading.timeline">
                 <div class="flex items-center justify-center py-16 gap-3">
-                  <div class="spinner w-5 h-5"></div>
+                  <div class="spinner" style="--spinner-size: 20px;"></div>
                   <span class="text-sm text-gray-500">Loading timeline...</span>
                 </div>
               </template>
 
               <template x-if="!loading.timeline && !timelineVisibleEvents.length">
-                <div class="flex flex-col items-center justify-center py-16 gap-4">
-                  <svg class="w-10 h-10 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                <div class="text-center py-16">
+                  <svg class="w-12 h-12 mx-auto text-gray-600 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
                     <rect x="3" y="4" width="18" height="16" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/>
                   </svg>
-                  <div class="text-center">
-                    <p class="text-sm text-gray-400 font-medium">No executions in this range</p>
-                    <p class="text-xs text-gray-600 mt-1">Try a wider range or trigger a job</p>
-                  </div>
+                  <p class="text-base font-medium text-gray-400">No executions in this range</p>
+                  <p class="text-sm text-gray-600 mt-1">Try a wider range or refresh after triggering a job.</p>
+                  <button @click="timelineRange = 60; loadTimeline()" class="btn btn-ghost mx-auto mt-4">Expand to 1 hour</button>
                 </div>
               </template>
 
@@ -2296,7 +2338,7 @@
         </div>
 
       <!-- ===================== CALENDARS PAGE ===================== -->
-      <div x-show="currentPage === 'calendars'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+      <div x-show="currentPage === 'calendars'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-50" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
             <div class="flex items-center justify-between flex-wrap gap-3">
               <div>
@@ -2363,10 +2405,11 @@
                   </template>
                 </div>
 
-                <div x-show="!calendars.length && !errors.calendars" class="card-gradient text-center py-12">
-                  <svg class="w-12 h-12 mx-auto text-gray-600 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  <p class="text-sm text-gray-400">No calendars configured</p>
-                  <p class="text-xs text-gray-600 mt-1">Create one to exclude dates or provide recurring rules</p>
+                <div x-show="!calendars.length && !errors.calendars" class="card-gradient text-center py-16">
+                  <svg class="w-12 h-12 mx-auto text-gray-600 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <p class="text-base font-medium text-gray-400">No calendars configured</p>
+                  <p class="text-sm text-gray-600 mt-1">Create one to exclude dates or add recurring schedule rules.</p>
+                  <button @click="showCreateCalendarModal = true" class="btn btn-ghost mx-auto mt-4">Create Calendar</button>
                 </div>
               </div>
             </template>
@@ -2374,7 +2417,7 @@
         </div>
 
       <!-- ===================== SETTINGS PAGE ===================== -->
-      <div x-show="currentPage === 'settings'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+      <div x-show="currentPage === 'settings'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-50" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
           <div class="space-y-4">
             <div>
               <h1 class="text-lg font-semibold tracking-tight text-gray-100">Settings</h1>

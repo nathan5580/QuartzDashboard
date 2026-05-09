@@ -4,7 +4,7 @@
         currentPage: 'overview',
         sidebarOpen: true,
         lastRefreshed: null,
-        loading: { global: false, jobs: false, triggers: false, executing: false, history: false, stats: false, timeline: false, calendars: false },
+        loading: { global: false, jobs: false, triggers: false, executing: false, history: false, stats: false, timeline: false, calendars: false, health: false },
         errors: { jobs: null, triggers: null, executing: null, history: null, stats: null, timeline: null, calendars: null },
         retryCounts: { jobs: 0, triggers: 0, executing: 0, history: 0, stats: 0, timeline: 0, calendars: 0 },
         maxRetries: 3,
@@ -51,6 +51,7 @@
 
         // Job run result feedback
         pendingTriggers: {},
+        actionPending: {},
         jobFlash: {},
         showTriggerJobModal: false,
         triggerJobTarget: null,
@@ -185,6 +186,24 @@
           const json = JSON.stringify(d, null, 2);
           if (navigator.clipboard) {
             navigator.clipboard.writeText(json).then(() => this.showToast('Job definition copied', 'success'));
+          }
+        },
+        actionKey(type, group, name) {
+          return [type || '', group || '', name || ''].join(':');
+        },
+        isActionPending(type, group, name) {
+          return !!this.actionPending[this.actionKey(type, group, name)];
+        },
+        async withActionPending(type, group, name, callback) {
+          const key = this.actionKey(type, group, name);
+          if (this.actionPending[key]) return;
+          this.actionPending = { ...this.actionPending, [key]: true };
+          try {
+            return await callback();
+          } finally {
+            const next = { ...this.actionPending };
+            delete next[key];
+            this.actionPending = next;
           }
         },
         triggerJobFromDrawer() {
@@ -1442,38 +1461,42 @@
 
         async executeDelete() {
           if (!this.deletePending) return;
-          this.loading.global = true;
-          try {
-            const { type, group, name } = this.deletePending;
-            const endpoint = type === 'job'
-              ? '/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name)
-              : '/triggers/' + encodeURIComponent(group) + '/' + encodeURIComponent(name);
+          const { type, group, name } = this.deletePending;
+          await this.withActionPending(type === 'job' ? 'delete-job' : 'delete-trigger', group, name, async () => {
+            this.loading.global = true;
+            try {
+              const endpoint = type === 'job'
+                ? '/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name)
+                : '/triggers/' + encodeURIComponent(group) + '/' + encodeURIComponent(name);
 
-            const res = await fetch(this._api(endpoint), { method: 'DELETE' });
-            if (!res.ok) {
-              const text = await res.text();
-              throw new Error(text || res.statusText);
+              const res = await fetch(this._api(endpoint), { method: 'DELETE' });
+              if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || res.statusText);
+              }
+
+              this.showToast((type === 'job' ? 'Job' : 'Trigger') + ' ' + group + '.' + name + ' deleted', 'success');
+              this.showDeleteConfirm = false;
+              this.deletePending = null;
+
+              if (type === 'job') await this.loadJobs();
+              else await this.loadTriggers();
+            } catch (e) {
+              this.showToast('Failed to delete: ' + e.message, 'error');
             }
-
-            this.showToast((type === 'job' ? 'Job' : 'Trigger') + ' ' + group + '.' + name + ' deleted', 'success');
-            this.showDeleteConfirm = false;
-            this.deletePending = null;
-
-            if (type === 'job') await this.loadJobs();
-            else await this.loadTriggers();
-          } catch (e) {
-            this.showToast('Failed to delete: ' + e.message, 'error');
-          }
-          this.loading.global = false;
+            this.loading.global = false;
+          });
         },
 
         // ========================= TIMELINE =========================
         async loadHealth() {
+          this.loading.health = true;
           try {
             this.healthData = await this.fetchApi('/health');
           } catch (e) {
             console.error('loadHealth:', e);
           }
+          this.loading.health = false;
         },
 
         async loadTimeline() {
@@ -1836,31 +1859,37 @@
         },
 
         async triggerJob(group, name) {
-          try {
-            const payload = {
-              dataMap: Object.fromEntries((this.triggerJobDataMap || []).filter(e => e.key).map(e => [e.key, e.value ?? '']))
-            };
-            await this.postApi('/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name) + '/trigger', payload);
-            this.pendingTriggers[group + '.' + name] = Date.now();
-            this.showToast('Triggered ' + group + '.' + name, 'success');
-            this.closeTriggerJobModal();
-          } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+          await this.withActionPending('trigger', group, name, async () => {
+            try {
+              const payload = {
+                dataMap: Object.fromEntries((this.triggerJobDataMap || []).filter(e => e.key).map(e => [e.key, e.value ?? '']))
+              };
+              await this.postApi('/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name) + '/trigger', payload);
+              this.pendingTriggers[group + '.' + name] = Date.now();
+              this.showToast('Triggered ' + group + '.' + name, 'success');
+              this.closeTriggerJobModal();
+            } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+          });
         },
 
         async pauseJob(group, name) {
-          try {
-            await this.postApi('/jobs/' + group + '/' + name + '/pause');
-            await this.loadJobs();
-            this.showToast('Paused ' + group + '.' + name, 'info');
-          } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+          await this.withActionPending('pause', group, name, async () => {
+            try {
+              await this.postApi('/jobs/' + group + '/' + name + '/pause');
+              await this.loadJobs();
+              this.showToast('Paused ' + group + '.' + name, 'info');
+            } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+          });
         },
 
         async resumeJob(group, name) {
-          try {
-            await this.postApi('/jobs/' + group + '/' + name + '/resume');
-            await this.loadJobs();
-            this.showToast('Resumed ' + group + '.' + name, 'success');
-          } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+          await this.withActionPending('resume', group, name, async () => {
+            try {
+              await this.postApi('/jobs/' + group + '/' + name + '/resume');
+              await this.loadJobs();
+              this.showToast('Resumed ' + group + '.' + name, 'success');
+            } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+          });
         },
 
         async pauseJobGroup(group) {

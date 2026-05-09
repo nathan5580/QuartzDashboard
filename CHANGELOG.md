@@ -2,6 +2,25 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.1.43] — 2026-05-09
+
+### Added
+- **Health page skeleton** — shimmer loading state with stat card placeholders, chart skeleton, and diagnostics grid.
+- **Inline action spinners** — trigger, pause, resume, and delete buttons now show a CSS spinner while the action is in progress.
+- **Card hover effects** — stat cards lift with subtle shadow on hover; card-gradient elements get a soft glow.
+- **Table row hover** — consistent highlight on jobs and history table rows (`.table-row-hover`).
+- **Stat value transitions** — `.stat-value` class with color transition and tabular-nums for smooth number changes.
+- **Toast spring animation** — enter/exit animations use `cubic-bezier(0.16,1,0.3,1)` with scale for a polished feel.
+
+### Improved
+- **History skeleton** — upgraded from simple bars to realistic table-row layout with status dots and badge placeholders.
+- **Overview stat card skeletons** — enhanced with badge placeholder below the number shimmer.
+- **Page transitions** — leave duration reduced from 100ms to 50ms for snappier page switches.
+- **Timeline empty state** — now shows a Gantt-chart icon with descriptive title and subtitle.
+- **Calendars empty state** — now shows a calendar icon with consistent empty state pattern.
+- **Drawer backdrop** — increased to 60% opacity with smoother slide-in/out transitions.
+- **Scrollbar styling** — thin 6px scrollbars with subtle hover effect applied globally.
+
 ## [2.1.42] — 2026-05-09
 
 ### Added
