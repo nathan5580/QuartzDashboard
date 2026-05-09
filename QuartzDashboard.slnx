@@ -5,6 +5,9 @@
   <Folder Name="/tests/">
     <Project Path="QuartzDashboard.Tests/QuartzDashboard.Tests.csproj" />
   </Folder>
+  <Folder Name="/integration-tests/">
+    <Project Path="QuartzDashboard.IntegrationTests/QuartzDashboard.IntegrationTests.csproj" />
+  </Folder>
   <Folder Name="/demo/">
     <Project Path="QuartzDashboard.Demo/QuartzDashboard.Demo.csproj" />
   </Folder>

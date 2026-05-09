@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using QuartzDashboard;
 
 namespace QuartzDashboard.Handlers;
@@ -8,7 +10,7 @@ namespace QuartzDashboard.Handlers;
 /// </summary>
 internal static class ConfigHandlers
 {
-    public static IResult GetDashboardConfig(HttpContext ctx, QuartzDashboardOptions options)
+    public static async Task<IResult> GetDashboardConfig(HttpContext ctx, QuartzDashboardOptions options)
     {
         var isAuthenticated = ctx.User.Identity?.IsAuthenticated == true;
         var hasFullAccess = true;
@@ -16,12 +18,19 @@ internal static class ConfigHandlers
         if (options.RequireAuthentication)
         {
             if (!isAuthenticated)
+            {
                 hasFullAccess = false;
+            }
             else if (!string.IsNullOrWhiteSpace(options.RequiredPolicy))
-                hasFullAccess = false;
+            {
+                var authService = ctx.RequestServices.GetRequiredService<IAuthorizationService>();
+                hasFullAccess = (await authService.AuthorizeAsync(ctx.User, null, options.RequiredPolicy)).Succeeded;
+            }
             else if (options.AllowedRoles.Length > 0 &&
                      !options.AllowedRoles.Any(r => ctx.User.IsInRole(r)))
+            {
                 hasFullAccess = false;
+            }
         }
 
         return Results.Ok(new

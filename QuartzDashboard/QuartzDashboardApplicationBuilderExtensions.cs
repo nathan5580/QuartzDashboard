@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -134,7 +135,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
         // plain IApplicationBuilder from test hosts does not — call MapQuartzDashboard() separately in that case)
         if (options.UseSignalR && app is IEndpointRouteBuilder erb)
         {
-            erb.MapHub<QuartzDashboardHub>($"{basePath}/hub");
+            MapHubEndpoint(erb, basePath, options);
         }
 
         return app;
@@ -154,8 +155,33 @@ public static class QuartzDashboardApplicationBuilderExtensions
             return app;
 
         var basePath = options.Path.TrimEnd('/');
-        app.MapHub<QuartzDashboardHub>($"{basePath}/hub");
+        MapHubEndpoint(app, basePath, options);
         return app;
+    }
+
+    private static void MapHubEndpoint(IEndpointRouteBuilder app, string basePath, QuartzDashboardOptions options)
+    {
+        var hub = app.MapHub<QuartzDashboardHub>($"{basePath}/hub");
+
+        if (!options.RequireAuthentication)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(options.RequiredPolicy))
+        {
+            hub.RequireAuthorization(options.RequiredPolicy);
+            return;
+        }
+
+        if (options.AllowedRoles.Length > 0)
+        {
+            hub.RequireAuthorization(new AuthorizeAttribute
+            {
+                Roles = string.Join(',', options.AllowedRoles)
+            });
+            return;
+        }
+
+        hub.RequireAuthorization();
     }
 
     // ============= Main API Router =============
@@ -185,7 +211,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
 
             // -- Config --
             else if (method == "GET" && route is ["config"])
-                result = ConfigHandlers.GetDashboardConfig(ctx, options);
+                result = await ConfigHandlers.GetDashboardConfig(ctx, options);
 
             // -- Multi-scheduler: list all schedulers --
             else if (method == "GET" && route is ["schedulers"])
