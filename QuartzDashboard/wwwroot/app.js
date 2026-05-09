@@ -1761,12 +1761,13 @@
             this.triggers = (Array.isArray(list) ? list : [])
               .sort((a, b) => (a.jobGroup + '.' + a.jobName + '/' + a.group + '.' + a.name).localeCompare(b.jobGroup + '.' + b.jobName + '/' + b.group + '.' + b.name));
             this.errors.triggers = null; this.retryCounts.triggers = 0;
-            const groups = {};
+            // Merge new groups into existing expanded state — preserve open/closed
             for (const t of this.triggers) {
               const key = (t.jobGroup || '') + '.' + (t.jobName || '');
-              groups[key] = true;
+              if (!(key in this.expandedTriggerGroups)) {
+                this.expandedTriggerGroups[key] = true;
+              }
             }
-            this.expandedTriggerGroups = groups;
           } catch (e) { console.error('loadTriggers:', e); this.errors.triggers = e.message; this.showToast('Failed to load triggers: ' + e.message, 'error'); this._retryLoad('triggers', () => this.loadTriggers()); }
           this.loading.triggers = false;
         },
@@ -2159,8 +2160,8 @@
           this.expandedJobs[key] = !this.expandedJobs[key];
         },
 
-        toggleTriggerGroup(idx) {
-          this.expandedTriggerGroups[idx] = !this.expandedTriggerGroups[idx];
+        toggleTriggerGroup(key) {
+          this.expandedTriggerGroups[key] = !this.expandedTriggerGroups[key];
         },
 
         hasJobTriggers(job) {
