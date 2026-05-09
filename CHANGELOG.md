@@ -2,6 +2,20 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.1.45] — 2026-05-09
+
+### Fixed
+- **Timeline auto-fit** — Timeline range now auto-selects the best window (10m/30m/1h/3h) based on the actual data spread on load, so bars fill the full width instead of clustering on the right.
+- **Light mode buttons invisible** — Added `.light .btn`, `.light .btn-icon`, `.light .btn-ghost` overrides with visible borders and darker text colors. Buttons no longer blend into white backgrounds.
+- **Light mode range picker** — `.bg-gray-900` segment control (used on timeline/graph pages) now renders as light gray in light mode with proper border.
+- **Light mode tooltip** — Timeline tooltip overridden from dark to white background with shadow.
+- **Light mode badges** — All status badges (running/paused/idle/error) now have explicit text colors alongside background tints for readable contrast.
+- **Light mode drawer panels** — Panels using `bg-gray-900/950/800` classes now override to white/slate in light mode.
+- **SVG chart override specificity** — `svg text` and `svg line` overrides now use attribute selectors to avoid breaking colored chart elements.
+
+### Improved
+- **Light mode color depth** — Borders use 0.08+ opacity (up from 0.06), button backgrounds use 0.05+, and all colored text maps to darker WCAG-AA variants (e.g., emerald-400 → `#047857`, red-400 → `#b91c1c`).
+
 ## [2.1.44] — 2026-05-09
 
 ### Fixed

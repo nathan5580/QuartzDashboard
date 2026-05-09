@@ -649,8 +649,8 @@
       box-shadow: 0 25px 50px rgba(0,0,0,0.15) !important;
     }
     .light .badge { --badge-bg: rgba(0,0,0,0.05); }
-    .light .btn-ghost { background: rgba(0,0,0,0.04); color: #475569; }
-    .light .btn-ghost:hover { background: rgba(0,0,0,0.07); color: #1e293b; }
+    .light .btn-ghost { background: rgba(0,0,0,0.05); color: #475569; border: 1px solid rgba(0,0,0,0.08); }
+    .light .btn-ghost:hover { background: rgba(0,0,0,0.08); color: #1e293b; }
     .light .sidebar-item { color: #475569; }
     .light .sidebar-item:hover { background: rgba(0,0,0,0.04); color: #1e293b; }
     .light .sidebar-item.active { background: rgba(99,102,241,0.08); color: #4338ca; }
@@ -724,13 +724,45 @@
     }
     .light .footer-bar .text-gray-500 { color: #64748b !important; }
     .light .duration-bar { background: rgba(99,102,241,0.15) !important; }
-    .light .timeline-tooltip { color: #1e293b !important; }
+    .light .timeline-tooltip { color: #1e293b !important; background: #ffffff !important; border-color: rgba(0,0,0,0.1) !important; box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important; }
     .light .graph-tooltip { color: #1e293b !important; }
-    /* Light mode SVG chart labels */
-    .light svg text { fill: #475569 !important; }
-    .light svg line { stroke: rgba(71,85,105,0.2) !important; }
+    /* Light mode SVG chart axis lines — only grid/axis, not colored elements */
+    .light svg text[style] { fill: #475569 !important; }
+    .light svg line[stroke*="rgba(148"] { stroke: rgba(71,85,105,0.15) !important; }
     /* Sparkline visibility in light mode */
     .light .sparkline-container { opacity: 0.18; }
+    /* Light mode: buttons with visible borders */
+    .light .btn { color: #334155; }
+    .light .btn-icon { color: #475569; border: 1px solid rgba(0,0,0,0.08); }
+    .light .btn-icon:hover { background: rgba(0,0,0,0.06) !important; color: #1e293b !important; border-color: rgba(0,0,0,0.12); }
+    /* Light mode: range picker / segment controls */
+    .light .bg-gray-900 { background: #f1f5f9 !important; border-color: rgba(0,0,0,0.1) !important; }
+    .light .bg-gray-950 { background: #f8fafc !important; }
+    .light .bg-gray-800 { background: #e2e8f0 !important; }
+    .light .border-gray-800 { border-color: rgba(0,0,0,0.1) !important; }
+    .light .border-gray-700 { border-color: rgba(0,0,0,0.08) !important; }
+    .light .divide-gray-800 > * + * { border-color: rgba(0,0,0,0.06) !important; }
+    /* Light mode: toggle switches */
+    .light .toggle-on { background: #4f46e5; }
+    .light .toggle-off { background: #cbd5e1; }
+    /* Light mode: inline code / mono text */
+    .light .mono { color: #334155; }
+    /* Light mode: status dots — ensure colored dots remain visible */
+    .light .status-dot-running { background: #059669; }
+    .light .status-dot-stopped { background: #dc2626; }
+    /* Light mode: drawer/slide-over panel */
+    .light [class*="bg-gray-900/"] { background-color: rgba(241,245,249,0.98) !important; }
+    /* Light mode: ensure small action buttons in tables are visible */
+    .light .bg-emerald-500\/10 { background: rgba(16,185,129,0.12) !important; }
+    .light .bg-amber-500\/10 { background: rgba(245,158,11,0.12) !important; }
+    .light .bg-red-500\/10 { background: rgba(239,68,68,0.12) !important; }
+    .light .bg-indigo-500\/10 { background: rgba(99,102,241,0.12) !important; }
+    .light .border-emerald-500\/20 { border-color: rgba(16,185,129,0.2) !important; }
+    .light .border-amber-500\/20 { border-color: rgba(245,158,11,0.2) !important; }
+    .light .border-red-500\/20 { border-color: rgba(239,68,68,0.2) !important; }
+    .light .text-quartz-400, .light .text-quartz-300 { color: #4338ca !important; }
+    /* Light mode: range picker active button override */
+    .light .bg-quartz-600 { background: #4f46e5 !important; color: #ffffff !important; }
 
     /* ── Mobile responsive ─────────────────────────────────────── */
     @media (max-width: 768px) {
@@ -836,13 +868,5 @@
     .light .spinner { border-color: rgba(0,0,0,0.15); border-top-color: #4338ca; }
     .light .card-gradient:hover,
     .light .stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1) !important; }
-    /* Light mode: drawer panel */
-    .light .bg-gray-900 { background: #ffffff !important; }
-    .light .bg-gray-950 { background: #f8fafc !important; }
-    .light .border-gray-800 { border-color: rgba(0,0,0,0.08) !important; }
-    .light .divide-gray-800 > * + * { border-color: rgba(0,0,0,0.06) !important; }
-    /* Light mode: SVG chart axis lines — more specific to avoid overriding colored strokes */
-    .light svg line[stroke*="rgba(148"] { stroke: rgba(71,85,105,0.15) !important; }
-    .light svg text[style*="fill:#4b5563"], .light svg text[style*="fill:#374151"] { fill: #475569 !important; }
   </style>
   <style id="light-mode-override"></style>
