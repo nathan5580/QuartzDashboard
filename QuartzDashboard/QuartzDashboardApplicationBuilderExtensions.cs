@@ -349,6 +349,54 @@ public static class QuartzDashboardApplicationBuilderExtensions
             else if (method == "DELETE" && route is ["calendars", _])
                 result = await CalendarHandlers.DeleteCalendar(sched, route[1], options);
 
+            // -- Cron Describe --
+            else if (method == "POST" && route is ["cron", "describe"])
+            {
+                var body = await ctx.Request.ReadFromJsonAsync<Dictionary<string, string>>();
+                var expression = body?.GetValueOrDefault("expression") ?? "";
+                try
+                {
+                    var cron = new Quartz.CronExpression(expression);
+                    var nextFires = new List<string>();
+                    DateTimeOffset? next = DateTimeOffset.UtcNow;
+                    for (int i = 0; i < 5 && next.HasValue; i++)
+                    {
+                        next = cron.GetNextValidTimeAfter(next.Value);
+                        if (next.HasValue) nextFires.Add(next.Value.ToString("o"));
+                    }
+                    result = Results.Ok(new
+                    {
+                        valid = true,
+                        description = cron.CronExpressionString,
+                        nextFireTimes = nextFires
+                    });
+                }
+                catch (Exception ex)
+                {
+                    result = Results.Ok(new { valid = false, error = ex.Message, nextFireTimes = Array.Empty<string>() });
+                }
+            }
+
+            // -- Export --
+            else if (method == "GET" && route is ["export"])
+            {
+                result = await ExportJobs(sched);
+            }
+
+            // -- Import --
+            else if (method == "POST" && route is ["import"])
+            {
+                if (options.ReadOnly)
+                {
+                    result = Results.Json(new { Error = "Dashboard is in read-only mode" }, statusCode: 403);
+                }
+                else
+                {
+                    var body = await ctx.Request.ReadFromJsonAsync<ExportPayload>();
+                    result = await ImportJobs(sched, body);
+                }
+            }
+
             else
                 result = Results.NotFound(new
                 {
@@ -474,5 +522,157 @@ public static class QuartzDashboardApplicationBuilderExtensions
 
         ctx.Response.ContentType = "text/html; charset=utf-8";
         await ctx.Response.WriteAsync(html);
+    }
+
+    // ============= Export / Import =============
+
+    internal sealed record ExportPayload
+    {
+        public List<ExportedJob>? Jobs { get; set; }
+    }
+
+    internal sealed record ExportedJob
+    {
+        public string Group { get; set; } = "DEFAULT";
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public string JobType { get; set; } = "";
+        public bool Durable { get; set; }
+        public bool RequestsRecovery { get; set; }
+        public Dictionary<string, string>? JobDataMap { get; set; }
+        public List<ExportedTrigger>? Triggers { get; set; }
+    }
+
+    internal sealed record ExportedTrigger
+    {
+        public string Group { get; set; } = "DEFAULT";
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public string? CronExpression { get; set; }
+        public int? IntervalSeconds { get; set; }
+        public int? RepeatCount { get; set; }
+        public int Priority { get; set; } = 5;
+    }
+
+    private static async Task<IResult> ExportJobs(IScheduler sched)
+    {
+        var jobGroupNames = await sched.GetJobGroupNames();
+        var exported = new List<ExportedJob>();
+
+        foreach (var group in jobGroupNames)
+        {
+            var jobKeys = await sched.GetJobKeys(Quartz.Impl.Matchers.GroupMatcher<JobKey>.GroupEquals(group));
+            foreach (var jobKey in jobKeys)
+            {
+                var job = await sched.GetJobDetail(jobKey);
+                if (job == null) continue;
+
+                var triggers = await sched.GetTriggersOfJob(jobKey);
+                var exportedTriggers = triggers.Select(t =>
+                {
+                    var et = new ExportedTrigger
+                    {
+                        Group = t.Key.Group,
+                        Name = t.Key.Name,
+                        Description = t.Description,
+                        Priority = t.Priority
+                    };
+                    if (t is Quartz.ICronTrigger ct) et.CronExpression = ct.CronExpressionString;
+                    if (t is Quartz.ISimpleTrigger st)
+                    {
+                        et.IntervalSeconds = (int)st.RepeatInterval.TotalSeconds;
+                        et.RepeatCount = st.RepeatCount;
+                    }
+                    return et;
+                }).ToList();
+
+                exported.Add(new ExportedJob
+                {
+                    Group = job.Key.Group,
+                    Name = job.Key.Name,
+                    Description = job.Description,
+                    JobType = job.JobType.FullName ?? job.JobType.Name,
+                    Durable = job.Durable,
+                    RequestsRecovery = job.RequestsRecovery,
+                    JobDataMap = job.JobDataMap?.Count > 0
+                        ? job.JobDataMap.ToDictionary(kv => kv.Key, kv => kv.Value?.ToString() ?? "")
+                        : null,
+                    Triggers = exportedTriggers
+                });
+            }
+        }
+
+        return Results.Ok(new { jobs = exported, exportedAt = DateTimeOffset.UtcNow });
+    }
+
+    private static async Task<IResult> ImportJobs(IScheduler sched, ExportPayload? payload)
+    {
+        if (payload?.Jobs == null || payload.Jobs.Count == 0)
+            return Results.BadRequest(new { Error = "No jobs to import" });
+
+        int jobsCreated = 0, triggersCreated = 0, errors = 0;
+        var errorMessages = new List<string>();
+
+        foreach (var ej in payload.Jobs)
+        {
+            try
+            {
+                // Try to resolve the job type
+                var jobType = AppDomain.CurrentDomain.GetAssemblies()
+                    .SelectMany(a => { try { return a.GetTypes(); } catch { return []; } })
+                    .FirstOrDefault(t => t.FullName == ej.JobType || t.Name == ej.JobType);
+
+                if (jobType == null)
+                {
+                    // Use PlaceholderJob if type not found
+                    jobType = typeof(Services.PlaceholderJob);
+                }
+
+                var jobBuilder = JobBuilder.Create(jobType)
+                    .WithIdentity(ej.Name, ej.Group)
+                    .WithDescription(ej.Description)
+                    .StoreDurably(ej.Durable)
+                    .RequestRecovery(ej.RequestsRecovery);
+
+                if (ej.JobDataMap != null)
+                {
+                    foreach (var kv in ej.JobDataMap)
+                        jobBuilder.UsingJobData(kv.Key, kv.Value);
+                }
+
+                var jobDetail = jobBuilder.Build();
+                await sched.AddJob(jobDetail, true);
+                jobsCreated++;
+
+                if (ej.Triggers != null)
+                {
+                    foreach (var et in ej.Triggers)
+                    {
+                        TriggerBuilder tb = TriggerBuilder.Create()
+                            .WithIdentity(et.Name, et.Group)
+                            .WithDescription(et.Description)
+                            .WithPriority(et.Priority)
+                            .ForJob(jobDetail);
+
+                        if (!string.IsNullOrWhiteSpace(et.CronExpression))
+                            tb.WithCronSchedule(et.CronExpression);
+                        else if (et.IntervalSeconds.HasValue)
+                            tb.WithSimpleSchedule(s => s
+                                .WithIntervalInSeconds(et.IntervalSeconds.Value)
+                                .WithRepeatCount(et.RepeatCount ?? -1));
+
+                        await sched.ScheduleJob(tb.Build());
+                        triggersCreated++;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                errors++;
+                errorMessages.Add($"{ej.Group}.{ej.Name}: {ex.Message}");
+            }
+        }
+
+        return Results.Ok(new { jobsCreated, triggersCreated, errors, errorMessages });
     }
 }

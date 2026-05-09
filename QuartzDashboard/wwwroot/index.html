@@ -163,7 +163,19 @@
           <template x-if="newTrigger.triggerType === 'cron'">
             <div>
               <label class="form-label">Cron Expression *</label>
-              <input type="text" x-model="newTrigger.cronExpression" class="glass-input w-full" placeholder="0/5 * * * * ?">
+              <input type="text" x-model="newTrigger.cronExpression" @input.debounce.500ms="validateCron(newTrigger.cronExpression)" class="glass-input w-full" placeholder="0/5 * * * * ?">
+              <div x-show="newTrigger.triggerType === 'cron' && newTrigger.cronExpression.length >= 5" class="mt-2 space-y-1">
+                <div x-show="cronValid === true" class="text-xs text-emerald-400">✓ Valid expression</div>
+                <div x-show="cronValid === false" class="text-xs text-red-400">✗ Invalid cron expression</div>
+                <template x-if="cronNextFires.length > 0">
+                  <div class="text-[10px] text-gray-500">
+                    <div class="mb-1 font-medium">Next fires:</div>
+                    <template x-for="(t, i) in cronNextFires" :key="i">
+                      <div x-text="t" class="text-gray-400"></div>
+                    </template>
+                  </div>
+                </template>
+              </div>
             </div>
           </template>
 
@@ -738,12 +750,12 @@
                       <!-- Bar: spread evenly from x=36 to x=704 (668px inner width) -->
                       <rect
                         :x="36 + (idx + 0.5) * (668 / Math.max(executionBuckets.slice(-24).length, 1)) - Math.min(22, Math.max(6, (668 / Math.max(executionBuckets.slice(-24).length, 1)) * 0.6)) / 2"
-                        :y="148 - Math.max((bucket.errorRate || 0) > 0 ? 6 : 3, ((bucket.errorRate || 0) / 100) * 120)"
+                        :y="148 - Math.max((bucket.errorRate || 0) > 0 ? 6 : 16, ((bucket.errorRate || 0) / 100) * 120)"
                         :width="Math.min(22, Math.max(6, (668 / Math.max(executionBuckets.slice(-24).length, 1)) * 0.6))"
-                        :height="Math.max((bucket.errorRate || 0) > 0 ? 6 : 3, ((bucket.errorRate || 0) / 100) * 120)"
+                        :height="Math.max((bucket.errorRate || 0) > 0 ? 6 : 16, ((bucket.errorRate || 0) / 100) * 120)"
                         rx="3"
                         :fill="(bucket.errorRate || 0) > 0 ? '#ef4444' : '#22c55e'"
-                        :fill-opacity="(bucket.errorRate || 0) > 0 ? 0.78 : 0.25">
+                        :fill-opacity="(bucket.errorRate || 0) > 0 ? 0.78 : 0.5">
                       </rect>
                       <!-- X-axis label -->
                       <text
@@ -756,10 +768,10 @@
                     </g>
                   </template>
                   <!-- Empty state overlay when no data -->
-                  <text x="360" y="90" text-anchor="middle" style="font-size:11px;fill:#4b5563" x-show="!executionBuckets.length">No data available</text>
+                  <text x="360" y="90" text-anchor="middle" style="font-size:11px;fill:#4b5563" :style="!executionBuckets.length ? '' : 'display:none'">No data available</text>
                   <!-- All-clear label when data exists but no failures -->
                   <text x="360" y="90" text-anchor="middle" style="font-size:11px;fill:#22c55e;fill-opacity:0.7"
-                        x-show="executionBuckets.length > 0 && executionBuckets.slice(-24).every(b => !(b.errorRate || 0))">✓ No failures detected</text>
+                        :style="executionBuckets.length > 0 && executionBuckets.slice(-24).every(b => !(b.errorRate || 0)) ? '' : 'display:none'">✓ No failures detected</text>
                 </svg>
               </div>
             </div>
@@ -861,6 +873,15 @@
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   New Job
                 </button>
+                <button @click="exportJobs()" class="btn btn-ghost" title="Export jobs as JSON">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Export
+                </button>
+                <label class="btn btn-ghost cursor-pointer" title="Import jobs from JSON" x-show="!config.readOnly">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  Import
+                  <input type="file" accept=".json" @change="importJobs($event)" class="hidden" />
+                </label>
                 <button @click="loadJobs()" class="btn btn-ghost" title="Refresh">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
                 </button>
@@ -957,6 +978,10 @@
                             <td x-show="!item.isHeader" class="py-3.5 px-4 hidden sm:table-cell" data-label="Status">
                               <span :class="item.job && jobStatusBadge(item.job.status)"
                                     x-text="item.job && (item.job.status || 'Idle')"></span>
+                              <span x-show="item.job && jobSuccessRate(item.job.group, item.job.name) !== null"
+                                    class="text-[10px] font-medium ml-1.5 tabular-nums"
+                                    :class="jobSuccessRate(item.job.group, item.job.name) >= 95 ? 'text-emerald-400' : jobSuccessRate(item.job.group, item.job.name) >= 80 ? 'text-amber-400' : 'text-red-400'"
+                                    x-text="jobSuccessRate(item.job.group, item.job.name) + '%'"></span>
                             </td>
                             <td x-show="!item.isHeader" class="py-3.5 px-4 hidden lg:table-cell" data-label="Triggers">
                               <span class="text-[11px] text-gray-400"
@@ -1697,27 +1722,36 @@
                     </thead>
                     <tbody>
                       <template x-for="(h, idx) in historyFiltered" :key="idx">
-                        <tr>
-                          <td class="mono text-xs text-gray-400" data-label="Time" x-text="formatDate(h.fireTime)"></td>
-                          <td class="font-medium text-gray-100 text-xs" data-label="Job">
-                            <div class="flex items-center gap-2">
-                              <span x-text="h.jobKey"></span>
-                              <span x-show="h.refireCount > 0" class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500/20 text-[9px] font-semibold text-amber-400">R</span>
-                            </div>
-                          </td>
-                          <td class="text-xs text-gray-500 hidden sm:table-cell truncate max-w-[140px]" data-label="Trigger" x-text="h.triggerKey"></td>
-                          <td class="text-xs mono text-gray-300" data-label="Duration" x-text="h.duration ? formatDuration(h.duration) : '\u2014'"></td>
-                          <td class="hidden md:table-cell" data-label="">
-                            <div class="w-24 h-1.5 bg-gray-700/40 rounded-full overflow-hidden">
-                              <div class="h-full rounded-full duration-bar"
-                                   :class="h.success ? 'bg-emerald-500' : 'bg-red-500'"
-                                   :style="'width: ' + Math.min(((h.durationMs || h.duration || 0) / (maxHistoryDuration || 5000)) * 100, 100) + '%'"></div>
-                            </div>
-                          </td>
-                          <td data-label="Outcome">
-                            <span :class="h.success ? 'badge badge-ok' : 'badge badge-error'" x-text="h.success ? 'OK' : 'Error'"></span>
-                          </td>
-                        </tr>
+                        <template x-if="true">
+                          <tr @click="h.exceptionMessage ? (historyExpandedRows = {...historyExpandedRows, [h.fireTime]: !historyExpandedRows[h.fireTime]}) : null"
+                              :class="h.exceptionMessage ? 'cursor-pointer' : ''">
+                            <td class="mono text-xs text-gray-400" data-label="Time" x-text="formatDate(h.fireTime)"></td>
+                            <td class="font-medium text-gray-100 text-xs" data-label="Job">
+                              <div class="flex items-center gap-2">
+                                <span x-text="h.jobKey"></span>
+                                <span x-show="h.refireCount > 0" class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500/20 text-[9px] font-semibold text-amber-400">R</span>
+                              </div>
+                            </td>
+                            <td class="text-xs text-gray-500 hidden sm:table-cell truncate max-w-[140px]" data-label="Trigger" x-text="h.triggerKey"></td>
+                            <td class="text-xs mono text-gray-300" data-label="Duration" x-text="h.duration ? formatDuration(h.duration) : '\u2014'"></td>
+                            <td class="hidden md:table-cell" data-label="">
+                              <div class="w-24 h-1.5 bg-gray-700/40 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full duration-bar"
+                                     :class="h.success ? 'bg-emerald-500' : 'bg-red-500'"
+                                     :style="'width: ' + Math.min(((h.durationMs || h.duration || 0) / (maxHistoryDuration || 5000)) * 100, 100) + '%'"></div>
+                              </div>
+                            </td>
+                            <td data-label="Outcome">
+                              <span :class="h.success ? 'badge badge-ok' : 'badge badge-error'" x-text="h.success ? 'OK' : 'Error'"></span>
+                            </td>
+                          </tr>
+                          <tr x-show="historyExpandedRows[h.fireTime] && h.exceptionMessage" class="bg-red-500/[0.03]">
+                            <td colspan="7" class="px-4 py-3">
+                              <div class="text-xs font-medium text-red-400 mb-1" x-text="h.exceptionType || 'Exception'"></div>
+                              <div class="text-xs text-gray-400 font-mono whitespace-pre-wrap break-all" x-text="h.exceptionMessage"></div>
+                            </td>
+                          </tr>
+                        </template>
                       </template>
                     </tbody>
                   </table>

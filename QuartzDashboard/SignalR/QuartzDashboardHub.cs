@@ -29,7 +29,8 @@ internal sealed record ExecutedEvent(
     string FireInstanceId,
     double Duration,
     bool Success,
-    DateTimeOffset FireTime
+    DateTimeOffset FireTime,
+    string? ExceptionMessage = null
 );
 
 internal sealed record TriggeredEvent(
@@ -70,7 +71,8 @@ internal sealed class DashboardSignalRBridge(
                 FireInstanceId: e.FireInstanceId,
                 Duration: e.Duration.TotalMilliseconds,
                 Success: e.Success,
-                FireTime: e.FireTime
+                FireTime: e.FireTime,
+                ExceptionMessage: e.ExceptionMessage
             )))
             {
                 logger.LogWarning("Channel full, dropping jobExecuted event");
@@ -158,6 +160,7 @@ internal sealed class DashboardSignalRBridge(
                                 durationMs = ee.Duration,
                                 success = ee.Success,
                                 fireTime = ee.FireTime,
+                                exceptionMessage = ee.ExceptionMessage,
                             });
                             break;
                         case TriggeredEvent te:
@@ -188,7 +191,7 @@ internal sealed class DashboardSignalRBridge(
                         switch (item)
                         {
                             case ExecutedEvent ee:
-                                executed.Add(new { jobKey = ee.JobKey, triggerKey = ee.TriggerKey, fireInstanceId = ee.FireInstanceId, duration = ee.Duration, durationMs = ee.Duration, success = ee.Success, fireTime = ee.FireTime });
+                                executed.Add(new { jobKey = ee.JobKey, triggerKey = ee.TriggerKey, fireInstanceId = ee.FireInstanceId, duration = ee.Duration, durationMs = ee.Duration, success = ee.Success, fireTime = ee.FireTime, exceptionMessage = ee.ExceptionMessage });
                                 break;
                             case TriggeredEvent te:
                                 triggered.Add(new { jobKey = te.JobKey, triggerKey = te.TriggerKey, jobName = te.JobName, jobGroup = te.JobGroup, triggerName = te.TriggerName, triggerGroup = te.TriggerGroup, jobType = te.JobType, fireInstanceId = te.FireInstanceId, fireTime = te.FireTime, scheduledFireTime = te.ScheduledFireTime });

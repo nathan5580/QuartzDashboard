@@ -46,6 +46,7 @@
         historyFilter: '',
         historyFilterObj: { search: '', status: 'all', dateFrom: '', dateTo: '' },
         maxHistoryDuration: 0,
+        historyExpandedRows: {},
 
         // Job run result feedback
         pendingTriggers: {},
@@ -231,6 +232,13 @@
           return Math.round(successes / this.history.length * 100);
         },
         get failedHistory() { return this.history ? this.history.filter(h => h.success === false) : []; },
+        jobSuccessRate(group, name) {
+          const key = group + '.' + name;
+          const relevant = (this.history || []).filter(h => h.jobKey === key);
+          if (!relevant.length) return null;
+          const success = relevant.filter(h => h.success).length;
+          return Math.round((success / relevant.length) * 100);
+        },
         get failuresByHour() {
           const now = new Date();
           now.setMinutes(0, 0, 0);
@@ -293,6 +301,8 @@
         showCreateTriggerModal: false,
         showEditTriggerModal: false,
         editTriggerData: null,
+        cronNextFires: [],
+        cronValid: null,
         newTrigger: {
           name: '',
           group: 'DEFAULT',
@@ -836,6 +846,13 @@
 
             this.connection.on('jobExecutedBatch', (events) => {
               events.forEach(e => this.handleJobExecuted(e));
+
+              // Show failure toast for failed executions
+              for (const e of events) {
+                if (!e.success) {
+                  this.showToast('⚠ ' + e.jobKey + ' failed' + (e.exceptionMessage ? ': ' + e.exceptionMessage.substring(0, 80) : ''), 'error');
+                }
+              }
             });
 
             this.connection.on('jobTriggeredBatch', (events) => {
@@ -1198,6 +1215,15 @@
         },
 
         // ========================= CREATE TRIGGER =========================
+        async validateCron(expr) {
+          if (!expr || expr.length < 5) { this.cronNextFires = []; this.cronValid = null; return; }
+          try {
+            const resp = await this.postApi('/cron/describe', { expression: expr });
+            this.cronValid = resp.valid;
+            this.cronNextFires = (resp.nextFireTimes || []).map(t => new Date(t).toLocaleString());
+          } catch { this.cronValid = false; this.cronNextFires = []; }
+        },
+
         async submitCreateTrigger() {
           if (!this.newTrigger.name || !this.newTrigger.jobName) return;
           if (this.newTrigger.triggerType === 'cron' && !this.newTrigger.cronExpression) return;
@@ -1242,6 +1268,8 @@
             this.showToast('Trigger ' + this.newTrigger.name + ' created', 'success');
             this.showCreateTriggerModal = false;
             this.newTrigger = { name: '', group: 'DEFAULT', jobName: '', jobGroup: 'DEFAULT', description: '', triggerType: 'cron', cronExpression: '', intervalSeconds: null, repeatCount: -1, priority: 5, startTimeUtc: '', endTimeUtc: '' };
+            this.cronNextFires = [];
+            this.cronValid = null;
             await this.loadTriggers();
           } catch (e) {
             this.showToast('Failed to create trigger: ' + e.message, 'error');
@@ -1873,6 +1901,34 @@
             await this.loadCalendars();
             this.showToast('Calendar deleted', 'success');
           } catch (e) { this.showToast('Failed to delete calendar: ' + e.message, 'error'); }
+        },
+
+        async exportJobs() {
+          try {
+            const data = await this.fetchApi('/export');
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'quartz-jobs-' + new Date().toISOString().slice(0,10) + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            this.showToast('Exported ' + (data.jobs?.length || 0) + ' jobs', 'success');
+          } catch (e) { this.showToast('Export failed: ' + e.message, 'error'); }
+        },
+
+        async importJobs(event) {
+          const file = event.target.files[0];
+          if (!file) return;
+          try {
+            const text = await file.text();
+            const payload = JSON.parse(text);
+            const result = await this.postApi('/import', payload);
+            this.showToast('Imported ' + result.jobsCreated + ' jobs, ' + result.triggersCreated + ' triggers' + (result.errors > 0 ? ' (' + result.errors + ' errors)' : ''), result.errors > 0 ? 'error' : 'success');
+            await this.loadJobs();
+            await this.loadTriggers();
+            event.target.value = '';
+          } catch (e) { this.showToast('Import failed: ' + e.message, 'error'); event.target.value = ''; }
         },
 
         // ========================= UI HELPERS =========================

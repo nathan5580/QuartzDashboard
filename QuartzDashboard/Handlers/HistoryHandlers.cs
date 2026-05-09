@@ -33,6 +33,8 @@ internal static class HistoryHandlers
             success = f.Success,
             refireCount = f.RefireCount,
             relativeTime = (DateTimeOffset.UtcNow - f.FireTime).TotalSeconds,
+            exceptionMessage = f.ExceptionMessage,
+            exceptionType = f.ExceptionType,
         }).ToList();
 
         return Results.Ok(new { data = records, total = filteredList.Count, offset, limit });
@@ -49,6 +51,7 @@ internal static class HistoryHandlers
             duration = f.Duration.TotalMilliseconds,
             success = f.Success,
             relativeTime = (DateTimeOffset.UtcNow - f.FireTime).TotalSeconds,
+            exceptionMessage = f.ExceptionMessage,
         }).ToList();
 
         return Results.Ok(events);
