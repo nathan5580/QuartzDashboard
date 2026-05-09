@@ -5,12 +5,12 @@ using Xunit;
 namespace QuartzDashboard.IntegrationTests;
 
 [Collection(QuartzDashboardIntegrationCollection.Name)]
-public sealed class DashboardConfigTests(TestWebAppFactory factory)
+public sealed class DashboardConfigTests
 {
     [Fact]
     public async Task GetDashboard_CustomPath_WorksAtConfiguredLocation()
     {
-        var customFactory = factory.WithScenario(options => options.Path = "/admin/scheduler");
+        await using var customFactory = new TestWebAppFactory(options => options.Path = "/admin/scheduler");
         using var client = customFactory.CreateAnonymousClient(allowAutoRedirect: false);
 
         using var configuredResponse = await client.GetAsync("/admin/scheduler/");
@@ -23,7 +23,7 @@ public sealed class DashboardConfigTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetConfig_ReadOnlyMode_ReturnsReadOnlyTrue()
     {
-        var customFactory = factory.WithScenario(options => options.ReadOnly = true);
+        await using var customFactory = new TestWebAppFactory(options => options.ReadOnly = true);
         using var client = customFactory.CreateAnonymousClient();
 
         using var response = await client.GetAsync("/quartz/api/config");
@@ -35,7 +35,7 @@ public sealed class DashboardConfigTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetDashboard_EnabledFalse_DoesNotRegisterRoutes()
     {
-        var customFactory = factory.WithScenario(options => options.Enabled = false);
+        await using var customFactory = new TestWebAppFactory(options => options.Enabled = false);
         using var client = customFactory.CreateAnonymousClient();
 
         using var dashboardResponse = await client.GetAsync("/quartz/");
@@ -48,7 +48,7 @@ public sealed class DashboardConfigTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetHub_UseSignalRFalse_HubIsNotMapped()
     {
-        var customFactory = factory.WithScenario(options => options.UseSignalR = false);
+        await using var customFactory = new TestWebAppFactory(options => options.UseSignalR = false);
         using var client = customFactory.CreateAnonymousClient();
 
         using var response = await client.PostAsync("/quartz/hub/negotiate?negotiateVersion=1", new StringContent(string.Empty));
@@ -62,7 +62,7 @@ public sealed class DashboardConfigTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetDashboard_CustomTitle_IsReflectedInConfigAndHtml()
     {
-        var customFactory = factory.WithScenario(options => options.Title = "Operations Scheduler");
+        await using var customFactory = new TestWebAppFactory(options => options.Title = "Operations Scheduler");
         using var client = customFactory.CreateAnonymousClient();
 
         using var configResponse = await client.GetAsync("/quartz/api/config");
@@ -76,7 +76,9 @@ public sealed class DashboardConfigTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetHistory_MaxFireHistory_IsRespected()
     {
-        var customFactory = factory.WithScenario(options => options.MaxFireHistory = 3);
+        await using var customFactory = new TestWebAppFactory(options => options.MaxFireHistory = 3);
+        await customFactory.StartServerAsync();
+
         using var client = customFactory.CreateAnonymousClient();
 
         for (var i = 0; i < 6; i++)

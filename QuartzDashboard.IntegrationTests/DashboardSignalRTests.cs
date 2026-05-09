@@ -7,12 +7,25 @@ using Xunit;
 namespace QuartzDashboard.IntegrationTests;
 
 [Collection(QuartzDashboardIntegrationCollection.Name)]
-public sealed class DashboardSignalRTests(TestWebAppFactory factory)
+public sealed class DashboardSignalRTests : IAsyncLifetime
 {
+    private TestWebAppFactory _factory = null!;
+
+    public async Task InitializeAsync()
+    {
+        _factory = new TestWebAppFactory();
+        await _factory.StartServerAsync();
+    }
+
+    public async Task DisposeAsync()
+    {
+        await _factory.DisposeAsync();
+    }
+
     [Fact]
     public async Task SignalRHub_DefaultConfiguration_IsConnectable()
     {
-        await using var connection = factory.CreateHubConnection();
+        await using var connection = _factory.CreateHubConnection();
 
         await connection.StartAsync();
         await connection.InvokeAsync("Subscribe");
@@ -23,8 +36,8 @@ public sealed class DashboardSignalRTests(TestWebAppFactory factory)
     [Fact]
     public async Task SignalRHub_WhenManualJobExecutes_ClientReceivesEvents()
     {
-        using var client = factory.CreateAnonymousClient();
-        await using var connection = factory.CreateHubConnection();
+        using var client = _factory.CreateAnonymousClient();
+        await using var connection = _factory.CreateHubConnection();
         var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         connection.On<JsonElement[]>("jobExecutedBatch", events =>
@@ -45,7 +58,7 @@ public sealed class DashboardSignalRTests(TestWebAppFactory factory)
     [Fact]
     public async Task SignalRHub_RequireAuthenticationWithoutUser_ReturnsUnauthorized()
     {
-        var customFactory = factory.WithScenario(options => options.RequireAuthentication = true);
+        await using var customFactory = new TestWebAppFactory(options => options.RequireAuthentication = true);
         using var client = customFactory.CreateAnonymousClient();
 
         using var response = await client.PostAsync("/quartz/hub/negotiate?negotiateVersion=1", new StringContent(string.Empty));
@@ -56,7 +69,7 @@ public sealed class DashboardSignalRTests(TestWebAppFactory factory)
     [Fact]
     public async Task SignalRHub_AllowedRolesWithMatchingUser_CanConnect()
     {
-        var customFactory = factory.WithScenario(options =>
+        await using var customFactory = new TestWebAppFactory(options =>
         {
             options.RequireAuthentication = true;
             options.AllowedRoles = ["Admin"];
