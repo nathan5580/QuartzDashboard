@@ -6,7 +6,7 @@ using Xunit;
 namespace QuartzDashboard.IntegrationTests;
 
 [Collection(QuartzDashboardIntegrationCollection.Name)]
-public sealed class DashboardReadOnlyTests(TestWebAppFactory factory)
+public sealed class DashboardReadOnlyTests
 {
     [Theory]
     [InlineData("POST", "/quartz/api/scheduler/start")]
@@ -18,7 +18,7 @@ public sealed class DashboardReadOnlyTests(TestWebAppFactory factory)
     [InlineData("DELETE", "/quartz/api/triggers/demo/FastJob-trigger")]
     public async Task MutationEndpoint_ReadOnlyMode_ReturnsForbidden(string method, string path)
     {
-        var customFactory = factory.WithScenario(options => options.ReadOnly = true);
+        await using var customFactory = new TestWebAppFactory(options => options.ReadOnly = true);
         using var client = customFactory.CreateAnonymousClient();
         using var request = new HttpRequestMessage(new HttpMethod(method), path)
         {
@@ -33,7 +33,7 @@ public sealed class DashboardReadOnlyTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetEndpoints_ReadOnlyMode_StillWork()
     {
-        var customFactory = factory.WithScenario(options => options.ReadOnly = true);
+        await using var customFactory = new TestWebAppFactory(options => options.ReadOnly = true);
         using var client = customFactory.CreateAnonymousClient();
 
         using var jobsResponse = await client.GetAsync("/quartz/api/jobs");

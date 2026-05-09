@@ -5,12 +5,25 @@ using Xunit;
 namespace QuartzDashboard.IntegrationTests;
 
 [Collection(QuartzDashboardIntegrationCollection.Name)]
-public sealed class DashboardCoexistenceTests(TestWebAppFactory factory)
+public sealed class DashboardCoexistenceTests : IAsyncLifetime
 {
+    private TestWebAppFactory _factory = null!;
+
+    public async Task InitializeAsync()
+    {
+        _factory = new TestWebAppFactory();
+        await _factory.StartServerAsync();
+    }
+
+    public async Task DisposeAsync()
+    {
+        await _factory.DisposeAsync();
+    }
+
     [Fact]
     public async Task GetWeather_DefaultHostConfiguration_StillResponds()
     {
-        using var client = factory.CreateAnonymousClient();
+        using var client = _factory.CreateAnonymousClient();
         using var response = await client.GetAsync("/api/weather");
         using var json = await response.ReadJsonAsync();
 
@@ -21,7 +34,7 @@ public sealed class DashboardCoexistenceTests(TestWebAppFactory factory)
     [Fact]
     public async Task Requests_HostAndDashboard_BothFlowThroughHostMiddleware()
     {
-        using var client = factory.CreateAnonymousClient();
+        using var client = _factory.CreateAnonymousClient();
 
         using var hostResponse = await client.GetAsync("/api/health");
         using var dashboardResponse = await client.GetAsync("/quartz/api/scheduler");
@@ -33,7 +46,7 @@ public sealed class DashboardCoexistenceTests(TestWebAppFactory factory)
     [Fact]
     public async Task Routes_DashboardAndHostEndpoints_DoNotConflict()
     {
-        using var client = factory.CreateAnonymousClient();
+        using var client = _factory.CreateAnonymousClient();
 
         using var dashboardResponse = await client.GetAsync("/quartz/api/jobs");
         using var hostApiResponse = await client.GetAsync("/api/quartz-host/status");
@@ -47,9 +60,9 @@ public sealed class DashboardCoexistenceTests(TestWebAppFactory factory)
     [Fact]
     public async Task SecureHostRoute_UsesHostAuthenticationIndependently()
     {
-        using var anonymousClient = factory.CreateAnonymousClient();
+        using var anonymousClient = _factory.CreateAnonymousClient();
         using var anonymousResponse = await anonymousClient.GetAsync("/api/secure/ping");
-        using var authenticatedClient = factory.CreateAuthenticatedClient();
+        using var authenticatedClient = _factory.CreateAuthenticatedClient();
         using var authenticatedResponse = await authenticatedClient.GetAsync("/api/secure/ping");
 
         Assert.Equal(HttpStatusCode.Unauthorized, anonymousResponse.StatusCode);
@@ -59,8 +72,8 @@ public sealed class DashboardCoexistenceTests(TestWebAppFactory factory)
     [Fact]
     public async Task IndependentFactories_DifferentDashboardPaths_WorkWithoutRouteConflicts()
     {
-        var defaultFactory = factory.WithScenario(_ => { });
-        var customFactory = factory.WithScenario(options => options.Path = "/admin/scheduler");
+        await using var defaultFactory = new TestWebAppFactory();
+        await using var customFactory = new TestWebAppFactory(options => options.Path = "/admin/scheduler");
         using var defaultClient = defaultFactory.CreateAnonymousClient();
         using var customClient = customFactory.CreateAnonymousClient();
 

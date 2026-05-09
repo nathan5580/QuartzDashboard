@@ -5,12 +5,25 @@ using Xunit;
 namespace QuartzDashboard.IntegrationTests;
 
 [Collection(QuartzDashboardIntegrationCollection.Name)]
-public sealed class DashboardAuthTests(TestWebAppFactory factory)
+public sealed class DashboardAuthTests : IAsyncLifetime
 {
+    private TestWebAppFactory _factory = null!;
+
+    public async Task InitializeAsync()
+    {
+        _factory = new TestWebAppFactory();
+        await _factory.StartServerAsync();
+    }
+
+    public async Task DisposeAsync()
+    {
+        await _factory.DisposeAsync();
+    }
+
     [Fact]
     public async Task GetScheduler_WithoutAuthRequirement_IsAccessibleAnonymously()
     {
-        using var client = factory.CreateAnonymousClient();
+        using var client = _factory.CreateAnonymousClient();
         using var response = await client.GetAsync("/quartz/api/scheduler");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -19,7 +32,7 @@ public sealed class DashboardAuthTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetScheduler_RequireAuthenticationWithoutUser_ReturnsUnauthorized()
     {
-        var customFactory = factory.WithScenario(options => options.RequireAuthentication = true);
+        await using var customFactory = new TestWebAppFactory(options => options.RequireAuthentication = true);
         using var client = customFactory.CreateAnonymousClient();
 
         using var response = await client.GetAsync("/quartz/api/scheduler");
@@ -30,7 +43,7 @@ public sealed class DashboardAuthTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetScheduler_AllowedRolesWithWrongRole_ReturnsForbidden()
     {
-        var customFactory = factory.WithScenario(options =>
+        await using var customFactory = new TestWebAppFactory(options =>
         {
             options.RequireAuthentication = true;
             options.AllowedRoles = ["Admin"];
@@ -45,7 +58,7 @@ public sealed class DashboardAuthTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetScheduler_AllowedRolesWithMatchingRole_ReturnsOk()
     {
-        var customFactory = factory.WithScenario(options =>
+        await using var customFactory = new TestWebAppFactory(options =>
         {
             options.RequireAuthentication = true;
             options.AllowedRoles = ["Admin"];
@@ -60,7 +73,7 @@ public sealed class DashboardAuthTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetScheduler_RequiredPolicyWithoutClaim_ReturnsForbidden()
     {
-        var customFactory = factory.WithScenario(options =>
+        await using var customFactory = new TestWebAppFactory(options =>
         {
             options.RequireAuthentication = true;
             options.RequiredPolicy = "DashboardPolicy";
@@ -75,7 +88,7 @@ public sealed class DashboardAuthTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetScheduler_RequiredPolicyWithClaim_ReturnsOk()
     {
-        var customFactory = factory.WithScenario(options =>
+        await using var customFactory = new TestWebAppFactory(options =>
         {
             options.RequireAuthentication = true;
             options.RequiredPolicy = "DashboardPolicy";
@@ -93,7 +106,7 @@ public sealed class DashboardAuthTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetScheduler_OnAuthorizeDenied_InvokesCallbackAndReturnsUnauthorized()
     {
-        var customFactory = factory.WithScenario(options =>
+        await using var customFactory = new TestWebAppFactory(options =>
         {
             options.EnableOnAuthorize = true;
             options.AllowOnAuthorize = false;
@@ -109,7 +122,7 @@ public sealed class DashboardAuthTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetWeather_RequireAuthenticationOnDashboard_DoesNotLeakToHostRoutes()
     {
-        var customFactory = factory.WithScenario(options => options.RequireAuthentication = true);
+        await using var customFactory = new TestWebAppFactory(options => options.RequireAuthentication = true);
         using var client = customFactory.CreateAnonymousClient();
 
         using var response = await client.GetAsync("/api/weather");

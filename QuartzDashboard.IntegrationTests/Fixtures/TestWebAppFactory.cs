@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -6,41 +5,55 @@ using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Quartz.Logging;
 using QuartzDashboard.IntegrationTests.Support;
 using Xunit;
 
 namespace QuartzDashboard.IntegrationTests.Fixtures;
 
-public sealed class TestWebAppFactory : WebApplicationFactory<Program>
+public sealed class TestWebAppFactory(Action<TestScenarioBuilder>? configure = null) : WebApplicationFactory<Program>
 {
+    private readonly Action<TestScenarioBuilder>? _configure = configure;
+
+    static TestWebAppFactory()
+    {
+        LogProvider.SetCurrentLogProvider(SilentQuartzLogProvider.Instance);
+    }
+
     protected override IHostBuilder CreateHostBuilder()
         => Program.CreateHostBuilder();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        var scenario = new TestScenarioBuilder();
+        _configure?.Invoke(scenario);
+        scenario.SchedulerName ??= $"QuartzDashboardIntegration-{Guid.NewGuid():N}";
+
         builder.UseEnvironment("Development");
         builder.ConfigureAppConfiguration((_, config) =>
         {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["QuartzDashboardIntegration:SchedulerName"] = $"QuartzDashboardIntegration-{Guid.NewGuid():N}"
-            });
+            config.AddInMemoryCollection(scenario.ToDictionary());
         });
     }
+}
 
-    public WebApplicationFactory<Program> WithScenario(Action<TestScenarioBuilder> configure)
+file sealed class SilentQuartzLogProvider : ILogProvider
+{
+    public static SilentQuartzLogProvider Instance { get; } = new();
+
+    public Logger GetLogger(string name) => (_, _, _, _) => false;
+
+    public IDisposable OpenNestedContext(string message) => NullScope.Instance;
+
+    public IDisposable OpenMappedContext(string key, object value, bool destructure = false) => NullScope.Instance;
+
+    private sealed class NullScope : IDisposable
     {
-        var scenario = new TestScenarioBuilder();
-        configure(scenario);
-        scenario.SchedulerName ??= $"QuartzDashboardIntegration-{Guid.NewGuid():N}";
+        public static NullScope Instance { get; } = new();
 
-        return WithWebHostBuilder(builder =>
+        public void Dispose()
         {
-            builder.ConfigureAppConfiguration((_, config) =>
-            {
-                config.AddInMemoryCollection(scenario.ToDictionary());
-            });
-        });
+        }
     }
 }
 
@@ -80,11 +93,17 @@ public sealed class TestScenarioBuilder
 
 public static class TestWebAppFactoryExtensions
 {
-    public static HttpClient CreateAnonymousClient(this WebApplicationFactory<Program> factory, bool allowAutoRedirect = true)
-        => factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = allowAutoRedirect });
+    private static void ResetQuartzLoggerProvider()
+        => LogProvider.SetCurrentLogProvider(SilentQuartzLogProvider.Instance);
+
+    public static HttpClient CreateAnonymousClient(this TestWebAppFactory factory, bool allowAutoRedirect = true)
+    {
+        ResetQuartzLoggerProvider();
+        return factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = allowAutoRedirect });
+    }
 
     public static HttpClient CreateAuthenticatedClient(
-        this WebApplicationFactory<Program> factory,
+        this TestWebAppFactory factory,
         string user = "admin@example.com",
         IEnumerable<string>? roles = null,
         IEnumerable<string>? permissions = null,
@@ -104,6 +123,13 @@ public static class TestWebAppFactoryExtensions
         return client;
     }
 
+    public static async Task StartServerAsync(this TestWebAppFactory factory, TimeSpan? startupDelay = null)
+    {
+        ResetQuartzLoggerProvider();
+        _ = factory.Server;
+        await Task.Delay(startupDelay ?? TimeSpan.FromMilliseconds(500));
+    }
+
     public static async Task<JsonDocument> ReadJsonAsync(this HttpResponseMessage response)
     {
         var payload = await response.Content.ReadAsStringAsync();
@@ -111,12 +137,13 @@ public static class TestWebAppFactoryExtensions
     }
 
     public static HubConnection CreateHubConnection(
-        this WebApplicationFactory<Program> factory,
+        this TestWebAppFactory factory,
         string basePath = "/quartz",
         string? user = null,
         IEnumerable<string>? roles = null,
         IEnumerable<string>? permissions = null)
     {
+        ResetQuartzLoggerProvider();
         _ = factory.Server;
 
         return new HubConnectionBuilder()
@@ -137,15 +164,17 @@ public static class TestWebAppFactoryExtensions
             .Build();
     }
 
-    public static int GetAuthorizeCount(this WebApplicationFactory<Program> factory)
+    public static int GetAuthorizeCount(this TestWebAppFactory factory)
         => factory.Services.GetRequiredService<OnAuthorizeTracker>().Count;
 
     public static async Task WaitForHistoryAsync(
-        this WebApplicationFactory<Program> factory,
+        this TestWebAppFactory factory,
         int minimumCount,
         string basePath = "/quartz",
         TimeSpan? timeout = null)
     {
+        await factory.StartServerAsync(TimeSpan.Zero);
+
         using var client = factory.CreateAnonymousClient();
         var expiresAt = DateTimeOffset.UtcNow + (timeout ?? TimeSpan.FromSeconds(20));
 

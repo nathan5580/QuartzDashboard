@@ -5,15 +5,26 @@ using Xunit;
 namespace QuartzDashboard.IntegrationTests;
 
 [Collection(QuartzDashboardIntegrationCollection.Name)]
-public sealed class DashboardEndpointTests(TestWebAppFactory factory)
+public sealed class DashboardEndpointTests : IAsyncLifetime
 {
-    private readonly HttpClient _client = factory.CreateAnonymousClient();
-    private readonly HttpClient _noRedirectClient = factory.CreateAnonymousClient(allowAutoRedirect: false);
+    private TestWebAppFactory _factory = null!;
+
+    public async Task InitializeAsync()
+    {
+        _factory = new TestWebAppFactory();
+        await _factory.StartServerAsync();
+    }
+
+    public async Task DisposeAsync()
+    {
+        await _factory.DisposeAsync();
+    }
 
     [Fact]
     public async Task GetDashboardRoot_WithoutTrailingSlash_RedirectsToTrailingSlash()
     {
-        using var response = await _noRedirectClient.GetAsync("/quartz");
+        using var client = _factory.CreateAnonymousClient(allowAutoRedirect: false);
+        using var response = await client.GetAsync("/quartz");
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Equal("/quartz/", response.Headers.Location?.ToString());
@@ -22,7 +33,8 @@ public sealed class DashboardEndpointTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetDashboardRoot_WithTrailingSlash_ReturnsHtml()
     {
-        using var response = await _client.GetAsync("/quartz/");
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync("/quartz/");
         var html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -43,7 +55,8 @@ public sealed class DashboardEndpointTests(TestWebAppFactory factory)
     [InlineData("/quartz/api/config")]
     public async Task GetApiEndpoint_DefaultConfiguration_ReturnsValidJson(string path)
     {
-        using var response = await _client.GetAsync(path);
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync(path);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         response.AssertJsonContentType();
@@ -55,7 +68,8 @@ public sealed class DashboardEndpointTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetScheduler_DefaultConfiguration_ReturnsSchedulerInfo()
     {
-        using var response = await _client.GetAsync("/quartz/api/scheduler");
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync("/quartz/api/scheduler");
         using var json = await response.ReadJsonAsync();
 
         Assert.True(json.RootElement.TryGetProperty("name", out _));
@@ -65,7 +79,8 @@ public sealed class DashboardEndpointTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetJobs_DefaultConfiguration_ReturnsJobList()
     {
-        using var response = await _client.GetAsync("/quartz/api/jobs");
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync("/quartz/api/jobs");
         using var json = await response.ReadJsonAsync();
 
         Assert.True(json.RootElement.TryGetProperty("data", out var jobs));
@@ -76,7 +91,8 @@ public sealed class DashboardEndpointTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetTriggers_DefaultConfiguration_ReturnsTriggerList()
     {
-        using var response = await _client.GetAsync("/quartz/api/triggers");
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync("/quartz/api/triggers");
         using var json = await response.ReadJsonAsync();
 
         Assert.True(json.RootElement.TryGetProperty("data", out var triggers));
@@ -86,9 +102,10 @@ public sealed class DashboardEndpointTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetHistory_DefaultConfiguration_ReturnsPagedHistory()
     {
-        await factory.WaitForHistoryAsync(2);
+        await _factory.WaitForHistoryAsync(2);
 
-        using var response = await _client.GetAsync("/quartz/api/history");
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync("/quartz/api/history");
         using var json = await response.ReadJsonAsync();
 
         Assert.True(json.RootElement.TryGetProperty("data", out var history));
@@ -98,9 +115,10 @@ public sealed class DashboardEndpointTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetStats_DefaultConfiguration_ReturnsStatsObject()
     {
-        await factory.WaitForHistoryAsync(2);
+        await _factory.WaitForHistoryAsync(2);
 
-        using var response = await _client.GetAsync("/quartz/api/stats");
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync("/quartz/api/stats");
         using var json = await response.ReadJsonAsync();
 
         Assert.True(json.RootElement.TryGetProperty("percentiles", out _));
@@ -110,7 +128,8 @@ public sealed class DashboardEndpointTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetHealth_DefaultConfiguration_ReturnsHealthObject()
     {
-        using var response = await _client.GetAsync("/quartz/api/health");
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync("/quartz/api/health");
         using var json = await response.ReadJsonAsync();
 
         Assert.True(json.RootElement.TryGetProperty("status", out _));
@@ -119,9 +138,10 @@ public sealed class DashboardEndpointTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetTimeline_DefaultConfiguration_ReturnsArray()
     {
-        await factory.WaitForHistoryAsync(2);
+        await _factory.WaitForHistoryAsync(2);
 
-        using var response = await _client.GetAsync("/quartz/api/timeline");
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync("/quartz/api/timeline");
         using var json = await response.ReadJsonAsync();
 
         Assert.Equal(System.Text.Json.JsonValueKind.Array, json.RootElement.ValueKind);
@@ -130,7 +150,8 @@ public sealed class DashboardEndpointTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetCalendars_DefaultConfiguration_ReturnsArray()
     {
-        using var response = await _client.GetAsync("/quartz/api/calendars");
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync("/quartz/api/calendars");
         using var json = await response.ReadJsonAsync();
 
         Assert.Equal(System.Text.Json.JsonValueKind.Array, json.RootElement.ValueKind);
@@ -139,7 +160,8 @@ public sealed class DashboardEndpointTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetConfig_DefaultConfiguration_ReturnsDashboardSettings()
     {
-        using var response = await _client.GetAsync("/quartz/api/config");
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync("/quartz/api/config");
         using var json = await response.ReadJsonAsync();
 
         Assert.False(json.RootElement.GetProperty("readOnly").GetBoolean());

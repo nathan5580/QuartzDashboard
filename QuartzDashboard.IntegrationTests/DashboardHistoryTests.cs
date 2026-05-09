@@ -4,16 +4,28 @@ using Xunit;
 namespace QuartzDashboard.IntegrationTests;
 
 [Collection(QuartzDashboardIntegrationCollection.Name)]
-public sealed class DashboardHistoryTests(TestWebAppFactory factory)
+public sealed class DashboardHistoryTests : IAsyncLifetime
 {
-    private readonly HttpClient _client = factory.CreateAnonymousClient();
+    private TestWebAppFactory _factory = null!;
+
+    public async Task InitializeAsync()
+    {
+        _factory = new TestWebAppFactory();
+        await _factory.StartServerAsync();
+    }
+
+    public async Task DisposeAsync()
+    {
+        await _factory.DisposeAsync();
+    }
 
     [Fact]
     public async Task GetHistory_AfterJobsExecute_ReturnsRecords()
     {
-        await factory.WaitForHistoryAsync(4);
+        await _factory.WaitForHistoryAsync(4);
 
-        using var response = await _client.GetAsync("/quartz/api/history?limit=20");
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync("/quartz/api/history?limit=20");
         using var json = await response.ReadJsonAsync();
 
         Assert.True(json.RootElement.GetProperty("data").GetArrayLength() > 0);
@@ -22,9 +34,10 @@ public sealed class DashboardHistoryTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetHistory_RecordContainsExpectedFields()
     {
-        await factory.WaitForHistoryAsync(4);
+        await _factory.WaitForHistoryAsync(4);
 
-        using var response = await _client.GetAsync("/quartz/api/history?limit=1");
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync("/quartz/api/history?limit=1");
         using var json = await response.ReadJsonAsync();
         var record = json.RootElement.GetProperty("data")[0];
 
@@ -38,9 +51,10 @@ public sealed class DashboardHistoryTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetStats_AfterJobsExecute_ReturnsPercentiles()
     {
-        await factory.WaitForHistoryAsync(4);
+        await _factory.WaitForHistoryAsync(4);
 
-        using var response = await _client.GetAsync("/quartz/api/stats");
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync("/quartz/api/stats");
         using var json = await response.ReadJsonAsync();
         var percentiles = json.RootElement.GetProperty("percentiles");
 
@@ -52,9 +66,10 @@ public sealed class DashboardHistoryTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetTimeline_AfterJobsExecute_HasEntries()
     {
-        await factory.WaitForHistoryAsync(4);
+        await _factory.WaitForHistoryAsync(4);
 
-        using var response = await _client.GetAsync("/quartz/api/timeline");
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync("/quartz/api/timeline");
         using var json = await response.ReadJsonAsync();
 
         Assert.True(json.RootElement.GetArrayLength() > 0);
@@ -63,9 +78,10 @@ public sealed class DashboardHistoryTests(TestWebAppFactory factory)
     [Fact]
     public async Task GetGraphHistory_AfterJobsExecute_HasEntries()
     {
-        await factory.WaitForHistoryAsync(4);
+        await _factory.WaitForHistoryAsync(4);
 
-        using var response = await _client.GetAsync("/quartz/api/stats/history");
+        using var client = _factory.CreateAnonymousClient();
+        using var response = await client.GetAsync("/quartz/api/stats/history");
         using var json = await response.ReadJsonAsync();
 
         Assert.True(json.RootElement.GetArrayLength() > 0);
