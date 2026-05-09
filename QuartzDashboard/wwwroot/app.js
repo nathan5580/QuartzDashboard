@@ -30,12 +30,16 @@
         // Multi-scheduler
         schedulers: [],
         activeSchedulerName: '',
+        showSchedulerPicker: false,
+        embedMode: false,
 
         // Jobs page
         jobsFilter: '',
         jobsPage: 1,
         jobsPageSize: 25,
         jobsTotal: 0,
+        jobsSortCol: 'name',
+        jobsSortDir: 'asc',
         expandedJobs: {},
         pinnedJobs: JSON.parse(localStorage.getItem('quartz-pinned-jobs') || '[]'),
 
@@ -45,6 +49,8 @@
         triggersPage: 1,
         triggersPageSize: 50,
         triggersTotal: 0,
+        triggersSortCol: 'name',
+        triggersSortDir: 'asc',
 
         // Executing page
         knownExecutingIds: new Set(),
@@ -54,6 +60,12 @@
         historyFilterObj: { search: '', status: 'all', dateFrom: '', dateTo: '' },
         maxHistoryDuration: 0,
         historyExpandedRows: {},
+        historySortCol: 'fireTime',
+        historySortDir: 'desc',
+        showHistoryDetail: false,
+        historyDetailData: null,
+        heatmapData: [],
+        heatmapLoading: false,
 
         // Job run result feedback
         pendingTriggers: {},
@@ -82,8 +94,11 @@
         _gPressed: false,
         isFullscreen: false,
         soundAlerts: JSON.parse(localStorage.getItem('quartz-sound-alerts') || 'false'),
+        isMobile: false,
+        mobileNavOpen: false,
 
         // Graph page
+        showJobGraph: false,
         graphView: 'live',
         graphHistoryData: [],
         graphWidth: 800,
@@ -355,20 +370,29 @@
         commandPaletteQuery: '',
         commandPaletteIndex: 0,
 
+        // ========================= GLOBAL SEARCH =========================
+        globalSearchQuery: '',
+        globalSearchOpen: false,
+        globalSearchResults: { jobs: [], triggers: [], history: [] },
+
         // ========================= SHORTCUTS MODAL =========================
         showShortcutsModal: false,
+        showShortcutsHelp: false,
         shortcutsList: [
-          { key: '1', label: 'Overview' },
-          { key: '2', label: 'Jobs' },
-          { key: '3', label: 'Triggers' },
-          { key: '4', label: 'Executing' },
-          { key: '5', label: 'History' },
-          { key: '6', label: 'Graph' },
-          { key: '7', label: 'Timeline' },
-          { key: '8', label: 'Health' },
-          { key: '9', label: 'Calendars' },
-          { key: 'S', label: 'Settings' },
-          { key: 'J/K', label: 'Prev / Next row' },
+          { key: '?', label: 'Show shortcuts' },
+          { key: 'G J', label: 'Go to Jobs' },
+          { key: 'G T', label: 'Go to Triggers' },
+          { key: 'G H', label: 'Go to History' },
+          { key: 'G E', label: 'Go to Executing' },
+          { key: 'G G', label: 'Go to Graph' },
+          { key: 'G L', label: 'Go to Timeline' },
+          { key: 'G S', label: 'Go to Settings' },
+          { key: 'G O', label: 'Go to Overview' },
+          { key: 'R', label: 'Refresh current page' },
+          { key: '/ or Ctrl+K', label: 'Global search' },
+          { key: 'Esc', label: 'Close modals/drawers' },
+          { key: 'F', label: 'Toggle fullscreen' },
+          { key: '1-9', label: 'Quick page navigation' },
         ],
 
         // ========================= LIGHT MODE =========================
@@ -406,6 +430,19 @@
           startTimeUtc: '',
           endTimeUtc: ''
         },
+        showCronBuilder: false,
+        cronBuilderExpression: '0 * * * * ?',
+        cronBuilderParts: { second: '0', minute: '*', hour: '*', dayOfMonth: '*', month: '*', dayOfWeek: '?' },
+        cronBuilderPresets: [
+          { label: 'Every second', expr: '* * * * * ?' },
+          { label: 'Every minute', expr: '0 * * * * ?' },
+          { label: 'Every 5 minutes', expr: '0 0/5 * * * ?' },
+          { label: 'Every 15 minutes', expr: '0 0/15 * * * ?' },
+          { label: 'Every hour', expr: '0 0 * * * ?' },
+          { label: 'Every day at midnight', expr: '0 0 0 * * ?' },
+          { label: 'Every Monday at 9am', expr: '0 0 9 ? * MON' },
+          { label: 'Weekdays at 8am', expr: '0 0 8 ? * MON-FRI' },
+        ],
 
         // ========================= CALENDARS =========================
         calendars: [],
@@ -449,13 +486,34 @@
           return this.jobs || [];
         },
 
+        get breadcrumb() {
+          const names = {
+            overview: 'Overview', jobs: 'Jobs', triggers: 'Triggers', executing: 'Executing',
+            history: 'History', graph: 'Graph', timeline: 'Timeline', health: 'Health',
+            calendars: 'Calendars', settings: 'Settings', heatmap: 'Heatmap'
+          };
+          return names[this.currentPage] || this.currentPage;
+        },
+
+        get healthAlertCount() {
+          if (!this.healthData) return 0;
+          const sr = this.healthData.successRate;
+          if (typeof sr === 'number' && sr < 95) return 1;
+          return 0;
+        },
+
+        get sortedJobs() {
+          return this.getSortedCollection('jobs', this.jobs || []);
+        },
+
         get filteredJobs() {
-          if (!this.jobsFilter) return this.jobs;
+          if (!this.jobsFilter) return this.sortedJobs;
           const q = this.jobsFilter.toLowerCase();
-          return this.jobs.filter(j =>
+          return this.sortedJobs.filter(j =>
             j.name.toLowerCase().includes(q) ||
             j.group.toLowerCase().includes(q) ||
-            (j.jobType || '').toLowerCase().includes(q)
+            (j.jobType || '').toLowerCase().includes(q) ||
+            (j.status || '').toLowerCase().includes(q)
           );
         },
 
@@ -484,9 +542,13 @@
           return events.sort((a, b) => a.time - b.time).slice(0, 20);
         },
 
+        get sortedTriggers() {
+          return this.getSortedCollection('triggers', this.triggers || []);
+        },
+
         get groupedTriggers() {
           const groups = {};
-          const list = Array.isArray(this.triggers) ? this.triggers : [];
+          const list = this.sortedTriggers;
           for (const t of list) {
             const key = t.jobGroup + '.' + t.jobName;
             if (!groups[key]) groups[key] = { jobName: key, jobGroup: t.jobGroup, jobNameOnly: t.jobName, triggers: [] };
@@ -518,8 +580,12 @@
           return Math.max(1, Math.ceil((this.triggersTotal || 0) / this.triggersPageSize));
         },
 
+        get sortedHistory() {
+          return this.getSortedCollection('history', this.history || []);
+        },
+
         get filteredHistory() {
-          let arr = this.history || [];
+          let arr = this.sortedHistory;
           const f = this.historyFilterObj;
           if (f.search) {
             const q = f.search.toLowerCase();
@@ -528,6 +594,16 @@
           if (f.status === 'success') arr = arr.filter(h => h.success);
           if (f.status === 'error') arr = arr.filter(h => !h.success);
           return arr;
+        },
+
+        get heatmapGrid() {
+          const index = new Map((this.heatmapData || []).map(cell => [cell.day + ':' + cell.hour, cell]));
+          return Array.from({ length: 7 }, (_, day) =>
+            Array.from({ length: 24 }, (_, hour) => {
+              const cell = index.get(day + ':' + hour);
+              return cell || { day, hour, count: 0, successRate: 0 };
+            })
+          );
         },
 
         get historyFiltered() {
@@ -886,8 +962,284 @@
           }).join('');
         },
 
+        sortTable(table, col) {
+          const colKey = table + 'SortCol';
+          const dirKey = table + 'SortDir';
+          if (!(colKey in this) || !(dirKey in this)) return;
+          if (this[colKey] === col) {
+            this[dirKey] = this[dirKey] === 'asc' ? 'desc' : 'asc';
+          } else {
+            this[colKey] = col;
+            this[dirKey] = 'asc';
+          }
+        },
+
+        getSortedCollection(table, items) {
+          const sortCol = this[table + 'SortCol'];
+          const sortDir = this[table + 'SortDir'];
+          return [...(items || [])].sort((a, b) => this.compareSortValues(this.getSortValue(table, a, sortCol), this.getSortValue(table, b, sortCol), sortDir));
+        },
+
+        getSortValue(table, item, col) {
+          if (table === 'jobs') {
+            switch (col) {
+              case 'group': return item.group || '';
+              case 'status': return item.status || item.state || '';
+              case 'jobType': return item.jobType || '';
+              case 'nextFireTime': return this.getJobNextFireTime(item);
+              case 'name':
+              default: return item.name || '';
+            }
+          }
+
+          if (table === 'triggers') {
+            switch (col) {
+              case 'group': return item.group || '';
+              case 'state': return item.state || '';
+              case 'type': return item.type || '';
+              case 'nextFireTime': return item.nextFireTime || '';
+              case 'lastFireTime': return item.lastFireTime || '';
+              case 'name':
+              default: return item.name || '';
+            }
+          }
+
+          switch (col) {
+            case 'jobKey': return item.jobKey || '';
+            case 'duration': return item.durationMs ?? item.duration ?? 0;
+            case 'success': return item.success ? 1 : 0;
+            case 'fireTime':
+            default: return item.fireTime || '';
+          }
+        },
+
+        compareSortValues(left, right, dir) {
+          const leftDate = this.toSortTimestamp(left);
+          const rightDate = this.toSortTimestamp(right);
+          let result = 0;
+
+          if (leftDate !== null && rightDate !== null) {
+            result = leftDate - rightDate;
+          } else if (typeof left === 'number' || typeof right === 'number') {
+            result = (Number(left) || 0) - (Number(right) || 0);
+          } else {
+            result = String(left ?? '').localeCompare(String(right ?? ''), undefined, { numeric: true, sensitivity: 'base' });
+          }
+
+          return dir === 'desc' ? -result : result;
+        },
+
+        toSortTimestamp(value) {
+          if (value === null || value === undefined || value === '') return null;
+          if (value instanceof Date) return value.getTime();
+          if (typeof value === 'string') {
+            const parsed = Date.parse(value);
+            return Number.isNaN(parsed) ? null : parsed;
+          }
+          return null;
+        },
+
+        getJobNextFireTime(job) {
+          const times = (job?.triggers || []).map(trigger => trigger.nextFireTime).filter(Boolean);
+          if (!times.length) return job?.nextFireTime || '';
+          return times.sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
+        },
+
+        performGlobalSearch() {
+          const query = (this.globalSearchQuery || '').trim().toLowerCase();
+          if (!query) {
+            this.globalSearchResults = { jobs: [], triggers: [], history: [] };
+            return this.globalSearchResults;
+          }
+
+          const includesQuery = value => String(value || '').toLowerCase().includes(query);
+          const jobs = (this.jobs || [])
+            .filter(job => includesQuery(job.name) || includesQuery(job.group) || includesQuery(job.jobType) || includesQuery(job.status))
+            .slice(0, 5)
+            .map(job => ({ key: job.group + '.' + job.name, title: job.name, subtitle: job.group, page: 'jobs', record: job }));
+
+          const triggers = (this.triggers || [])
+            .filter(trigger => includesQuery(trigger.name) || includesQuery(trigger.group) || includesQuery(trigger.jobName) || includesQuery(trigger.jobGroup) || includesQuery(trigger.state) || includesQuery(trigger.type))
+            .slice(0, 5)
+            .map(trigger => ({ key: trigger.group + '.' + trigger.name, title: trigger.name, subtitle: trigger.jobGroup + '.' + trigger.jobName, page: 'triggers', record: trigger }));
+
+          const history = (this.history || [])
+            .filter(record => includesQuery(record.jobKey) || includesQuery(record.triggerKey) || includesQuery(record.exceptionMessage) || includesQuery(record.exceptionType))
+            .slice(0, 5)
+            .map(record => ({ key: record.fireTime + ':' + record.jobKey, title: record.jobKey || 'Execution', subtitle: record.fireTime || '', page: 'history', record }));
+
+          this.globalSearchResults = { jobs, triggers, history };
+          return this.globalSearchResults;
+        },
+
+        openGlobalSearch() {
+          this.globalSearchOpen = true;
+          this.performGlobalSearch();
+          queueMicrotask(() => {
+            const input = document.querySelector('.global-search-input');
+            if (input) input.focus();
+          });
+        },
+
+        closeGlobalSearch() {
+          this.globalSearchOpen = false;
+          this.globalSearchQuery = '';
+          this.globalSearchResults = { jobs: [], triggers: [], history: [] };
+        },
+
+        openHistoryDetail(record) {
+          this.historyDetailData = record || null;
+          this.showHistoryDetail = !!record;
+        },
+
+        closeHistoryDetail() {
+          this.showHistoryDetail = false;
+          this.historyDetailData = null;
+        },
+
+        async loadSchedulers() {
+          try {
+            const scheds = await this.fetchApi('/schedulers');
+            if (!Array.isArray(scheds) || !scheds.length) return;
+            this.schedulers = scheds;
+            if (!this.activeSchedulerName) {
+              const current = scheds.find(scheduler => scheduler.isCurrent);
+              this.activeSchedulerName = (current || scheds[0] || {}).name || '';
+            }
+          } catch (_) {
+            this.schedulers = [];
+          }
+        },
+
+        async switchScheduler(name) {
+          if (!name) return;
+          this.activeSchedulerName = name;
+          this.showSchedulerPicker = false;
+          await Promise.all([
+            this.refreshAll(),
+            this.loadHistory(),
+            this.loadStats(),
+            this.loadTimeline(),
+            this.loadHealth(),
+            this.loadCalendars(),
+          ]);
+        },
+
+        openCronBuilder(existingExpr) {
+          const expr = existingExpr || this.newTrigger.cronExpression || this.cronBuilderExpression;
+          this.cronBuilderParts = this.parseCronExpression(expr);
+          this.showCronBuilder = true;
+          this.updateCronFromParts();
+        },
+
+        closeCronBuilder() {
+          this.showCronBuilder = false;
+        },
+
+        updateCronFromParts() {
+          const parts = this.cronBuilderParts || {};
+          this.cronBuilderExpression = [
+            parts.second || '0',
+            parts.minute || '*',
+            parts.hour || '*',
+            parts.dayOfMonth || '*',
+            parts.month || '*',
+            parts.dayOfWeek || '?'
+          ].join(' ');
+
+          if (this.newTrigger?.triggerType === 'cron') this.newTrigger.cronExpression = this.cronBuilderExpression;
+          if (this.editTriggerData?.triggerType === 'cron') this.editTriggerData.cronExpression = this.cronBuilderExpression;
+          this.validateCron(this.cronBuilderExpression);
+        },
+
+        applyCronPreset(preset) {
+          if (!preset?.expr) return;
+          this.cronBuilderParts = this.parseCronExpression(preset.expr);
+          this.updateCronFromParts();
+        },
+
+        parseCronExpression(expr) {
+          const parts = String(expr || '0 * * * * ?').trim().split(/\s+/);
+          return {
+            second: parts[0] || '0',
+            minute: parts[1] || '*',
+            hour: parts[2] || '*',
+            dayOfMonth: parts[3] || '*',
+            month: parts[4] || '*',
+            dayOfWeek: parts[5] || '?',
+          };
+        },
+
+        loadHeatmap() {
+          this.heatmapLoading = true;
+          try {
+            const counts = new Map();
+            for (const record of (this.history || [])) {
+              if (!record?.fireTime) continue;
+              const fireTime = new Date(record.fireTime);
+              if (Number.isNaN(fireTime.getTime())) continue;
+              const day = fireTime.getDay();
+              const hour = fireTime.getHours();
+              const key = day + ':' + hour;
+              const cell = counts.get(key) || { day, hour, count: 0, successCount: 0 };
+              cell.count += 1;
+              if (record.success !== false) cell.successCount += 1;
+              counts.set(key, cell);
+            }
+
+            this.heatmapData = Array.from(counts.values()).map(cell => ({
+              day: cell.day,
+              hour: cell.hour,
+              count: cell.count,
+              successRate: cell.count ? Math.round((cell.successCount / cell.count) * 1000) / 10 : 0,
+            }));
+          } finally {
+            this.heatmapLoading = false;
+          }
+        },
+
+        buildJobDependencyData() {
+          const executionCounts = (this.history || []).reduce((acc, record) => {
+            acc[record.jobKey] = (acc[record.jobKey] || 0) + 1;
+            return acc;
+          }, {});
+
+          const nodes = [];
+          const edges = [];
+          for (const job of (this.jobs || [])) {
+            const jobKey = job.group + '.' + job.name;
+            nodes.push({ id: jobKey, label: job.name, group: job.group, type: 'job', executionCount: executionCounts[jobKey] || 0 });
+          }
+
+          for (const trigger of (this.triggers || [])) {
+            const jobKey = trigger.jobGroup + '.' + trigger.jobName;
+            const triggerKey = trigger.group + '.' + trigger.name;
+            nodes.push({ id: triggerKey, label: trigger.name, group: trigger.group, type: 'trigger', state: trigger.state || '', triggerType: trigger.type || '' });
+            edges.push({ from: jobKey, to: triggerKey, relationship: 'fires', nextFireTime: trigger.nextFireTime || null, lastFireTime: trigger.lastFireTime || null });
+          }
+
+          return { nodes, edges };
+        },
+
+        getEmptyStateMessage(page) {
+          const messages = {
+            jobs: { icon: '📋', title: 'No jobs registered', desc: 'Create a job to get started' },
+            triggers: { icon: '⏰', title: 'No triggers found', desc: 'Jobs need triggers to execute on a schedule' },
+            history: { icon: '📊', title: 'No execution history yet', desc: 'History will appear after jobs start executing' },
+            executing: { icon: '⚡', title: 'No jobs currently executing', desc: 'Jobs will appear here while running' },
+            calendars: { icon: '📅', title: 'No calendars configured', desc: 'Quartz calendars can exclude dates from trigger schedules' },
+          };
+          return messages[page] || { icon: '📂', title: 'No data', desc: '' };
+        },
+
         // ========================= INIT =========================
         async init() {
+          this.embedMode = new URLSearchParams(window.location.search).has('embed');
+          document.body.classList.toggle('embed-mode', this.embedMode);
+          this.isMobile = window.innerWidth < 768;
+          window.addEventListener('resize', () => { this.isMobile = window.innerWidth < 768; });
+          if (this.embedMode) this.sidebarOpen = false;
+
           // Sync Alpine lightMode state with what the inline script already applied to <html>
           const savedTheme = localStorage.getItem('quartz-dashboard-theme');
           const isLight = savedTheme === 'light' ||
@@ -939,6 +1291,7 @@
           await this.refreshAll();
           await this.loadHistory();
           await this.loadStats();
+          this.loadHeatmap();
 
           this.startAutoRefresh();
           this.$watch('currentPage', (val) => { this.onPageChange(val); window.location.hash = val; });
@@ -975,6 +1328,9 @@
           this.$watch('historyFilterObj.dateTo', () => {
             this.historyCurrentPage = 1;
             this.loadHistory();
+          });
+          this.$watch('globalSearchQuery', () => {
+            if (this.globalSearchOpen) this.performGlobalSearch();
           });
           // Deep linking via URL hash
           const hash = window.location.hash.replace('#', '');
@@ -1136,6 +1492,7 @@
 
           // Add to timeline
           this.addTimelineEvent(data);
+          this.loadHeatmap();
         },
 
         handleJobTriggered(data) {
@@ -1188,29 +1545,36 @@
 
         // ========================= KEYBOARD SHORTCUTS =========================
         handleKeydown(e) {
-          // Command palette: Cmd+K or Ctrl+K
-          if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+          const tagName = e.target?.tagName;
+          const isTypingTarget = tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || e.target?.isContentEditable;
+
+          // Command palette / global search: Cmd+K or Ctrl+K
+          if ((e.metaKey || e.ctrlKey) && e.key === 'k' && !isTypingTarget) {
             e.preventDefault();
-            this.openCommandPalette();
+            this.openGlobalSearch();
             return;
           }
 
           // Escape: close modals
           if (e.key === 'Escape') {
+            if (this.globalSearchOpen) { this.closeGlobalSearch(); return; }
             if (this.showCommandPalette) { this.showCommandPalette = false; return; }
-            if (this.showShortcutsModal) { this.showShortcutsModal = false; return; }
+            if (this.showShortcutsHelp || this.showShortcutsModal) { this.showShortcutsHelp = false; this.showShortcutsModal = false; return; }
+            if (this.showCronBuilder) { this.closeCronBuilder(); return; }
             if (this.showCreateJobModal) { this.showCreateJobModal = false; return; }
             if (this.showCreateTriggerModal) { this.showCreateTriggerModal = false; return; }
             if (this.showDeleteConfirm) { this.showDeleteConfirm = false; return; }
+            if (this.showHistoryDetail) { this.closeHistoryDetail(); return; }
+            if (this.showSchedulerPicker) { this.showSchedulerPicker = false; return; }
             if (this.showJobDrawer) { this.closeJobDrawer(); return; }
             return;
           }
 
-          // If command palette is open, handle arrow keys internally
-          if (this.showCommandPalette) return;
+          // If command palette or global search is open, handle internally
+          if (this.showCommandPalette || this.globalSearchOpen) return;
 
           // Skip when typing in an input
-          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+          if (isTypingTarget) return;
 
           // Number keys 1-N: switch pages (N = number of nav items)
           const num = parseInt(e.key);
@@ -1230,17 +1594,10 @@
             return;
           }
 
-          // /: focus search on jobs or history page
+          // /: open global search
           if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-            if (this.currentPage === 'jobs') {
-              e.preventDefault();
-              const input = document.querySelector('input[x-model="jobsFilter"]');
-              if (input) input.focus();
-            } else if (this.currentPage === 'history') {
-              e.preventDefault();
-              const input = document.querySelector('input[x-model="historyFilterObj.search"]');
-              if (input) input.focus();
-            }
+            e.preventDefault();
+            this.openGlobalSearch();
             return;
           }
 
@@ -1253,7 +1610,7 @@
             return;
           }
           if (this._gPressed) {
-            const map = { o: 'overview', j: 'jobs', t: 'triggers', h: 'history', e: 'executing', l: 'timeline', x: 'graph', s: 'settings' };
+            const map = { o: 'overview', j: 'jobs', t: 'triggers', h: 'history', e: 'executing', g: 'graph', l: 'timeline', s: 'settings', x: 'graph' };
             if (map[e.key]) { this.currentPage = map[e.key]; this._gPressed = false; e.preventDefault(); return; }
           }
 
@@ -1277,7 +1634,8 @@
           // ?: show keyboard shortcuts overlay
           if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
             e.preventDefault();
-            this.showShortcutsModal = !this.showShortcutsModal;
+            this.showShortcutsHelp = !this.showShortcutsHelp;
+            this.showShortcutsModal = this.showShortcutsHelp;
             return;
           }
 
@@ -1707,7 +2065,7 @@
         _base() { return window.__QUARTZ_BASE || '/quartz'; },
         _api(path) {
           const base = this._base() + '/api' + path;
-          if (this.activeSchedulerName && !path.includes('scheduler')) {
+          if (this.activeSchedulerName && !/^\/schedulers(?:[/?]|$)/.test(path)) {
             const sep = base.includes('?') ? '&' : '?';
             return base + sep + 'scheduler=' + encodeURIComponent(this.activeSchedulerName);
           }
@@ -1755,24 +2113,11 @@
             }
           } catch(e) { /* best-effort */ }
 
-          // Load scheduler list for multi-scheduler support
-          try {
-            const scheds = await this.fetchApi('/schedulers');
-            if (Array.isArray(scheds)) {
-              this.schedulers = scheds;
-              const current = scheds.find(s => s.isCurrent);
-              if (current) this.activeSchedulerName = current.name;
-            }
-          } catch(e) { /* single-scheduler mode — no /schedulers endpoint or error */ }
+          await this.loadSchedulers();
         },
 
         onSchedulerChange() {
-          // Append ?scheduler=name to all API calls by storing the active name
-          // fetchApi already appends it via _api()
-          this.refreshAll();
-          this.loadHistory();
-          this.loadStats();
-          this.loadCalendars();
+          this.switchScheduler(this.activeSchedulerName);
         },
 
         async refreshAll() {
@@ -1919,6 +2264,7 @@
               if (d > this.maxHistoryDuration) this.maxHistoryDuration = d;
             }
             if (this.maxHistoryDuration === 0) this.maxHistoryDuration = 5000;
+            this.loadHeatmap();
             this.errors.history = null; this.retryCounts.history = 0;
           } catch (e) { console.error('loadHistory:', e); this.errors.history = e.message; this.showToast('Failed to load history: ' + e.message, 'error'); this._retryLoad('history', () => this.loadHistory()); }
           this.loading.history = false;

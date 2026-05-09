@@ -44,6 +44,13 @@ internal static class SchedulerHandlers
         return Results.Ok(new { Status = "already_standby" });
     }
 
+    public static async Task<IResult> GetSchedulers(ISchedulerFactory factory)
+    {
+        var names = await factory.GetAllSchedulers();
+        var schedulers = names.Select(s => new { name = s.SchedulerName, instanceId = s.SchedulerInstanceId, isStarted = s.IsStarted }).ToList();
+        return Results.Ok(schedulers);
+    }
+
     public static async Task<IResult> StartScheduler(IScheduler sched, QuartzDashboardOptions options)
     {
         if (options.ReadOnly) return Results.Forbid();

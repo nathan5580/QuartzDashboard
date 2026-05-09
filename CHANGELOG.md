@@ -2,6 +2,28 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.3.0] — 2026-05-09
+
+### Added
+- **Global search** — Press `Ctrl+K` or `/` to open a search overlay that searches across all jobs, triggers, and history in real-time.
+- **Keyboard shortcuts** — Press `?` to see all shortcuts. Navigate with `G+J` (Jobs), `G+T` (Triggers), `G+H` (History), etc. Refresh with `R`, fullscreen with `F`.
+- **Execution detail drawer** — Click any history row to open a detail panel showing job key, trigger key, duration, fire time, refire count, and full error stacktraces for failed executions.
+- **CRON expression builder** — Visual modal for building cron expressions with per-field inputs and quick presets (every minute, hourly, daily, weekdays, etc.).
+- **Execution heatmap** — New `/api/heatmap` endpoint + client-side heat grid showing execution density by day-of-week × hour-of-day with success rate color coding.
+- **Table column sorting** — Click column headers on Jobs, Triggers, and History tables to sort ascending/descending with visual indicators.
+- **Empty state illustrations** — Friendly icons and messages when tables have no data (jobs, triggers, history, executing, calendars).
+- **Health notification badge** — Red pulsing dot on the Health sidebar link when success rate drops below 95%.
+- **Mobile responsive nav** — Sidebar collapses to a bottom tab bar on screens < 768px wide with touch-friendly targets.
+- **Breadcrumb navigation** — Breadcrumb trail in the header showing Dashboard → current page.
+- **Embed mode** — Append `?embed=true` to strip sidebar and header for iframe embedding.
+- **Multi-scheduler support** — New `/api/schedulers` endpoint; UI ready for scheduler picker dropdown when multiple schedulers are registered.
+- **Job dependency graph data** — Infrastructure for visualizing job→trigger relationships.
+
+### Changed
+- History table rows are now clickable (cursor pointer) to open execution details.
+- Sortable table headers show ▲/▼ indicators with active state highlighting.
+- Template count increased from 95/95 to 101/101 (6 new `x-if` templates for overlays).
+
 ## [2.2.0] — 2026-05-09
 
 ### Added

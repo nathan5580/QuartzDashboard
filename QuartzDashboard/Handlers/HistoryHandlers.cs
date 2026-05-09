@@ -57,6 +57,37 @@ internal static class HistoryHandlers
         return Results.Ok(events);
     }
 
+    public static IResult GetHeatmap(HttpContext ctx)
+    {
+        var store = ctx.RequestServices.GetRequiredService<IFireHistoryStore>();
+        var records = store.GetRecent(500, 0);
+
+        var grid = new int[7, 24];
+        var successGrid = new int[7, 24];
+
+        foreach (var r in records)
+        {
+            var local = r.FireTime.LocalDateTime;
+            var dow = (int)local.DayOfWeek;
+            var hour = local.Hour;
+            grid[dow, hour]++;
+            if (r.Success) successGrid[dow, hour]++;
+        }
+
+        var cells = new List<object>();
+        for (int d = 0; d < 7; d++)
+            for (int h = 0; h < 24; h++)
+                cells.Add(new
+                {
+                    day = d,
+                    hour = h,
+                    count = grid[d, h],
+                    successRate = grid[d, h] > 0 ? Math.Round((double)successGrid[d, h] / grid[d, h] * 100, 1) : 100.0
+                });
+
+        return Results.Ok(cells);
+    }
+
     public static async Task<IResult> GetStats(IScheduler sched, ExecutionBucketService bucketService, IFireHistoryStore historyStore)
     {
         var meta = await sched.GetMetaData();
