@@ -135,7 +135,9 @@ internal sealed class DashboardJobListener(
         var success = jobException == null;
 
         // Record to fire history store
-        fireHistoryStore.RecordFire(jobKey, triggerKey, context.FireTimeUtc, duration, success, context.RefireCount);
+        fireHistoryStore.RecordFire(jobKey, triggerKey, context.FireTimeUtc, duration, success, context.RefireCount,
+            jobException?.InnerException?.Message ?? jobException?.Message,
+            jobException?.InnerException?.GetType().Name ?? jobException?.GetType().Name);
 
         // Update in-memory execution stats (buckets)
         bucketService?.Record(duration, success);
@@ -145,8 +147,19 @@ internal sealed class DashboardJobListener(
             ? $"✓ Completed in {duration.TotalMilliseconds:F0}ms"
             : $"✗ Failed: {jobException?.Message?.Truncate(200) ?? "Unknown error"}");
 
+        if (!success && jobException != null)
+        {
+            var inner = jobException.InnerException;
+            if (inner != null)
+                logBuffer?.Append(jobKey, $"  └─ {inner.GetType().Name}: {inner.Message?.Truncate(300)}");
+            var stackTrace = (inner?.StackTrace ?? jobException.StackTrace)?.Truncate(800);
+            if (!string.IsNullOrEmpty(stackTrace))
+                logBuffer?.Append(jobKey, stackTrace);
+        }
+
         // Publish to event bus for SignalR
-        eventBus.Publish(new JobExecutedEvent(jobKey, triggerKey, context.FireInstanceId, duration, success, context.FireTimeUtc));
+        eventBus.Publish(new JobExecutedEvent(jobKey, triggerKey, context.FireInstanceId, duration, success, context.FireTimeUtc,
+            jobException?.InnerException?.Message ?? jobException?.Message));
 
         if (!success && jobException != null)
         {

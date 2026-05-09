@@ -2,6 +2,23 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.1.40] — 2026-05-09
+
+### Added
+- **Exception capture** — job execution exceptions are now captured with message, type, and stack trace in fire history, execution logs, and SignalR events.
+- **Exception details in History** — click any failed execution row to expand and see the full exception type and message inline.
+- **Failure toast notifications** — real-time toast alerts appear when a job fails via SignalR, showing the job name and truncated exception message.
+- **Per-job success rate badge** — the Jobs table shows a percentage badge next to each job's status, color-coded green (≥95%), amber (≥80%), or red (<80%).
+- **Cron expression validator** — when creating a cron trigger, the expression is validated in real-time with a preview of the next 5 fire times via `POST /api/cron/describe`.
+- **Export / Import jobs** — export all jobs and triggers as JSON from the Jobs page header; import from a JSON file to restore jobs. Uses `GET /api/export` and `POST /api/import` endpoints.
+- **Comprehensive light mode** — sidebar, main area, drawers, toasts, badges, buttons, modals, scrollbars, command palette, footers, SVG fills, and all `bg-white/[0.0x]` Tailwind classes now have proper light-mode overrides.
+- **Mobile responsive improvements** — sidebar collapses to icons at 768px and hides at 480px; tables become card layouts; modals use 95vw width.
+
+### Fixed
+- **Health chart visibility** — green success bars now use 16px minimum height and 0.5 opacity (was 3px / 0.25). SVG text visibility uses inline `style` instead of broken `x-show` in SVG context.
+- **FileFireHistoryStore** — propagates exception fields to persistent fire history records.
+- **SignalR batch payloads** — both drain paths now include `exceptionMessage` in `jobExecutedBatch` events.
+
 ## [2.1.39] — 2026-05-09
 
 ### Added

@@ -14,7 +14,8 @@ public sealed record JobExecutedEvent(
     string FireInstanceId,
     TimeSpan Duration,
     bool Success,
-    DateTimeOffset FireTime
+    DateTimeOffset FireTime,
+    string? ExceptionMessage = null
 ) : DashboardEvent;
 
 public sealed record JobTriggeredEvent(

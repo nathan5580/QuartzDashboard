@@ -663,16 +663,85 @@
     .light .shimmer, .light .sk { background: rgba(200,200,210,0.3) !important; }
     .light .spinner { border-color: rgba(0,0,0,0.1) !important; }
 
+    /* Light mode — comprehensive overrides */
+    .light main {
+      background: #f9fafb !important;
+    }
+    .light aside {
+      background: #ffffff !important;
+      border-right-color: rgba(0,0,0,0.06) !important;
+    }
+    .light .sidebar-border {
+      border-image: none !important;
+      border-right: 1px solid rgba(0,0,0,0.06) !important;
+    }
+    .light .card-gradient:hover,
+    .light .stat-card:hover {
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
+    }
+    .light .toast {
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important;
+      border-color: rgba(0,0,0,0.08) !important;
+    }
+    .light .toast-success { background: rgba(16,185,129,0.12) !important; color: #059669 !important; }
+    .light .toast-error { background: rgba(239,68,68,0.12) !important; color: #dc2626 !important; }
+    .light .toast-info { background: rgba(99,102,241,0.12) !important; color: #4f46e5 !important; }
+    .light .scrollbar-thin::-webkit-scrollbar-thumb { background: #d1d5db !important; }
+    .light .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #9ca3af !important; }
+    .light .btn-icon:hover { background: rgba(0,0,0,0.04) !important; color: #374151 !important; }
+    .light .btn-primary { box-shadow: 0 4px 14px rgba(99,102,241,0.15) !important; }
+    .light .btn-danger { background: rgba(239,68,68,0.08) !important; color: #ef4444 !important; }
+    .light .btn-warning { background: rgba(245,158,11,0.08) !important; color: #d97706 !important; }
+    .light .btn-success { background: rgba(16,185,129,0.08) !important; color: #059669 !important; }
+    .light .badge-running { background: rgba(16,185,129,0.06) !important; }
+    .light .badge-paused { background: rgba(245,158,11,0.06) !important; }
+    .light .badge-idle { background: rgba(107,114,128,0.06) !important; }
+    .light .badge-error { background: rgba(239,68,68,0.06) !important; }
+    .light .badge-normal { background: rgba(99,102,241,0.06) !important; }
+    .light .glass-select option { background: #ffffff !important; color: #374151 !important; }
+    .light .sk { background-image: linear-gradient(90deg, rgba(200,200,210,0.3) 25%, rgba(180,180,195,0.4) 50%, rgba(200,200,210,0.3) 75%) !important; }
+    .light .text-indigo-400 { color: #4f46e5 !important; }
+    .light .text-indigo-300 { color: #6366f1 !important; }
+    .light .text-emerald-400 { color: #059669 !important; }
+    .light .text-emerald-300 { color: #10b981 !important; }
+    .light .text-amber-400, .light .text-amber-300 { color: #d97706 !important; }
+    .light .text-red-400, .light .text-red-300 { color: #dc2626 !important; }
+    .light .bg-white\/\[0\.03\], .light .bg-white\/\[0\.04\], .light .bg-white\/\[0\.05\],
+    .light .bg-white\/\[0\.06\], .light .bg-white\/\[0\.08\] {
+      background: rgba(0,0,0,0.02) !important;
+    }
+    .light .border-white\/\[0\.06\], .light .border-white\/\[0\.08\] {
+      border-color: rgba(0,0,0,0.06) !important;
+    }
+    .light .command-item:hover, .light .command-item.active {
+      background: rgba(99,102,241,0.06) !important;
+      color: #4f46e5 !important;
+    }
+    .light .footer-bar .text-gray-500 { color: #9ca3af !important; }
+    .light .duration-bar { background: rgba(99,102,241,0.12) !important; }
+    .light .timeline-tooltip { color: #374151 !important; }
+    .light .graph-tooltip { color: #374151 !important; }
+
     /* ── Mobile responsive ─────────────────────────────────────── */
     @media (max-width: 768px) {
       .sidebar { width: 60px !important; }
       .sidebar .sidebar-label { display: none !important; }
       .sidebar .sidebar-section-label { display: none !important; }
+      main { padding: 1rem !important; }
+      .stat-card { padding: 1rem !important; }
+      .card-gradient { padding: 1rem !important; }
       .mobile-card-table thead { display: none; }
       .mobile-card-table tbody tr { display: flex; flex-direction: column; border: 1px solid var(--color-border); border-radius: 8px; padding: 12px; margin-bottom: 8px; background: var(--color-surface); }
       .mobile-card-table tbody td { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border: none !important; font-size: 12px; }
       .mobile-card-table tbody td::before { content: attr(data-label); font-weight: 500; color: rgba(156,163,175,1); min-width: 80px; flex-shrink: 0; }
       .mobile-card-table tbody td[data-label=""]::before { display: none; }
+      .modal-card { width: 95vw !important; max-height: 85vh !important; }
+      .command-palette-card { width: 95vw !important; }
+      .footer-bar { font-size: 0.625rem !important; }
+    }
+    @media (max-width: 480px) {
+      .sidebar { width: 0 !important; overflow: hidden !important; }
+      main { padding: 0.75rem !important; }
     }
   </style>
   <style id="light-mode-override"></style>

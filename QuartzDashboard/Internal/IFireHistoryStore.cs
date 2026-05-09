@@ -9,7 +9,7 @@ namespace QuartzDashboard.Internal;
 /// </summary>
 public interface IFireHistoryStore
 {
-    void RecordFire(string jobKey, string triggerKey, DateTimeOffset fireTime, TimeSpan duration, bool success, int refireCount = 0);
+    void RecordFire(string jobKey, string triggerKey, DateTimeOffset fireTime, TimeSpan duration, bool success, int refireCount = 0, string? exceptionMessage = null, string? exceptionType = null);
     int Count { get; }
     IEnumerable<FireRecord> GetRecent(int count, int offset = 0);
     void Clear();
@@ -27,6 +27,8 @@ public sealed record FireRecord
     public TimeSpan Duration { get; set; }
     public bool Success { get; set; }
     public int RefireCount { get; set; }
+    public string? ExceptionMessage { get; set; }
+    public string? ExceptionType { get; set; }
 }
 
 /// <summary>
@@ -49,7 +51,7 @@ internal sealed class InMemoryFireHistoryStore : IFireHistoryStore
 
     public event Action<FireRecord>? OnFireRecorded;
 
-    public void RecordFire(string jobKey, string triggerKey, DateTimeOffset fireTime, TimeSpan duration, bool success, int refireCount = 0)
+    public void RecordFire(string jobKey, string triggerKey, DateTimeOffset fireTime, TimeSpan duration, bool success, int refireCount = 0, string? exceptionMessage = null, string? exceptionType = null)
     {
         var record = new FireRecord
         {
@@ -58,7 +60,9 @@ internal sealed class InMemoryFireHistoryStore : IFireHistoryStore
             FireTime = fireTime,
             Duration = duration,
             Success = success,
-            RefireCount = refireCount
+            RefireCount = refireCount,
+            ExceptionMessage = exceptionMessage,
+            ExceptionType = exceptionType
         };
         _queue.Enqueue(record);
         OnFireRecorded?.Invoke(record);
@@ -127,8 +131,8 @@ internal sealed class FileFireHistoryStore : IFireHistoryStore
         remove => _inner.OnFireRecorded -= value;
     }
 
-    public void RecordFire(string jobKey, string triggerKey, DateTimeOffset fireTime, TimeSpan duration, bool success, int refireCount = 0)
-        => _inner.RecordFire(jobKey, triggerKey, fireTime, duration, success, refireCount);
+    public void RecordFire(string jobKey, string triggerKey, DateTimeOffset fireTime, TimeSpan duration, bool success, int refireCount = 0, string? exceptionMessage = null, string? exceptionType = null)
+        => _inner.RecordFire(jobKey, triggerKey, fireTime, duration, success, refireCount, exceptionMessage, exceptionType);
 
     public IEnumerable<FireRecord> GetRecent(int count, int offset = 0)
         => _inner.GetRecent(count, offset);
