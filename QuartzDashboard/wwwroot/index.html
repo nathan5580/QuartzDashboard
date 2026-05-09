@@ -550,7 +550,10 @@
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Jobs</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100">
                   <template x-if="statsLoading"><div class="sk h-8 w-16"></div></template>
-                  <span x-show="!statsLoading" x-text="jobs.length"></span>
+                  <span x-show="!statsLoading" x-text="stats.totalJobs ?? jobs.length"></span>
+                  <span x-show="statsPrev && statsPrev.totalJobs !== undefined && stats.totalJobs !== statsPrev.totalJobs"
+                        class="text-[9px] ml-1" :class="stats.totalJobs > (statsPrev?.totalJobs || 0) ? 'text-emerald-400' : 'text-red-400'"
+                        x-text="stats.totalJobs > (statsPrev?.totalJobs || 0) ? '↑' : '↓'"></span>
                 </div>
                 <div class="sparkline-container" x-show="executionBuckets.length">
                   <svg width="80" height="24" filter="url(#chartGlow)">
@@ -563,7 +566,10 @@
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Triggers</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100">
                   <template x-if="statsLoading"><div class="sk h-8 w-16"></div></template>
-                  <span x-show="!statsLoading" x-text="triggers.length"></span>
+                  <span x-show="!statsLoading" x-text="stats.totalTriggers ?? triggers.length"></span>
+                  <span x-show="statsPrev && statsPrev.totalTriggers !== undefined && stats.totalTriggers !== statsPrev.totalTriggers"
+                        class="text-[9px] ml-1" :class="stats.totalTriggers > (statsPrev?.totalTriggers || 0) ? 'text-emerald-400' : 'text-red-400'"
+                        x-text="stats.totalTriggers > (statsPrev?.totalTriggers || 0) ? '↑' : '↓'"></span>
                 </div>
                 <div class="sparkline-container" x-show="executionBuckets.length">
                   <svg width="80" height="24" filter="url(#chartGlow)">
@@ -576,7 +582,10 @@
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Executing Now</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight">
                   <template x-if="statsLoading"><div class="sk h-8 w-16"></div></template>
-                  <span x-show="!statsLoading" x-text="executingJobs.length" :class="executingJobs.length > 0 ? 'text-emerald-400' : 'text-gray-100'"></span>
+                  <span x-show="!statsLoading" x-text="stats.executing ?? executingJobs.length" :class="(stats.executing ?? executingJobs.length) > 0 ? 'text-emerald-400' : 'text-gray-100'"></span>
+                  <span x-show="statsPrev && statsPrev.executing !== undefined && stats.executing !== statsPrev.executing"
+                        class="text-[9px] ml-1" :class="stats.executing > (statsPrev?.executing || 0) ? 'text-emerald-400' : 'text-red-400'"
+                        x-text="stats.executing > (statsPrev?.executing || 0) ? '↑' : '↓'"></span>
                 </div>
                 <div class="sparkline-container" x-show="executionBuckets.length">
                   <svg width="80" height="24" filter="url(#chartGlow)">
@@ -587,20 +596,12 @@
               </div>
               <div class="stat-card">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Total Executions</div>
-                <div class="flex items-end gap-2">
-                  <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100">
-                    <template x-if="statsLoading"><div class="sk h-8 w-16"></div></template>
-                    <span x-show="!statsLoading" x-text="scheduler.numberOfJobsExecuted || 0"></span>
-                  </div>
-                  <template x-if="statsTrend('totalExecutions') !== null && statsTrend('totalExecutions') !== 0">
-                    <span :class="statsTrend('totalExecutions') > 0 ? 'text-emerald-400' : 'text-red-400'" class="text-xs font-semibold mb-1 flex items-center gap-0.5">
-                      <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <template x-if="statsTrend('totalExecutions') > 0"><polyline points="18 15 12 9 6 15"/></template>
-                        <template x-if="statsTrend('totalExecutions') < 0"><polyline points="6 9 12 15 18 9"/></template>
-                      </svg>
-                      <span x-text="Math.abs(statsTrend('totalExecutions'))"></span>
-                    </span>
-                  </template>
+                <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100">
+                  <template x-if="statsLoading"><div class="sk h-8 w-16"></div></template>
+                  <span x-show="!statsLoading" x-text="(stats.totalExecutions ?? scheduler.numberOfJobsExecuted ?? 0)"></span>
+                  <span x-show="statsPrev && statsPrev.totalExecutions !== undefined && stats.totalExecutions !== statsPrev.totalExecutions"
+                        class="text-[9px] ml-1" :class="stats.totalExecutions > (statsPrev?.totalExecutions || 0) ? 'text-emerald-400' : 'text-red-400'"
+                        x-text="stats.totalExecutions > (statsPrev?.totalExecutions || 0) ? '↑' : '↓'"></span>
                 </div>
                 <div class="sparkline-container" x-show="executionBuckets.length">
                   <svg width="80" height="24" filter="url(#chartGlow)">
@@ -608,6 +609,43 @@
                               fill="none" stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                 </div>
+              </div>
+            </div>
+
+            <!-- Recent Failures -->
+            <div class="card-gradient mt-4" x-show="recentFailures.length > 0">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-semibold text-red-400 uppercase tracking-wider">Recent Failures</h3>
+                <span class="text-[10px] text-gray-600 tabular-nums" x-text="recentFailures.length + ' recent'"></span>
+              </div>
+              <div class="space-y-1">
+                <template x-for="f in recentFailures" :key="f.fireTime">
+                  <div class="flex items-center justify-between py-1.5 px-2 rounded-md bg-red-500/[0.04] border border-red-500/[0.06]">
+                    <div class="flex items-center gap-2">
+                      <span class="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"></span>
+                      <span class="text-xs text-gray-300 font-medium" x-text="f.jobKey"></span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <span class="text-[10px] text-red-400/70 truncate max-w-[200px]" x-text="f.exceptionMessage || 'Failed'"></span>
+                      <span class="text-[10px] text-gray-600 tabular-nums" x-text="formatDate(f.fireTime)"></span>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Uptime bar -->
+            <div class="card-gradient mt-4">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Success Rate</h3>
+                <span class="text-sm font-bold tabular-nums" :class="uptimePercent >= 99 ? 'text-emerald-400' : uptimePercent >= 95 ? 'text-amber-400' : 'text-red-400'" x-text="uptimePercent + '%'"></span>
+              </div>
+              <div class="w-full h-2 bg-white/[0.04] rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-700" :class="uptimePercent >= 99 ? 'bg-emerald-500' : uptimePercent >= 95 ? 'bg-amber-500' : 'bg-red-500'" :style="'width: ' + uptimePercent + '%'"></div>
+              </div>
+              <div class="flex justify-between mt-1 text-[9px] text-gray-600">
+                <span x-text="(history || []).filter(h => h.success).length + ' success'"></span>
+                <span x-text="(history || []).filter(h => !h.success).length + ' failed'"></span>
               </div>
             </div>
 
@@ -750,12 +788,12 @@
                       <!-- Bar: spread evenly from x=36 to x=704 (668px inner width) -->
                       <rect
                         :x="36 + (idx + 0.5) * (668 / Math.max(executionBuckets.slice(-24).length, 1)) - Math.min(22, Math.max(6, (668 / Math.max(executionBuckets.slice(-24).length, 1)) * 0.6)) / 2"
-                        :y="148 - Math.max((bucket.errorRate || 0) > 0 ? 6 : 16, ((bucket.errorRate || 0) / 100) * 120)"
+                        :y="148 - Math.max(4, ((bucket.errorRate || 0) / 100) * 120)"
                         :width="Math.min(22, Math.max(6, (668 / Math.max(executionBuckets.slice(-24).length, 1)) * 0.6))"
-                        :height="Math.max((bucket.errorRate || 0) > 0 ? 6 : 16, ((bucket.errorRate || 0) / 100) * 120)"
-                        rx="3"
+                        :height="Math.max(4, ((bucket.errorRate || 0) / 100) * 120)"
+                        rx="2"
                         :fill="(bucket.errorRate || 0) > 0 ? '#ef4444' : '#22c55e'"
-                        :fill-opacity="(bucket.errorRate || 0) > 0 ? 0.78 : 0.5">
+                        :fill-opacity="(bucket.errorRate || 0) > 0 ? 0.78 : 0.35">
                       </rect>
                       <!-- X-axis label -->
                       <text
@@ -1207,6 +1245,24 @@
                       </div>
                     </template>
 
+                    <!-- Execution Frequency Estimate -->
+                    <div class="mt-4 pt-4 border-t border-white/[0.04]" x-show="jobDrawerData && jobDrawerData.triggers && jobDrawerData.triggers.length">
+                      <h4 class="text-[10px] font-medium uppercase tracking-wider text-gray-500 mb-2">Estimated Frequency</h4>
+                      <template x-for="trig in (jobDrawerData.triggers || [])" :key="trig.name + trig.group">
+                        <div class="flex items-center justify-between py-1.5 text-xs">
+                          <span class="text-gray-400" x-text="trig.name"></span>
+                          <span class="text-gray-300 tabular-nums font-mono text-[10px]" x-text="(() => {
+                            if (trig.intervalMs > 0) {
+                              const perHour = Math.round(3600000 / trig.intervalMs * 10) / 10;
+                              const perDay = Math.round(perHour * 24);
+                              return perHour + '/hr · ' + perDay + '/day';
+                            }
+                            return 'cron';
+                          })()"></span>
+                        </div>
+                      </template>
+                    </div>
+
                     <!-- Job data map (inline editable) -->
                     <div class="rounded-lg bg-white/[0.03] border border-white/[0.06] px-4 py-3">
                       <div class="flex items-center justify-between mb-2.5">
@@ -1466,6 +1522,7 @@
                                 <td class="hidden lg:table-cell"><span class="badge badge-idle text-[9px]" x-text="t.misfireInstruction || 'SmartPolicy'"></span></td>
                                 <td class="text-xs mono text-gray-400">
                                   <span :title="t.nextFireTime ? formatDate(t.nextFireTime) : ''" x-text="formatCountdown(t.nextFireTime)"></span>
+                                  <span class="text-[9px] text-gray-600 ml-1" x-text="'(' + triggerCountdown(t.nextFireTime) + ')'" x-show="t.nextFireTime"></span>
                                 </td>
                                 <td class="text-right">
                                   <div class="flex gap-1 justify-end">
@@ -1629,7 +1686,7 @@
             <div class="flex items-center justify-between flex-wrap gap-3">
               <div>
                 <h1 class="text-lg font-semibold tracking-tight text-gray-100">Fire History</h1>
-                <p class="text-xs text-gray-500 mt-0.5"><span x-text="historyFiltered.length"></span> of <span x-text="historyTotal"></span> total</p>
+                <p class="text-xs text-gray-500 mt-0.5"><span x-text="filteredHistory.length"></span> of <span x-text="history.length"></span> records</p>
               </div>
               <div class="flex items-center gap-2 flex-wrap">
                 <button @click="exportHistoryCSV()" class="btn btn-ghost text-xs" title="Export CSV">
@@ -1649,28 +1706,19 @@
               </div>
             </div>
 
-            <!-- Filter bar -->
-            <div class="card-gradient p-3 flex flex-wrap items-center gap-3">
-              <!-- Search -->
-              <div class="relative flex-1 min-w-[160px]">
-                <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                </svg>
-                <input type="text" x-model="historyFilterObj.search" placeholder="Search by job key..." class="glass-input pl-8 w-full text-xs">
+            <div class="flex flex-wrap items-center gap-2 mb-4">
+              <div class="relative flex-1 min-w-[160px] max-w-xs">
+                <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input x-model="historyFilterObj.search" type="text" placeholder="Filter by job name…"
+                       class="w-full bg-white/[0.04] border border-white/[0.06] rounded-lg text-xs text-gray-300 placeholder-gray-600 pl-8 pr-8 py-1.5 focus:outline-none focus:ring-1 focus:ring-quartz-500/40" />
+                <button x-show="historyFilterObj.search" @click="historyFilterObj.search = ''" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 text-xs">✕</button>
               </div>
-              <!-- Status toggles -->
-              <div class="flex rounded-lg bg-gray-900 p-0.5 gap-0.5">
-                <button @click="historyFilterObj.status = 'all'" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', historyFilterObj.status === 'all' ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200']">All</button>
-                <button @click="historyFilterObj.status = 'success'" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', historyFilterObj.status === 'success' ? 'bg-emerald-600 text-white' : 'text-gray-400 hover:text-gray-200']">Success</button>
-                <button @click="historyFilterObj.status = 'error'" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', historyFilterObj.status === 'error' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-gray-200']">Error</button>
-              </div>
-              <!-- Date range -->
-              <input type="datetime-local" x-model="historyFilterObj.dateFrom" class="glass-input text-xs w-44" title="From date">
-              <input type="datetime-local" x-model="historyFilterObj.dateTo" class="glass-input text-xs w-44" title="To date">
-              <!-- Clear -->
-              <button x-show="historyFilterObj.search || historyFilterObj.status !== 'all' || historyFilterObj.dateFrom || historyFilterObj.dateTo"
-                      @click="historyFilterObj = { search: '', status: 'all', dateFrom: '', dateTo: '' }"
-                      class="btn btn-ghost text-xs">Clear</button>
+              <select x-model="historyFilterObj.status" class="glass-select text-xs py-1.5 px-2 rounded-lg bg-white/[0.04] border border-white/[0.06] text-gray-300">
+                <option value="all">All Status</option>
+                <option value="success">✓ Success</option>
+                <option value="error">✗ Failed</option>
+              </select>
+              <span class="text-[10px] text-gray-600 ml-auto tabular-nums" x-text="filteredHistory.length + ' of ' + history.length + ' records'"></span>
             </div>
 
             <!-- Loading skeleton -->
@@ -1708,7 +1756,7 @@
                   </div>
                 </template>
 
-                <div x-show="historyFiltered.length" class="table-wrap">
+                <div x-show="filteredHistory.length" class="table-wrap">
                   <table class="mobile-card-table">
                     <thead>
                       <tr>
@@ -1721,7 +1769,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <template x-for="(h, idx) in historyFiltered" :key="idx">
+                      <template x-for="(h, idx) in filteredHistory" :key="idx">
                         <template x-if="true">
                           <tr @click="h.exceptionMessage ? (historyExpandedRows = {...historyExpandedRows, [h.fireTime]: !historyExpandedRows[h.fireTime]}) : null"
                               :class="h.exceptionMessage ? 'cursor-pointer' : ''">
@@ -1771,7 +1819,7 @@
                     <button @click="historyGoToPage(historyCurrentPage + 1)" :disabled="historyCurrentPage === historyPageCount" class="btn btn-ghost text-xs">Next</button>
                   </div>
                 </div>
-                <div x-show="!historyFiltered.length && history.length > 0" class="card-gradient text-center py-10">
+                <div x-show="!filteredHistory.length && history.length > 0" class="card-gradient text-center py-10">
                   <svg class="w-10 h-10 mx-auto text-gray-600 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                   </svg>
@@ -1867,11 +1915,10 @@
                 </div>
 
                 <div x-show="graphData.length">
-                <div class="relative" x-ref="graphContainer" @mousemove="onGraphMouseMove($event)" @mouseleave="graphCrosshair.show = false"
-                     x-init="$nextTick(() => { graphWidth = Math.max(400, $el.offsetWidth || 800); updateGraphChart(); })">
+                <div class="relative" x-ref="graphContainer" @mousemove="onGraphMouseMove($event)" @mouseleave="graphCrosshair.show = false">
                   <!-- Chart rendered via innerHTML to bypass Alpine SVG namespace issues -->
                   <div x-ref="graphChartWrap"
-                       x-effect="graphData.length && updateGraphChart()">
+                       x-effect="if (currentPage === 'graph' && graphData.length) { requestAnimationFrame(() => { updateGraphSize(); updateGraphChart(); }); }">
                   </div>
 
                   <!-- Crosshair overlay -->
@@ -1999,7 +2046,7 @@
 
               <template x-if="!loading.timeline && timelineVisibleEvents.length">
                 <div class="relative" x-ref="timelineContainer"
-                     x-init="$nextTick(() => { timelineWidth = $el.offsetWidth || 800; updateTimelineChart(); })"
+                     x-effect="if (currentPage === 'timeline') { requestAnimationFrame(() => { updateGraphSize(); updateTimelineChart(); }); }"
                      @mousemove="onTimelineMouseMove($event)"
                      @mouseleave="timelineCursor.show = false">
 
@@ -2457,9 +2504,9 @@
       <span class="hidden md:inline">
         <span :class="signalRConnected ? 'text-emerald-400' : signalRPolling ? 'text-amber-400' : 'text-gray-500'" x-text="connectionStatus"></span>
       </span>
-      <span class="ml-auto text-gray-600">
-        Last refreshed: <span class="text-gray-400" x-text="lastRefreshed ? formatDate(lastRefreshed) : '\u2014'"></span>
-      </span>
+      <span class="ml-auto text-gray-500" x-text="'v' + (scheduler.version || '?')"></span>
+      <span class="text-gray-700 mx-1.5">·</span>
+      <span class="text-gray-600" x-text="'Last: ' + (lastRefreshed ? formatDate(lastRefreshed) : '—')"></span>
     </div>
   </div>
 

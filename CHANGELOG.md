@@ -2,6 +2,21 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.1.41] — 2026-05-09
+
+### Added
+- **History page search/filter** — filter history by job name and success/error status with a live search bar and status dropdown.
+- **Trigger countdown** — trigger rows now show a live countdown to next fire time ("3m", "1h 20m").
+- **Execution cost estimator** — job detail drawer shows estimated execution frequency per trigger (runs/hr, runs/day).
+- **Overview recent failures** — the overview page shows the 5 most recent failures with exception messages, plus a success rate progress bar with uptime percentage.
+- **Overview trend arrows** — stat cards show ↑↓ indicators when values change between refreshes.
+- **Footer last refresh** — footer bar displays the last refresh timestamp.
+
+### Fixed
+- **Graph offset on first load** — replaced `x-init` (fires once while element is hidden) with `x-effect` + double `requestAnimationFrame` to ensure the container is fully visible and laid out before measuring width. Both the execution graph and timeline chart now render correctly on first navigation.
+- **Health chart green circles** — reduced success bar height from 16px to 4px minimum, `rx` from 3→2, opacity from 0.5→0.35. No more oversized green blobs covering the chart.
+- **Graph ResizeObserver** — chart containers now use `ResizeObserver` for precise container-aware resizing instead of only `window.resize`.
+
 ## [2.1.40] — 2026-05-09
 
 ### Added

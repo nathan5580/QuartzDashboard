@@ -261,6 +261,15 @@
           const active = this.executingJobs.length;
           return poolSize > 0 ? (active / poolSize) * 100 : 0;
         },
+        get recentFailures() {
+          return (this.history || []).filter(h => !h.success).slice(0, 5);
+        },
+        get uptimePercent() {
+          const h = this.history || [];
+          if (!h.length) return 100;
+          const success = h.filter(x => x.success).length;
+          return Math.round((success / h.length) * 1000) / 10;
+        },
 
         // ========================= COMMAND PALETTE =========================        showCommandPalette: false,
         commandPaletteQuery: '',
@@ -397,29 +406,19 @@
         },
 
         get filteredHistory() {
-          if (!this.historyFilter) return this.history;
-          const q = this.historyFilter.toLowerCase();
-          return this.history.filter(h => (h.jobKey || '').toLowerCase().includes(q));
+          let arr = this.history || [];
+          const f = this.historyFilterObj;
+          if (f.search) {
+            const q = f.search.toLowerCase();
+            arr = arr.filter(h => (h.jobKey || '').toLowerCase().includes(q) || (h.triggerKey || '').toLowerCase().includes(q));
+          }
+          if (f.status === 'success') arr = arr.filter(h => h.success);
+          if (f.status === 'error') arr = arr.filter(h => !h.success);
+          return arr;
         },
 
         get historyFiltered() {
-          const f = this.historyFilterObj;
-          let list = this.history || [];
-          if (f.search) {
-            const q = f.search.toLowerCase();
-            list = list.filter(h => (h.jobKey || '').toLowerCase().includes(q));
-          }
-          if (f.status === 'success') list = list.filter(h => h.success !== false);
-          else if (f.status === 'error') list = list.filter(h => h.success === false);
-          if (f.dateFrom) {
-            const from = new Date(f.dateFrom).getTime();
-            list = list.filter(h => h.fireTime && new Date(h.fireTime).getTime() >= from);
-          }
-          if (f.dateTo) {
-            const to = new Date(f.dateTo).getTime();
-            list = list.filter(h => h.fireTime && new Date(h.fireTime).getTime() <= to);
-          }
-          return list;
+          return this.filteredHistory;
         },
 
         get historyPageCount() {
@@ -833,6 +832,19 @@
           if (this.$refs && this.$refs.graphContainer) {
             this.updateGraphSize();
           }
+          // Use ResizeObserver for precise container-aware resizing
+          const resizeObserver = new ResizeObserver(() => {
+            this.updateGraphSize();
+            this.updateGraphChart();
+            this.updateTimelineChart();
+          });
+          this.$nextTick(() => {
+            const gc = this.$refs.graphContainer;
+            const tc = this.$refs.timelineContainer;
+            if (gc) resizeObserver.observe(gc);
+            if (tc) resizeObserver.observe(tc);
+          });
+          // Fallback for window resize
           window.addEventListener('resize', () => this.updateGraphSize());
         },
 
@@ -1379,14 +1391,15 @@
           if (page === 'history') this.loadHistory();
           if (page === 'graph') {
             this.loadStats();
-            this.$nextTick(() => this.updateGraphSize());
+            // Double-RAF ensures container is visible and laid out before measuring
+            requestAnimationFrame(() => requestAnimationFrame(() => this.updateGraphSize()));
           }
           if (page === 'triggers') this.loadTriggers();
           if (page === 'executing') this.loadExecutingJobs();
           if (page === 'calendars') this.loadCalendars();
           if (page === 'timeline') {
             this.loadTimeline();
-            this.$nextTick(() => this.updateGraphSize());
+            requestAnimationFrame(() => requestAnimationFrame(() => this.updateGraphSize()));
           }
         },
 
@@ -1603,6 +1616,10 @@
           this.loading.stats = true;
           try {
             const newStats = await this.fetchApi('/stats');
+            newStats.totalJobs = this.jobs.length;
+            newStats.totalTriggers = this.triggers.length;
+            newStats.executing = this.executingJobs.length;
+            newStats.totalExecutions = newStats.totalExecutions ?? this.scheduler.numberOfJobsExecuted ?? 0;
             // Track trend: move current to prev after 15s
             if (this.statsSnapshot && (Date.now() - this.statsSnapshot > 15000)) {
               this.statsPrev = Object.assign({}, this.stats);
@@ -2272,6 +2289,16 @@
           return `in ${Math.floor(diff / 86400000)}d`;
         },
 
+        triggerCountdown(nextFireTime) {
+          if (!nextFireTime) return '';
+          const diff = new Date(nextFireTime).getTime() - this.nowTick;
+          if (diff <= 0) return 'now';
+          if (diff < 60000) return Math.ceil(diff / 1000) + 's';
+          if (diff < 3600000) return Math.ceil(diff / 60000) + 'm';
+          if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ' + Math.floor((diff % 3600000) / 60000) + 'm';
+          return Math.floor(diff / 86400000) + 'd';
+        },
+
         formatLiveDuration(startIso) {
           if (!startIso) return '—';
           const elapsed = this.nowTick - new Date(startIso).getTime();
@@ -2291,7 +2318,7 @@
 
         // ========================= EXPORT HISTORY CSV =========================
         exportHistoryCSV() {
-          const rows = this.historyFiltered || this.history;
+          const rows = this.filteredHistory || this.history;
           const header = 'Job Key,Trigger,Fire Time,Duration (ms),Status\n';
           const lines = rows.map(r =>
             [r.jobKey || '', r.triggerKey || '', r.fireTime || '', r.durationMs || r.duration || '', r.success !== false ? 'Success' : 'Error'].join(',')
@@ -2305,7 +2332,7 @@
         },
 
         exportHistoryJSON() {
-          const rows = this.historyFiltered || this.history;
+          const rows = this.filteredHistory || this.history;
           const json = JSON.stringify(rows, null, 2);
           const blob = new Blob([json], { type: 'application/json' });
           const url = URL.createObjectURL(blob);
