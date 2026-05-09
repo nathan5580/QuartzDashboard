@@ -2,6 +2,16 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [2.3.1] — 2026-05-09
+
+### Added
+- **App boot loader** — Branded splash screen with animated "Q" logo and phase text (Connecting to SignalR → Loading scheduler data → Loading history) while the dashboard initializes. Smooth fade-out when ready.
+- **SignalR reconnection toasts** — Visual feedback when connection drops ("Connection lost — reconnecting..."), recovers ("Reconnected via SignalR"), or falls back to polling.
+- **Data pulse indicator** — Small indigo dot pulses in the footer status bar when SignalR pushes real-time data, confirming the live connection is actively receiving events.
+
+### Fixed
+- **Version display** — About section in Settings now shows the actual Quartz version from the scheduler API instead of hardcoded "2.0.9".
+
 ## [2.3.0] — 2026-05-09
 
 ### Added
