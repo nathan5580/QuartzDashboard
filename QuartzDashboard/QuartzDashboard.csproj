@@ -2,13 +2,13 @@
 
   <PropertyGroup>
     <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
     <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
 
     <!-- NuGet packaging -->
     <PackageId>Dot.QuartzDashboard</PackageId>
-    <Version>2.4.5</Version>
+    <Version>3.0.0</Version>
     <Authors>n8</Authors>
     <Description>A beautiful, self-contained Quartz.NET scheduler dashboard. Drop into any ASP.NET Core app with two lines of code. View jobs, triggers, history, execution graph, timeline, health, and control the scheduler from a polished SPA.</Description>
     <PackageTags>quartz;dashboard;scheduler;admin</PackageTags>
@@ -38,12 +38,21 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.5" />
     <PackageReference Include="Quartz" Version="3.18.0" />
     <PackageReference Include="Quartz.Extensions.DependencyInjection" Version="3.18.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="wwwroot\**" />
+    <EmbeddedResource Include="wwwroot\**"
+                      Exclude="wwwroot\app.js;wwwroot\app.css;wwwroot\charts.js;wwwroot\src\**" />
   </ItemGroup>
+
+  <Target Name="MinifyAssets" BeforeTargets="DispatchToInnerBuilds" Condition="'$(SkipMinify)' != 'true' and '$(TargetFramework)' == ''">
+    <Exec Command="node build-assets.mjs" WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <ItemGroup>
+      <EmbeddedResource Include="wwwroot\app.min.js;wwwroot\app.min.css;wwwroot\charts.min.js" />
+    </ItemGroup>
+  </Target>
 
 </Project>

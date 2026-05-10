@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="dark" data-theme="dark">
+<!-- ============================================================ -->
+<!-- SECTION: Head / Meta / Styles                                -->
+<!-- ============================================================ -->
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,29 +10,25 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%236366f1'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='white' font-family='system-ui' font-weight='700' font-size='18'%3EQ%3C/text%3E%3C/svg%3E" />
   <script>window.__QUARTZ_BASE = '__QUARTZ_BASE__';</script>
   <script>
-    // Apply OS theme before Alpine loads to avoid flash
+    // Apply saved or system theme before Alpine loads to avoid flash
     (function() {
-      var saved = localStorage.getItem('quartz-dashboard-theme');
-      if (!saved) {
-        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (!prefersDark) {
-          document.documentElement.classList.remove('dark');
-          document.documentElement.classList.add('light');
-        }
-      } else if (saved === 'light') {
-        document.documentElement.classList.remove('dark');
-        document.documentElement.classList.add('light');
-      }
+      var saved = localStorage.getItem('qd-theme') || localStorage.getItem('quartz-dashboard-theme');
+      var theme = saved || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+      document.documentElement.classList.remove('dark', 'light');
+      document.documentElement.classList.add(theme);
     })();
   </script>
   <script src="signalr.min.js?v=__QUARTZ_VERSION__"></script>
   <script src="alpine.min.js?v=__QUARTZ_VERSION__" defer></script>
-  <link rel="stylesheet" href="tailwind.css?v=__QUARTZ_VERSION__" />
-  <script src="charts.js?v=__QUARTZ_VERSION__"></script>
-  <link rel="stylesheet" href="app.css?v=__QUARTZ_VERSION__" />
+  <script src="charts.min.js?v=__QUARTZ_VERSION__"></script>
+  <link rel="stylesheet" href="app.min.css?v=__QUARTZ_VERSION__" />
 </head>
 <body class="bg-gray-950 text-gray-200 antialiased" :class="embedMode ? 'embed-mode' : ''" x-data="dashboard()" x-init="init()">
 
+  <!-- ============================================================ -->
+  <!-- SECTION: Boot Loader / Loading Screen                       -->
+  <!-- ============================================================ -->
   <!-- ===================== APP BOOT LOADER (visible immediately, no x-cloak) ===================== -->
   <div x-show="!appReady" class="app-boot-loader" x-transition:leave="transition ease-in duration-300" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
     <div class="boot-logo">
@@ -88,6 +87,9 @@
     </div>
   </div>
 
+  <!-- ============================================================ -->
+  <!-- SECTION: Modals / Create Job                                -->
+  <!-- ============================================================ -->
   <!-- ============ CREATE JOB MODAL ============ -->
     <div x-show="showCreateJobModal" class="modal-overlay" @click.self="showCreateJobModal = false" style="display: none;">
       <div class="modal-card">
@@ -136,6 +138,9 @@
       </div>
     </div>
 
+  <!-- ============================================================ -->
+  <!-- SECTION: Modals / Create Trigger                            -->
+  <!-- ============================================================ -->
   <!-- ============ CREATE TRIGGER MODAL ============ -->
     <div x-show="showCreateTriggerModal" class="modal-overlay" @click.self="showCreateTriggerModal = false" style="display: none;">
       <div class="modal-card">
@@ -233,6 +238,9 @@
       </div>
     </div>
 
+  <!-- ============================================================ -->
+  <!-- SECTION: Modals / Trigger Job                               -->
+  <!-- ============================================================ -->
   <!-- ============ TRIGGER JOB MODAL ============ -->
     <div x-show="showTriggerJobModal" class="modal-overlay" @click.self="closeTriggerJobModal()" style="display: none;">
       <div class="modal-card max-w-lg">
@@ -278,6 +286,9 @@
       </div>
     </div>
 
+  <!-- ============================================================ -->
+  <!-- SECTION: Modals / Edit Trigger                              -->
+  <!-- ============================================================ -->
   <!-- ============ EDIT TRIGGER MODAL ============ -->
     <div x-show="showEditTriggerModal" class="modal-overlay" @click.self="showEditTriggerModal = false" style="display: none;">
       <div class="modal-card max-w-md">
@@ -321,6 +332,70 @@
       </div>
     </div>
 
+  <!-- ============================================================ -->
+  <!-- SECTION: Modals / Trigger Detail                            -->
+  <!-- ============================================================ -->
+    <div x-show="showTriggerDetailModal" class="modal-overlay" @click.self="closeTriggerDetail()" style="display: none;">
+      <div class="modal-card max-w-2xl">
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <h2 class="text-base font-semibold text-gray-100">Trigger Details</h2>
+            <p class="text-xs text-gray-500 mt-1" x-text="triggerDetailData ? (triggerDetailData.group + '.' + triggerDetailData.name) : ''"></p>
+          </div>
+          <button @click="closeTriggerDetail()" class="btn-icon">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <template x-if="triggerDetailData">
+          <div class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div class="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+                <div class="text-xs text-gray-500">Job</div>
+                <div class="mono text-gray-200 mt-1" x-text="triggerDetailData.jobGroup + '.' + triggerDetailData.jobName"></div>
+              </div>
+              <div class="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+                <div class="text-xs text-gray-500">State</div>
+                <div class="text-gray-200 mt-1" x-text="triggerDetailData.state || '—'"></div>
+              </div>
+              <div class="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+                <div class="text-xs text-gray-500">Type</div>
+                <div class="mono text-gray-200 mt-1" x-text="triggerDetailData.type || '—'"></div>
+              </div>
+              <div class="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+                <div class="text-xs text-gray-500">Misfire</div>
+                <div class="text-gray-200 mt-1" x-text="triggerDetailData.misfireInstruction || 'SmartPolicy'"></div>
+              </div>
+              <div class="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 sm:col-span-2">
+                <div class="text-xs text-gray-500">Schedule</div>
+                <div class="mono text-gray-200 mt-1 break-all" x-text="triggerDetailData.scheduleDescription || triggerDetailData.cronExpression || '—'"></div>
+              </div>
+              <div class="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+                <div class="text-xs text-gray-500">Previous Fire</div>
+                <div class="text-gray-200 mt-1" x-text="triggerDetailData.lastFireTime ? new Date(triggerDetailData.lastFireTime).toLocaleString() : 'Never'"></div>
+              </div>
+              <div class="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+                <div class="text-xs text-gray-500">Next Fire</div>
+                <div class="text-gray-200 mt-1" x-text="triggerDetailData.nextFireTime ? new Date(triggerDetailData.nextFireTime).toLocaleString() : 'Not scheduled'"></div>
+              </div>
+            </div>
+
+            <div x-show="nextFiresLoading" class="text-sm text-gray-500">Loading next fire times...</div>
+            <div x-show="nextFires && nextFires.length > 0" class="mt-4">
+              <h4 class="text-sm font-medium text-gray-600 mb-2">Next Fire Times</h4>
+              <ul class="space-y-1">
+                <template x-for="fire in nextFires" :key="fire">
+                  <li class="text-sm text-gray-700" x-text="new Date(fire).toLocaleString()"></li>
+                </template>
+              </ul>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION: Modals / Create Calendar                           -->
+  <!-- ============================================================ -->
   <!-- ============ CREATE CALENDAR MODAL ============ -->
     <div x-show="showCreateCalendarModal" class="modal-overlay" @click.self="showCreateCalendarModal = false" style="display: none;">
       <div class="modal-card max-w-md">
@@ -362,6 +437,9 @@
       </div>
     </div>
 
+  <!-- ============================================================ -->
+  <!-- SECTION: Modals / Delete Confirm                            -->
+  <!-- ============================================================ -->
   <!-- ============ DELETE CONFIRMATION MODAL ============ -->
     <div x-show="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false" style="display: none;">
       <div class="modal-card max-w-sm">
@@ -374,14 +452,17 @@
         <p class="text-sm text-gray-300 mb-6" x-text="deleteConfirmMessage"></p>
         <div class="flex justify-end gap-2">
           <button @click="showDeleteConfirm = false" class="btn btn-ghost">Cancel</button>
-          <button @click="executeDelete()" class="btn btn-danger gap-2" :disabled="isActionPending(deletePending?.type === 'trigger' ? 'delete-trigger' : 'delete-job', deletePending?.group, deletePending?.name)">
-            <span x-show="isActionPending(deletePending?.type === 'trigger' ? 'delete-trigger' : 'delete-job', deletePending?.group, deletePending?.name)" class="spinner" style="display: none;"></span>
-            <span x-text="isActionPending(deletePending?.type === 'trigger' ? 'delete-trigger' : 'delete-job', deletePending?.group, deletePending?.name) ? 'Deleting...' : 'Delete'"></span>
+          <button @click="executeDelete()" class="btn btn-danger gap-2" :disabled="isDeletePending()">
+            <span x-show="isDeletePending()" class="spinner" style="display: none;"></span>
+            <span x-text="deletePendingButtonLabel()"></span>
           </button>
         </div>
       </div>
     </div>
 
+  <!-- ============================================================ -->
+  <!-- SECTION: Command Palette                                    -->
+  <!-- ============================================================ -->
   <!-- ============ COMMAND PALETTE ============ -->
     <div x-show="showCommandPalette" class="command-palette-overlay" @click.self="showCommandPalette = false" style="display: none;">
       <div class="command-palette-card" @keydown.escape="showCommandPalette = false" @keydown.arrow-up.prevent="commandPalettePrev" @keydown.arrow-down.prevent="commandPaletteNext" @keydown.enter.prevent="commandPaletteSelect">
@@ -413,6 +494,9 @@
       </div>
     </div>
 
+    <!-- ============================================================ -->
+    <!-- SECTION: Keyboard Shortcuts                                 -->
+    <!-- ============================================================ -->
     <!-- ===================== KEYBOARD SHORTCUTS MODAL ===================== -->
     <div x-show="showShortcutsModal" class="modal-overlay" @click.self="showShortcutsModal = false" @keydown.escape.window="showShortcutsModal = false" style="display: none;">
       <div class="card-gradient rounded-xl shadow-2xl w-full max-w-md mx-auto p-6">
@@ -465,6 +549,9 @@
       </div>
     </div>
 
+  <!-- ============================================================ -->
+  <!-- SECTION: Sidebar / Navigation                                -->
+  <!-- ============================================================ -->
   <div class="flex h-screen overflow-hidden" :style="'padding-bottom: 2rem'">
     <!-- ===================== SIDEBAR ===================== -->
     <aside role="navigation" aria-label="Dashboard navigation" :class="['sidebar-collapse flex flex-col flex-shrink-0 bg-gray-950 sidebar-border z-20', sidebarOpen ? 'w-60' : 'w-16']">
@@ -515,7 +602,7 @@
               <span :class="['status-dot', scheduler.isStarted && !scheduler.isStandbyMode ? 'status-dot-running' : scheduler.isStandbyMode ? 'status-dot-standby' : 'status-dot-stopped']"></span>
             </span>
             <span class="text-xs text-gray-400">
-              <span x-text="scheduler.isStarted ? (scheduler.isStandbyMode ? 'Standby' : 'Running') : 'Stopped'"></span>
+              <span x-text="schedulerStatusLabel()"></span>
             </span>
           </div>
           <span class="text-[10px] text-gray-600 font-mono" x-text="'v' + (scheduler.version || '?')"></span>
@@ -530,6 +617,9 @@
       </div>
     </aside>
 
+    <!-- ============================================================ -->
+    <!-- SECTION: Global Search Overlay                              -->
+    <!-- ============================================================ -->
     <!-- Global Search Overlay -->
     <div x-show="globalSearchOpen" @keydown.escape.window="closeGlobalSearch()" class="global-search-overlay" @click.self="closeGlobalSearch()" style="display:none">
       <div class="global-search-box">
@@ -576,6 +666,9 @@
       </div>
     </div>
 
+    <!-- ============================================================ -->
+    <!-- SECTION: Keyboard Shortcuts / Help Overlay                  -->
+    <!-- ============================================================ -->
     <!-- Keyboard Shortcuts Help -->
     <div x-show="showShortcutsHelp" @click.self="showShortcutsHelp = false" @keydown.escape.window="showShortcutsHelp = false" class="shortcuts-overlay" style="display:none">
       <div class="shortcuts-box">
@@ -601,6 +694,9 @@
       </div>
     </div>
 
+    <!-- ============================================================ -->
+    <!-- SECTION: History Detail Drawer                              -->
+    <!-- ============================================================ -->
     <!-- History Execution Detail Drawer -->
     <div x-show="showHistoryDetail" class="history-detail-drawer" @keydown.escape.window="closeHistoryDetail()" style="display:none">
       <div class="p-6">
@@ -614,7 +710,7 @@
               <span class="px-3 py-1 rounded-full text-xs font-medium"
                     :class="historyDetailData.success ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'"
                     x-text="historyDetailData.success ? '✓ Success' : '✗ Failed'"></span>
-              <span class="text-xs text-gray-500" x-text="historyDetailData.duration < 1000 ? historyDetailData.duration.toFixed(1) + 'ms' : (historyDetailData.duration / 1000).toFixed(2) + 's'"></span>
+              <span class="text-xs text-gray-500" x-text="formatShortDuration(historyDetailData.duration)"></span>
             </div>
 
             <div class="card-gradient p-4 space-y-3">
@@ -637,6 +733,9 @@
     <!-- History detail backdrop -->
     <div x-show="showHistoryDetail" @click="closeHistoryDetail()" class="fixed inset-0 bg-black/40 z-[89]" style="display:none"></div>
 
+    <!-- ============================================================ -->
+    <!-- SECTION: Modals / CRON Builder                              -->
+    <!-- ============================================================ -->
     <!-- CRON Builder Modal -->
     <div x-show="showCronBuilder" @click.self="closeCronBuilder()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center" style="display:none">
       <div class="cron-builder w-full max-w-lg mx-4">
@@ -696,8 +795,14 @@
       </div>
     </div>
 
+    <!-- ============================================================ -->
+    <!-- SECTION: Main Content Shell                                 -->
+    <!-- ============================================================ -->
     <!-- ===================== MAIN CONTENT ===================== -->
     <main role="main" aria-label="Dashboard content" class="flex-1 overflow-y-auto scrollbar-thin p-6 lg:p-8">
+      <!-- ============================================================ -->
+      <!-- SECTION: Header / Toolbar                                  -->
+      <!-- ============================================================ -->
       <div class="flex items-center gap-2 text-xs text-gray-500 mb-1" x-show="!embedMode">
         <span>Dashboard</span>
         <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
@@ -708,6 +813,14 @@
           <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <span>Command Palette</span>
           <kbd class="mono text-[10px] bg-white/[0.07] text-gray-300 px-1.5 py-0.5 rounded border border-white/[0.1]">⌘K</kbd>
+        </button>
+        <button @click="toggleTheme()" class="btn-icon w-8 h-8" :title="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'" aria-label="Toggle dark or light mode">
+          <template x-if="theme === 'dark'">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          </template>
+          <template x-if="theme !== 'dark'">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+          </template>
         </button>
         <button @click="toggleFullscreen()" class="btn-icon w-8 h-8" :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'">
           <svg x-show="!isFullscreen" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
@@ -722,9 +835,12 @@
         <svg style="width:16px;height:16px;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
-        <span x-text="!scheduler.isStarted ? 'Scheduler is stopped — data may be stale' : scheduler.isStandbyMode ? 'Scheduler is in standby mode — jobs are paused' : 'Real-time connection lost — data may be stale'"></span>
+        <span x-text="schedulerStaleMessage()"></span>
         <span x-show="lastRefreshed" class="ml-auto text-xs opacity-60" x-text="'Last updated ' + (lastRefreshed ? lastRefreshed.toLocaleTimeString() : '')"></span>
       </div>
+      <!-- ============================================================ -->
+      <!-- SECTION: Overview Page                                      -->
+      <!-- ============================================================ -->
       <!-- ===================== OVERVIEW PAGE ===================== -->
       <div x-show="currentPage === 'overview'" x-transition.opacity.duration.150ms>
           <div class="space-y-6">
@@ -985,13 +1101,16 @@
                   <span class="text-[11px] font-medium uppercase tracking-wider text-gray-500">Status</span>
                   <p class="text-sm mt-0.5">
                     <span :class="scheduler.isStandbyMode ? 'badge badge-paused' : (scheduler.isStarted ? 'badge badge-running' : 'badge badge-error')"
-                          x-text="scheduler.isStandbyMode ? 'Standby' : (scheduler.isStarted ? 'Running' : 'Stopped')"></span>
+                          x-text="schedulerStatusLabel()"></span>
                   </p>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      <!-- ============================================================ -->
+      <!-- SECTION: Health Page                                        -->
+      <!-- ============================================================ -->
       <div x-show="currentPage === 'health'" x-transition.opacity.duration.150ms>
           <div class="space-y-6">
             <!-- Header -->
@@ -1139,22 +1258,7 @@
                   <text x="10" y="92" class="fill-gray-600 text-[9px]" style="font-size:9px;fill:#4b5563">50%</text>
                   <text x="15" y="152" class="fill-gray-600 text-[9px]" style="font-size:9px;fill:#4b5563">0%</text>
                   <!-- Bars + labels — rendered via x-html to avoid Alpine template issues inside SVG -->
-                  <g x-html="(() => {
-                    const data = (executionBuckets || []).slice(-24);
-                    if (!data.length) return '';
-                    const w = 668, count = data.length;
-                    return data.map((bucket, idx) => {
-                      if (!bucket) return '';
-                      const er = bucket.errorRate || 0;
-                      const barW = Math.min(22, Math.max(6, (w / count) * 0.6));
-                      const cx = 36 + (idx + 0.5) * (w / count);
-                      const barH = Math.max(4, (er / 100) * 120);
-                      const color = er > 0 ? '#ef4444' : '#22c55e';
-                      const opacity = er > 0 ? 0.78 : 0.35;
-                      return '<rect x=&quot;' + (cx - barW/2) + '&quot; y=&quot;' + (148 - barH) + '&quot; width=&quot;' + barW + '&quot; height=&quot;' + barH + '&quot; rx=&quot;2&quot; fill=&quot;' + color + '&quot; fill-opacity=&quot;' + opacity + '&quot;/>' +
-                             '<text x=&quot;' + cx + '&quot; y=&quot;165&quot; text-anchor=&quot;middle&quot; style=&quot;font-size:9px;fill:#374151&quot;>' + (bucket.label || '') + '</text>';
-                    }).join('');
-                  })()"></g>
+                  <g x-html="renderFailureRateBars()"></g>
                   <!-- Empty state overlay when no data -->
                   <text x="360" y="90" text-anchor="middle" style="font-size:11px;fill:#4b5563" :style="!(executionBuckets || []).length ? '' : 'display:none'">No data available</text>
                   <!-- All-clear label when data exists but no failures -->
@@ -1172,7 +1276,7 @@
                   <span class="text-[11px] font-medium uppercase tracking-wider text-gray-500">Status</span>
                   <p class="text-sm mt-0.5">
                     <span :class="scheduler.isStandbyMode ? 'badge badge-paused' : (scheduler.isStarted ? 'badge badge-running' : 'badge badge-error')"
-                          x-text="scheduler.isStandbyMode ? 'Standby' : (scheduler.isStarted ? 'Running' : 'Stopped')"></span>
+                          x-text="schedulerStatusLabel()"></span>
                   </p>
                 </div>
                 <div>
@@ -1233,6 +1337,9 @@
         </div>
 
 
+      <!-- ============================================================ -->
+      <!-- SECTION: Jobs Page                                          -->
+      <!-- ============================================================ -->
       <!-- ===================== JOBS PAGE ===================== -->
       <div x-show="currentPage === 'jobs'" x-transition.opacity.duration.150ms>
           <div class="space-y-4">
@@ -1240,18 +1347,9 @@
             <div class="flex items-center justify-between flex-wrap gap-3">
               <div>
                 <h1 class="text-lg font-semibold tracking-tight text-gray-100">Jobs</h1>
-                <p class="text-xs text-gray-500 mt-0.5"><span x-text="filteredJobs.length"></span> of <span x-text="jobs.length"></span> on this page · <span x-text="jobsTotal"></span> total jobs</p>
+                <p class="text-xs text-gray-500 mt-0.5"><span x-text="jobs.length"></span> on this page · <span x-text="jobsTotal"></span> total jobs</p>
               </div>
               <div class="flex items-center gap-2">
-                <div class="relative">
-                  <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                  </svg>
-                  <input type="text" x-model="jobsFilter" placeholder="Search jobs..." class="glass-input pl-8 w-52 text-xs">
-                  <button x-show="jobsFilter" @click="jobsFilter = ''" class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-300 transition-colors" style="display: none;">
-                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
-                </div>
                 <button x-show="Object.values(collapsedGroups).some(v => v)"
                         @click="collapsedGroups = {}; saveSettings()"
                         class="btn btn-ghost text-xs" title="Expand all groups">
@@ -1274,6 +1372,19 @@
                 <button @click="loadJobs()" class="btn btn-ghost" title="Refresh">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
                 </button>
+              </div>
+            </div>
+
+            <div class="mb-4 space-y-2">
+              <input type="text"
+                     x-model="jobSearchQuery"
+                     placeholder="Search jobs by name or group..."
+                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                     @input.debounce.200ms="filterJobs()">
+              <div class="flex items-center justify-between gap-2">
+                <span x-show="jobSearchQuery" class="text-sm text-gray-500"
+                      x-text="`Showing ${filteredJobs.length} of ${jobs.length} jobs`"></span>
+                <button x-show="jobSearchQuery" @click="jobSearchQuery = ''; filterJobs()" class="btn btn-ghost text-xs">Clear</button>
               </div>
             </div>
 
@@ -1437,7 +1548,7 @@
                   </div>
                 </template>
 
-                <div x-show="!filteredJobs.length && jobsTotal > 0" class="flex items-center justify-between px-4 py-3 border border-white/[0.04] rounded-xl bg-white/[0.02]">
+                <div x-show="!filteredJobs.length && jobsTotal > 0 && !jobSearchQuery" class="flex items-center justify-between px-4 py-3 border border-white/[0.04] rounded-xl bg-white/[0.02]">
                   <span class="text-xs text-gray-500" x-text="jobsTotal + ' total jobs'"></span>
                   <div class="flex items-center gap-1">
                     <button @click="jobsPrevPage()" :disabled="jobsPage <= 1" class="btn-icon" :class="jobsPage <= 1 ? 'opacity-30' : ''">
@@ -1450,10 +1561,10 @@
                   </div>
                 </div>
                 <!-- Empty: no match -->
-                <div x-show="!filteredJobs.length && jobs.length > 0" class="card-gradient text-center py-10">
+                <div x-show="filteredJobs.length === 0 && jobSearchQuery" class="card-gradient text-center py-10">
                   <svg class="w-10 h-10 mx-auto text-gray-600 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                  <p class="text-sm text-gray-500">No jobs match <span class="text-gray-400 font-medium" x-text="'\u2018' + jobsFilter + '\u2019'"></span></p>
-                  <button @click="jobsFilter = ''" class="btn btn-ghost mt-2 text-xs">Clear filter</button>
+                  <p class="text-gray-500 text-sm">No jobs matching "<span x-text="jobSearchQuery"></span>"</p>
+                  <button @click="jobSearchQuery = ''; filterJobs()" class="btn btn-ghost mt-2 text-xs">Clear filter</button>
                 </div>
                 <!-- Empty: no jobs -->
 
@@ -1462,6 +1573,9 @@
           </div>
         </div>
 
+      <!-- ============================================================ -->
+      <!-- SECTION: Job Detail Drawer                                  -->
+      <!-- ============================================================ -->
       <!-- ============ JOB DETAIL DRAWER ============ -->
         <div x-show="showJobDrawer" style="display:none;">
           <!-- Backdrop -->
@@ -1580,7 +1694,7 @@
                       <div class="rounded-lg bg-white/[0.03] border border-white/[0.06] px-4 py-3">
                         <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Last Fire</div>
                         <div class="text-sm font-medium text-gray-400"
-                             x-text="(jobDrawerTriggers.find(t => t.lastFireTime) || {}).lastFireTime ? relativeTime((jobDrawerTriggers.find(t => t.lastFireTime) || {}).lastFireTime) + ' ago' : '—'"></div>
+                             x-text="jobDrawerLastFireLabel()"></div>
                       </div>
                     </div>
 
@@ -1645,14 +1759,7 @@
                       <template x-for="trig in (jobDrawerData.triggers || [])" :key="trig.name + trig.group">
                         <div class="flex items-center justify-between py-1.5 text-xs">
                           <span class="text-gray-400" x-text="trig.name"></span>
-                          <span class="text-gray-300 tabular-nums font-mono text-[10px]" x-text="(() => {
-                            if (trig.intervalMs > 0) {
-                              const perHour = Math.round(3600000 / trig.intervalMs * 10) / 10;
-                              const perDay = Math.round(perHour * 24);
-                              return perHour + '/hr · ' + perDay + '/day';
-                            }
-                            return 'cron';
-                          })()"></span>
+                          <span class="text-gray-300 tabular-nums font-mono text-[10px]" x-text="triggerFrequencyLabel(trig)"></span>
                         </div>
                       </template>
                     </div>
@@ -1785,14 +1892,7 @@
                       </div>
                       <svg :width="Math.min(jobDrawerHistory.length * 8, 300)" height="32" class="w-full">
                         <polyline
-                          :points="(() => {
-                            const h = jobDrawerHistory.slice().reverse().slice(-40);
-                            if (h.length < 2) return '';
-                            const maxD = Math.max(...h.map(x => x.duration || x.runTimeMs || 0), 1);
-                            const w = 300;
-                            const step = w / (h.length - 1);
-                            return h.map((x, i) => (i * step).toFixed(1) + ',' + (30 - (((x.duration || x.runTimeMs || 0) / maxD) * 28)).toFixed(1)).join(' ');
-                          })()"
+                          :points="jobDrawerHistorySparklinePoints()"
                           fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                       </svg>
                     </div>
@@ -1842,6 +1942,9 @@
         </div>
         </div>
 
+      <!-- ============================================================ -->
+      <!-- SECTION: Triggers Page                                      -->
+      <!-- ============================================================ -->
       <!-- ===================== TRIGGERS PAGE ===================== -->
       <div x-show="currentPage === 'triggers'" x-transition.opacity.duration.150ms>
           <div class="space-y-4">
@@ -1930,7 +2033,9 @@
                           <tbody>
                             <template x-for="t in group.triggers" :key="t.group + '.' + t.name">
                               <tr>
-                                <td class="font-medium text-gray-100 text-xs" x-text="t.name"></td>
+                                <td class="font-medium text-xs">
+                                  <button @click.stop="openTriggerDetail(t)" class="text-gray-100 hover:text-indigo-300 transition-colors" x-text="t.name"></button>
+                                </td>
                                 <td class="hidden sm:table-cell"><span class="mono text-xs text-gray-400" x-text="t.type"></span></td>
                                 <td>
                                   <span :class="'badge ' + (t.state === 'Normal' ? 'badge-normal' : t.state === 'Paused' ? 'badge-paused' : 'badge-idle')" x-text="t.state"></span>
@@ -1944,6 +2049,9 @@
                                 </td>
                                 <td class="text-right">
                                   <div class="flex gap-1 justify-end">
+                                    <button @click.stop="openTriggerDetail(t)" class="btn btn-ghost text-[10px] px-2 py-1" title="View">
+                                      <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    </button>
                                     <button @click.stop="openEditTrigger(t)" class="btn btn-ghost text-[10px] px-2 py-1" title="Edit">
                                       <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
                                     </button>
@@ -1978,6 +2086,9 @@
           </div>
         </div>
 
+      <!-- ============================================================ -->
+      <!-- SECTION: Executing Page                                     -->
+      <!-- ============================================================ -->
       <!-- ===================== EXECUTING PAGE ===================== -->
       <div x-show="currentPage === 'executing'" x-transition.opacity.duration.150ms>
           <div class="space-y-4">
@@ -2100,6 +2211,9 @@
           </div>
         </div>
 
+      <!-- ============================================================ -->
+      <!-- SECTION: History Page                                       -->
+      <!-- ============================================================ -->
       <!-- ===================== HISTORY PAGE ===================== -->
       <div x-show="currentPage === 'history'" x-transition.opacity.duration.150ms>
           <div class="space-y-4">
@@ -2112,9 +2226,11 @@
                 <p class="text-xs text-gray-500 mt-0.5">Showing <span x-text="filteredHistory.length"></span> on this page · page <span x-text="historyCurrentPage"></span> of <span x-text="historyPageCount"></span></p>
               </div>
               <div class="flex items-center gap-2 flex-wrap">
-                <button @click="exportHistoryCSV()" class="btn btn-ghost text-xs" title="Export CSV">
-                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                <button @click="exportHistoryToCsv(history)"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                        title="Export history to CSV">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                   </svg>
                   Export CSV
                 </button>
@@ -2254,6 +2370,9 @@
           </div>
         </div>
 
+      <!-- ============================================================ -->
+      <!-- SECTION: Graph / Stats Page                                 -->
+      <!-- ============================================================ -->
       <!-- ===================== GRAPH PAGE (ChartEngine) ===================== -->
       <div x-show="currentPage === 'graph'" x-transition.opacity.duration.150ms>
           <div class="space-y-4">
@@ -2398,6 +2517,9 @@
           </div>
         </div>
 
+      <!-- ============================================================ -->
+      <!-- SECTION: Timeline Page                                      -->
+      <!-- ============================================================ -->
       <!-- ===================== TIMELINE PAGE ===================== -->
       <div x-show="currentPage === 'timeline'" x-transition.opacity.duration.150ms>
           <div class="space-y-4">
@@ -2599,6 +2721,9 @@
           </div>
         </div>
 
+      <!-- ============================================================ -->
+      <!-- SECTION: Calendars Page                                     -->
+      <!-- ============================================================ -->
       <!-- ===================== CALENDARS PAGE ===================== -->
       <div x-show="currentPage === 'calendars'" x-transition.opacity.duration.150ms>
           <div class="space-y-4">
@@ -2677,6 +2802,9 @@
           </div>
         </div>
 
+      <!-- ============================================================ -->
+      <!-- SECTION: Settings Page                                      -->
+      <!-- ============================================================ -->
       <!-- ===================== SETTINGS PAGE ===================== -->
       <div x-show="currentPage === 'settings'" x-transition.opacity.duration.150ms>
           <div class="space-y-4">
@@ -2779,26 +2907,26 @@
                   <p class="text-xs text-gray-500">Customize the dashboard look</p>
                 </div>
               </div>
-              <label @click.prevent="toggleLightMode()"
+              <label @click.prevent="toggleTheme()"
                      class="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-white/[0.03] cursor-pointer transition-colors border border-white/[0.04]">
                 <div class="flex items-center gap-3">
-                  <template x-if="!lightMode">
-                    <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
-                    </svg>
-                  </template>
-                  <template x-if="lightMode">
+                  <template x-if="theme === 'dark'">
                     <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                       <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
                     </svg>
                   </template>
+                  <template x-if="theme !== 'dark'">
+                    <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+                    </svg>
+                  </template>
                   <div>
-                    <span class="text-sm text-gray-200" x-text="lightMode ? 'Light Mode' : 'Dark Mode'"></span>
-                    <span class="text-xs text-gray-600 block" x-text="lightMode ? 'Click to switch to dark' : 'Click to switch to light'"></span>
+                    <span class="text-sm text-gray-200" x-text="theme === 'dark' ? 'Dark Mode' : 'Light Mode'"></span>
+                    <span class="text-xs text-gray-600 block" x-text="theme === 'dark' ? 'Click to switch to light' : 'Click to switch to dark'"></span>
                   </div>
                 </div>
-                <div :class="['toggle', lightMode ? 'toggle-on' : 'toggle-off']">
-                  <div :class="['toggle-knob', lightMode ? 'toggle-knob-on' : 'toggle-knob-off']"></div>
+                <div :class="['toggle', theme === 'light' ? 'toggle-on' : 'toggle-off']">
+                  <div :class="['toggle-knob', theme === 'light' ? 'toggle-knob-on' : 'toggle-knob-off']"></div>
                 </div>
               </label>
             </div>
@@ -2962,6 +3090,9 @@
     </main>
   </div>
 
+  <!-- ============================================================ -->
+  <!-- SECTION: Footer / Mobile Nav                                  -->
+  <!-- ============================================================ -->
   <!-- ===================== FOOTER STATUS BAR ===================== -->
   <div class="footer-bar">
     <div class="flex items-center gap-4 w-full max-w-7xl mx-auto">
@@ -2969,7 +3100,7 @@
         <span class="relative inline-flex">
           <span :class="['status-dot w-2 h-2', scheduler.isStarted && !scheduler.isStandbyMode ? 'status-dot-running' : scheduler.isStandbyMode ? 'status-dot-standby' : 'status-dot-stopped']"></span>
         </span>
-        <span x-text="scheduler.isStarted ? (scheduler.isStandbyMode ? 'Standby' : 'Running') : 'Stopped'" class="font-medium text-gray-400"></span>
+        <span x-text="schedulerStatusLabel()" class="font-medium text-gray-400"></span>
       </div>
       <span class="text-gray-600">|</span>
       <span><span class="text-gray-500">Jobs:</span> <span class="text-gray-400 font-medium" x-text="jobs.length"></span></span>
@@ -3015,6 +3146,6 @@
 
   </div><!-- close x-cloak wrapper -->
 
-  <script src="app.js?v=__QUARTZ_VERSION__"></script>
+  <script src="app.min.js?v=__QUARTZ_VERSION__"></script>
 </body>
 </html>

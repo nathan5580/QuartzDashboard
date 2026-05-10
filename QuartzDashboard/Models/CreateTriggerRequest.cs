@@ -3,61 +3,85 @@ using System.Text.Json.Serialization;
 namespace QuartzDashboard.Models;
 
 /// <summary>
-/// Request to create a new trigger in the scheduler.
+/// Represents a request to create a Quartz trigger.
 /// </summary>
 public sealed record CreateTriggerRequest
 {
-    /// <summary>Trigger name (required).</summary>
+    /// <summary>
+    /// Gets the trigger name.
+    /// </summary>
     [JsonPropertyName("name")]
     public string Name { get; init; } = "";
 
-    /// <summary>Trigger group (default: "DEFAULT").</summary>
+    /// <summary>
+    /// Gets the trigger group name.
+    /// </summary>
     [JsonPropertyName("group")]
     public string? Group { get; init; }
 
-    /// <summary>Target job name (required).</summary>
+    /// <summary>
+    /// Gets the name of the job targeted by the trigger.
+    /// </summary>
     [JsonPropertyName("jobName")]
     public string JobName { get; init; } = "";
 
-    /// <summary>Target job group (default: "DEFAULT").</summary>
+    /// <summary>
+    /// Gets the group of the job targeted by the trigger.
+    /// </summary>
     [JsonPropertyName("jobGroup")]
     public string? JobGroup { get; init; }
 
-    /// <summary>Optional description.</summary>
+    /// <summary>
+    /// Gets an optional trigger description.
+    /// </summary>
     [JsonPropertyName("description")]
     public string? Description { get; init; }
 
-    /// <summary>Cron expression (required for cron triggers).</summary>
+    /// <summary>
+    /// Gets the cron expression used for cron triggers.
+    /// </summary>
     [JsonPropertyName("cronExpression")]
     public string? CronExpression { get; init; }
 
-    /// <summary>Interval in seconds (required for simple triggers).</summary>
+    /// <summary>
+    /// Gets the interval, in seconds, used for simple triggers.
+    /// </summary>
     [JsonPropertyName("intervalSeconds")]
     public int? IntervalSeconds { get; init; }
 
-    /// <summary>Repeat count (-1 = infinite).</summary>
+    /// <summary>
+    /// Gets the repeat count for simple triggers, where <c>-1</c> means repeat forever.
+    /// </summary>
     [JsonPropertyName("repeatCount")]
     public int? RepeatCount { get; init; }
 
-    /// <summary>Trigger priority (default: 5).</summary>
+    /// <summary>
+    /// Gets the Quartz trigger priority.
+    /// </summary>
     [JsonPropertyName("priority")]
     public int? Priority { get; init; }
 
-    /// <summary>UTC start time.</summary>
+    /// <summary>
+    /// Gets the UTC time when the trigger becomes active.
+    /// </summary>
     [JsonPropertyName("startTimeUtc")]
     public DateTimeOffset? StartTimeUtc { get; init; }
 
-    /// <summary>UTC end time.</summary>
+    /// <summary>
+    /// Gets the UTC time when the trigger expires.
+    /// </summary>
     [JsonPropertyName("endTimeUtc")]
     public DateTimeOffset? EndTimeUtc { get; init; }
 
     /// <summary>
-    /// Misfire instruction: "fireOnceNow", "doNothing", "ignoreMisfirePolicy", or null for default.
+    /// Gets the misfire instruction for the trigger.
     /// </summary>
     [JsonPropertyName("misfireInstruction")]
     public string? MisfireInstruction { get; init; }
 
-    /// <summary>Calendar name to associate with this trigger.</summary>
+    /// <summary>
+    /// Gets the optional calendar associated with the trigger.
+    /// </summary>
     [JsonPropertyName("calendarName")]
     public string? CalendarName { get; init; }
 }

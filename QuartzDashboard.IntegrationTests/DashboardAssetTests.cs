@@ -24,7 +24,7 @@ public sealed class DashboardAssetTests : IAsyncLifetime
     public async Task GetAppCss_DefaultConfiguration_ReturnsCss()
     {
         using var client = _factory.CreateAnonymousClient();
-        using var response = await client.GetAsync("/quartz/app.css");
+        using var response = await client.GetAsync("/quartz/app.min.css");
         var css = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -36,12 +36,13 @@ public sealed class DashboardAssetTests : IAsyncLifetime
     public async Task GetAppJs_DefaultConfiguration_ReturnsJavaScript()
     {
         using var client = _factory.CreateAnonymousClient();
-        using var response = await client.GetAsync("/quartz/app.js");
+        using var response = await client.GetAsync("/quartz/app.min.js");
         var js = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         response.AssertTextContentType("application/javascript");
-        Assert.Contains("function dashboard()", js);
+        Assert.NotEmpty(js);
+        Assert.Contains("loadSchedulers", js);
     }
 
     [Fact]
@@ -51,31 +52,21 @@ public sealed class DashboardAssetTests : IAsyncLifetime
         using var response = await client.GetAsync("/quartz/");
         var html = await response.Content.ReadAsStringAsync();
 
-        Assert.Contains("app.css", html);
-        Assert.Contains("app.js", html);
+        Assert.Contains("app.min.css", html);
+        Assert.Contains("app.min.js", html);
+        Assert.Contains("charts.min.js", html);
         Assert.Contains("signalr.min.js", html);
     }
 
     [Fact]
-    public async Task GetFonts_UseSystemFontsFalse_ReturnsEmbeddedFonts()
+    public async Task GetAppCss_DefaultConfiguration_UsesSystemFontStack()
     {
         using var client = _factory.CreateAnonymousClient();
-        using var response = await client.GetAsync("/quartz/fonts/inter-latin.woff2");
+        using var response = await client.GetAsync("/quartz/app.min.css");
+        var css = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.True(response.Content.Headers.ContentLength > 10000);
-    }
-
-    [Fact]
-    public async Task GetFonts_UseSystemFontsTrue_ReturnsNotFound()
-    {
-        await using var customFactory = new TestWebAppFactory(options => options.UseSystemFonts = true);
-        using var client = customFactory.CreateAnonymousClient();
-
-        using var response = await client.GetAsync("/quartz/fonts/inter-latin.woff2");
-        var html = await client.GetStringAsync("/quartz/");
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        Assert.Contains("BlinkMacSystemFont", html);
+        Assert.Contains("BlinkMacSystemFont", css);
+        Assert.DoesNotContain("@font-face", css);
     }
 }

@@ -6,9 +6,24 @@ A beautiful, self-contained **Quartz.NET scheduler dashboard** — drop it into 
 [![Downloads](https://img.shields.io/nuget/dt/Dot.QuartzDashboard?style=flat-square&logo=nuget&color=green)](https://www.nuget.org/packages/Dot.QuartzDashboard)
 [![Build](https://img.shields.io/github/actions/workflow/status/nathan5580/QuartzDashboard/dotnet.yml?branch=main&style=flat-square&logo=github)](https://github.com/nathan5580/QuartzDashboard/actions)
 [![.NET](https://img.shields.io/badge/.NET-8.0%20|%209.0%20|%2010.0-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com)
-[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
 
 ---
+
+## What's New in v3.0.0
+
+- Dark mode with automatic system preference detection
+- SQLite-backed persistent history via `PersistHistoryToSqlite`
+- Next-N-fires trigger preview for upcoming schedules
+- CSV export from the History page
+- Favicon failure badge for at-a-glance job health
+- Faster job search/filter in the Jobs page
+- ~50% smaller package thanks to bundled/minified embedded assets
+- Breaking changes:
+  - `AddQuartzDashboardHistory()` is no longer needed
+  - `UseSystemFonts` was removed because system fonts are now the default
+
+See [Migrating from v2.x to v3.0.0](#migrating-from-v2x-to-v300).
 
 ## 🤖 AI Prompt — Copy This Into Any Copilot/AI Assistant
 
@@ -50,11 +65,11 @@ builder.Services.AddQuartzDashboard(options =>
     options.MaxFireHistory = 500;            // max fire records in memory (default: 500)
     options.MaxExecutionLogsPerJob = 50;     // max log lines per job
     options.HistoryRetentionHours = 24;      // auto-prune records older than this (0 = keep all)
-    options.UseSystemFonts = false;          // true = use system fonts, skip 286KB embedded fonts
     options.Title = "My App Dashboard";      // custom title in sidebar + browser tab
 
     // Persistence (survive restarts)
-    options.PersistHistoryPath = "quartz-history.json";  // persist history to disk as JSON
+    options.PersistHistoryToSqlite = "quartz-history.db"; // persist history to SQLite
+    options.PersistHistoryPath = "quartz-history.json";   // optional JSON fallback when SQLite is not used
 
     // Callbacks
     options.OnJobFailed = async (jobKey, ex) => { /* Slack/PagerDuty alert */ };
@@ -93,7 +108,7 @@ builder.Services.AddQuartzDashboard(options =>
 - UseQuartzDashboard() must come BEFORE app.MapControllers() and app.MapFallbackToFile()
 - If using auth, app.UseAuthentication() and app.UseAuthorization() must come BEFORE UseQuartzDashboard()
 - UseSignalR = true makes the NuGet register its own SignalR hub — do NOT manually call app.MapHub<QuartzDashboardHub>()
-- The NuGet handles /quartz → /quartz/ redirect automatically (v2.1.10+)
+- The NuGet handles /quartz → /quartz/ redirect automatically
 
 --- API ENDPOINTS (all under {Path}/api/) ---
 GET  /scheduler           - scheduler metadata, status, uptime
@@ -128,7 +143,7 @@ POST {Path}/hub/negotiate?negotiateVersion=1  → 200 when working
 - Do NOT call app.MapHub<QuartzDashboardHub>() yourself when UseSignalR = true
 - Do NOT place UseQuartzDashboard() after MapFallbackToFile — Blazor WASM will swallow all /quartz routes
 - Visiting /quartz (no trailing slash) works — NuGet redirects to /quartz/ automatically
-- CSP headers: if you have a Content-Security-Policy, allow cdn.jsdelivr.net in script-src, style-src, and connect-src (Alpine.js + SignalR load from CDN)
+- Dashboard assets are embedded in the package — no external CDN allowlist is required
 ```
 
 ---
@@ -137,18 +152,19 @@ POST {Path}/hub/negotiate?negotiateVersion=1  → 200 when working
 
 - **See** all your Quartz jobs, triggers, fire schedules, and currently executing work
 - **Control** the scheduler — start, standby, trigger jobs, pause/resume/delete jobs and triggers
-- **Track** execution history with server-side pagination, per-minute bucketed stats, and live SVG charts
+- **Track** execution history with server-side pagination, CSV export, per-minute bucketed stats, and live SVG charts
+- **Preview** the next scheduled fire times with next-N-fires trigger inspection
 - **Monitor** execution rate, average duration, P50/P95/P99 percentiles, and error trends in real time
-- **Visualize** execution timeline with full-width color-coded bars, tooltips, and auto-fit range
-- **Search** globally across jobs, triggers, and history with `Ctrl+K`
+- **Search** jobs quickly with inline filters, plus global search across jobs, triggers, and history with `Ctrl+K`
 - **Navigate** with keyboard shortcuts — press `?` to see all
 - **Inspect** execution details — click any history row for full stacktraces and metadata
 - **Build** CRON expressions visually with the built-in builder and presets
 - **Embed** the dashboard in iframes with `?embed=true` (strips sidebar/header)
 - **Secure** your dashboard with authentication, role-based access, and authorization policies
-- **Persist** fire history to disk with optional JSON file-backed storage
-- **Alert** on job failures via callbacks, webhooks, or the health notification badge
-- **Zero build step** — single HTML SPA with Alpine.js + Tailwind, all embedded in the DLL
+- **Persist** fire history to SQLite, JSON, or in-memory storage depending on your needs
+- **Adapt** automatically to dark or light mode using the system theme
+- **Alert** on job failures via callbacks, webhooks, or the favicon failure badge
+- **Stay self-contained** — bundled ES module assets are embedded in the DLL; no external CDN required
 
 ## Quick Start
 
@@ -186,9 +202,9 @@ Open **`/quartz`** in your browser.
 |------|-------------|
 | **Overview** | Scheduler info + stat cards with SVG sparkline execution trends + last error card |
 | **Jobs** | All jobs with inline trigger details, last run time, live search/filter, server-side pagination, trigger/pause/resume/delete, batch operations |
-| **Triggers** | Grouped by job (accordion with persistent expand/collapse state), schedule descriptions, relative fire times |
+| **Triggers** | Grouped by job (accordion with persistent expand/collapse state), schedule descriptions, relative fire times, next-fire previews |
 | **Executing** | Currently running jobs with animated duration bars |
-| **History** | Paginated fire events with relative duration bars, job filter, history count badge |
+| **History** | Paginated fire events with relative duration bars, job filter, CSV export, history count badge |
 | **Graph** | Dual-line SVG chart: execution count + avg duration + error rate, zoom toggles, duration overlay |
 | **Timeline** | Full-width color-coded execution bars with crosshair tooltip, auto-fit range, pulsing now-marker |
 | **Health** | Success rate, failed executions, thread pool utilization bar, scheduler diagnostics |
@@ -216,9 +232,25 @@ builder.Services.AddQuartzDashboard(options =>
     options.MaxFireHistory = 500;
     options.MaxExecutionLogsPerJob = 50;
     options.HistoryRetentionHours = 24;
+    options.PersistHistoryToSqlite = "quartz-history.db";
     options.Title = "My App Dashboard";
 });
 ```
+
+### SQLite persistent history
+
+```csharp
+builder.Services.AddQuartzDashboard(options =>
+{
+    options.PersistHistoryToSqlite = "quartz-history.db";
+});
+```
+
+Use SQLite when you want fire history to survive restarts. If omitted, the dashboard keeps history in memory unless you set `PersistHistoryPath` for JSON persistence.
+
+### Dark mode
+
+The UI automatically follows the system light/dark preference in v3.0.0. No extra option is required.
 
 ### Bind from appsettings.json
 
@@ -235,6 +267,7 @@ builder.Services.AddQuartzDashboard(options =>
     "MaxFireHistory": 500,
     "MaxExecutionLogsPerJob": 50,
     "HistoryRetentionHours": 24,
+    "PersistHistoryToSqlite": "quartz-history.db",
     "Title": "QuartzDash"
   }
 }
@@ -280,6 +313,12 @@ builder.Services.AddQuartzDashboard(options =>
     options.RequiredPolicy = "RequireDashboardAccess";
 });
 ```
+
+## Migrating from v2.x to v3.0.0
+
+1. Remove `builder.Services.AddQuartzDashboardHistory();` — `AddQuartzDashboard()` now registers history automatically.
+2. Remove any `UseSystemFonts` option usage — system fonts are now the default in v3.0.0.
+3. Enjoy the smaller package — bundled/minified assets cut package size by about 50%, with no code changes required.
 
 ## Middleware Placement
 
@@ -364,13 +403,13 @@ curl -X POST http://localhost:5000/quartz/hub/negotiate?negotiateVersion=1
 `AddQuartzDashboard()` automatically registers an `IJobListener` that:
 
 - Records the last **N fire events** (configurable via `MaxFireHistory`, default 500)
-- Optionally persists history to a JSON file (`PersistHistoryPath`) — survives restarts
+- Persists history to SQLite with `PersistHistoryToSqlite`, or to JSON with `PersistHistoryPath` if you prefer a file-based fallback
 - Auto-prunes records older than `HistoryRetentionHours` (default 24h)
 - Buckets executions **per-minute** into 120 rolling `ExecutionBucket` entries
 - Tracks per-bucket: count, total duration, error count
-- Powers `/api/stats`, `/api/stats/history`, and the SVG execution graph
+- Powers `/api/stats`, `/api/stats/history`, the timeline, and CSV export from the History page
 
-No external storage required — in-memory by default (~7 KB for 120 buckets). Optional file persistence for production resilience.
+No external storage is required — in-memory works out of the box. For production or longer-lived audit trails, SQLite is the recommended option.
 
 ## Testing
 
@@ -393,26 +432,30 @@ Integration tests verify: endpoint responses, auth flows, config options, Signal
 |---------|-------|-----|
 | `/quartz` returns Blazor `index.html` | `UseQuartzDashboard()` placed after `MapFallbackToFile` | Move it before |
 | Dashboard loads but SignalR shows amber/disconnected | Hub not registered | Set `UseSignalR = true` (default), do not manually call `MapHub` |
-| CDN scripts blocked | Strict `Content-Security-Policy` header | Add `cdn.jsdelivr.net` to `script-src`, `style-src`, `connect-src` |
 | 401 on all dashboard requests | `RequireAuthentication = true` but user not logged in | Add auth middleware before `UseQuartzDashboard()` |
-| Jobs show count in header but no rows render | Alpine.js nested `x-for` bug (pre-2.1.23) | Update to 2.1.23+ — jobs table now uses a flat single `x-for` |
-| Stats/history endpoints return empty | Old package version (pre-2.1.28) required a separate `AddQuartzDashboardHistory()` call | Update to 2.1.28+ |
-| Old `app.js` loaded from browser cache | Pre-2.1.26 used hardcoded `?v=2.1.8` | Update to 2.1.26+ — asset URLs are now version-busted automatically |
+| SQLite history does not persist | The app cannot write to the configured database path | Use a writable relative or absolute path for `PersistHistoryToSqlite` |
+| History/stats stay empty after upgrade | Legacy setup still relies on old history wiring assumptions | Keep `AddQuartzDashboard()` and remove any old `AddQuartzDashboardHistory()` call |
+| Browser shows stale UI after upgrading | Old assets are cached locally | Hard refresh once after upgrading to v3.0.0 |
 
 ## Architecture
 
 ```
 Request → app.Use() (inline middleware, path-matched to basePath)
-          ├── /hub/*       → pass through to MapHub endpoint routing (SignalR)
-          ├── /api/*       → HandleApi (route by path segments)
-          ├── /quartz      → 302 redirect → /quartz/ (v2.1.10+)
-          ├── /app.js      → embedded static file
-          ├── /app.css     → embedded static file
-          └── anything else → SPA fallback (embedded index.html)
+          ├── /hub/*                → pass through to SignalR endpoint routing
+          ├── /api/*                → feature-specific handlers in `Handlers/`
+          ├── /quartz               → 302 redirect → /quartz/
+          ├── /app.min.js           → embedded esbuild JavaScript bundle
+          ├── /app.min.css          → embedded esbuild stylesheet bundle
+          ├── /charts.min.js        → embedded chart bundle
+          └── anything else         → SPA fallback (embedded index.html)
 ```
 
 - **Backend**: Raw ASP.NET Core `app.Use()` middleware — zero routing conflicts with controllers
-- **Frontend**: Single HTML file with Alpine.js 3.x + Tailwind CSS v4 CDN (all embedded in the DLL)
+- **Handlers**: API logic is split by feature into the `Handlers/` directory
+- **Models**: Request/response contracts live in `Models/`
+- **Services**: Runtime helpers such as history persistence and execution buckets live in `Services/`
+- **Frontend**: ES modules bundled/minified with esbuild, then embedded into the DLL
+- **Assets**: Fully embedded — no external CDN or CSP allowlist needed for dashboard assets
 - **Target frameworks**: `net8.0`, `net9.0`, `net10.0`
 - **Dependencies**: `Quartz` 3.18.0, `Quartz.Extensions.DependencyInjection` 3.18.0
 - **Strong-named**: Assembly is signed for GAC/enterprise scenarios
@@ -435,45 +478,14 @@ dotnet run -- -p 5000 --auth --readonly
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### v2.3.1 (2026-05-09)
-- Branded boot loader with phase text while dashboard initializes
-- SignalR reconnection toasts (drop/reconnect/polling fallback feedback)
-- Data pulse indicator in footer when live data arrives
-- Fixed hardcoded version in About section
-
-### v2.3.0 (2026-05-09)
-- Global search (`Ctrl+K`) across jobs, triggers, and history
-- Keyboard shortcuts overlay (`?`) with full navigation shortcuts
-- Execution detail drawer — click history rows for stacktraces and metadata
-- CRON expression builder with visual editor and presets
-- Execution heatmap (day-of-week × hour-of-day density grid)
-- Sortable column headers on jobs, triggers, and history tables
-- Empty state illustrations when no data exists
-- Health notification badge (red dot when success rate < 95%)
-- Mobile responsive bottom nav bar on screens < 768px
-- Breadcrumb navigation in header
-- Embed mode (`?embed=true`) for iframe integration
-- Multi-scheduler endpoint and UI infrastructure
-- Backend: `/api/heatmap` and `/api/schedulers` endpoints
-
-### v2.2.0 (2026-05-09)
-- Server-side table pagination for jobs, triggers, and history
-- Full-width execution timeline (removed offset bug)
-- 61 integration tests via WebApplicationFactory
-- Light mode contrast overhaul, sticky headers, skeleton animations, favicon
-- CI integration test job in GitHub Actions
-
-### v2.1.47 (2026-05-09)
-- Trigger accordion state persists on refresh (keyed by stable job name)
-
-### v2.1.46 (2026-05-09)
-- Timeline/history limit increased to 500, history count badge, last error card, jobs last run column, fit button, thread pool bar, pulsing now marker
-
-### v2.1.43 (2026-05-09)
-- Skeleton loading polish, consistent sort ordering across all pages
-
-### v2.1.26 (2026-05-04)
-- Fixed: browser caching — asset URLs now include the package version as a query string
+### v3.0.0 (2026-05-10)
+- Dark mode with system preference detection
+- SQLite persistent history
+- Next-N-fires trigger preview
+- CSV history export
+- Favicon failure badge
+- Faster job search/filter
+- ~50% package size reduction through bundled/minified embedded assets
 
 ## License
 

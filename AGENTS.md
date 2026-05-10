@@ -14,7 +14,7 @@ A self-contained Quartz.NET scheduler dashboard — drop into any ASP.NET Core a
 QuartzDashboard/
 ├── QuartzDashboard/                    # Library project (the NuGet package)
 │   ├── QuartzDashboard.csproj          # v2.0.0, multi-target, NuGet metadata, SourceLink, icon
-│   ├── QuartzDashboardServiceCollectionExtensions.cs  # AddQuartzDashboard() + AddQuartzDashboardHistory() + listeners
+│   ├── QuartzDashboardServiceCollectionExtensions.cs  # AddQuartzDashboard() + listeners
 │   ├── QuartzDashboardApplicationBuilderExtensions.cs # UseQuartzDashboard() + all API handlers (~1045 lines)
 │   ├── QuartzDashboardOptions.cs       # Path, Enabled, ReadOnly, UseSignalR, auth options
 │   ├── Internal/
@@ -40,11 +40,6 @@ QuartzDashboard/
 ### `AddQuartzDashboard(options?)`
 - Adds singleton `QuartzDashboardOptions` and `DashboardEventBus`
 - If `UseSignalR` (default true): adds SignalR + `DashboardSignalRBridge` (IHostedService)
-
-### `AddQuartzDashboardHistory()`
-- Adds `DashboardListenerAttacher` (IHostedService) + `DashboardSchedulerListener` (ISchedulerListener)
-- `DashboardListenerAttacher.StartAsync`: gets IScheduler, attaches IJobListener + ISchedulerListener to it
-- `DashboardJobListener.JobWasExecuted`: records fire history + publishes to event bus
 
 ### `UseQuartzDashboard()`
 - Uses `app.Map(basePath, branch => ...)` — branches BEFORE endpoint routing to avoid Blazor WASM fallback conflicts

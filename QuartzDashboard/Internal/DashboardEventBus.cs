@@ -45,6 +45,7 @@ public sealed record JobsUpdatedEvent() : DashboardEvent;
 /// </summary>
 public sealed class DashboardEventBus
 {
+    public event EventHandler<DashboardEvent>? OnEvent;
     public event Action<JobExecutedEvent>? OnJobExecuted;
     public event Action<JobTriggeredEvent>? OnJobTriggered;
     public event Action<SchedulerStatusEvent>? OnSchedulerStatusChanged;
@@ -52,6 +53,8 @@ public sealed class DashboardEventBus
 
     public void Publish<T>(T @event) where T : DashboardEvent
     {
+        OnEvent?.Invoke(this, @event);
+
         switch (@event)
         {
             case JobExecutedEvent e:

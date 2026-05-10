@@ -208,6 +208,79 @@ public class TriggerHandlerTests : IClassFixture<QuartzTestFixture>
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Fact]
+    public async Task GetTriggerNextFires_ReturnsArrayOfDateTimeOffsets()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var jobName = $"NextFiresJob-{suffix}";
+        var triggerName = $"NextFiresTrigger-{suffix}";
+        var startTimeUtc = DateTimeOffset.UtcNow.AddHours(1);
+
+        await CreateDurableJob(jobName);
+        var createResponse = await _client.PostAsync("/quartz/api/triggers", Json(new
+        {
+            name = triggerName,
+            group = "DEFAULT",
+            jobName,
+            jobGroup = "DEFAULT",
+            intervalSeconds = 60,
+            startTimeUtc,
+        }));
+        createResponse.EnsureSuccessStatusCode();
+
+        var response = await _client.GetAsync($"/quartz/api/triggers/DEFAULT/{triggerName}/next-fires");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+
+        var json = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+        Assert.Equal(JsonValueKind.Array, doc.RootElement.ValueKind);
+        Assert.Equal(10, doc.RootElement.GetArrayLength());
+        Assert.All(doc.RootElement.EnumerateArray().Select(e => e.GetDateTimeOffset()).ToArray(), fireTime =>
+            Assert.True(fireTime >= startTimeUtc));
+    }
+
+    [Fact]
+    public async Task GetTriggerNextFires_NonExistentTrigger_ReturnsNotFound()
+    {
+        var response = await _client.GetAsync("/quartz/api/triggers/DEFAULT/DoesNotExist/next-fires");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+
+        var json = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+        Assert.Equal("Trigger not found", doc.RootElement.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task GetTriggerNextFires_CountQueryParameter_IsRespected()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var jobName = $"NextFiresCountJob-{suffix}";
+        var triggerName = $"NextFiresCountTrigger-{suffix}";
+        var startTimeUtc = DateTimeOffset.UtcNow.AddHours(2);
+
+        await CreateDurableJob(jobName);
+        var createResponse = await _client.PostAsync("/quartz/api/triggers", Json(new
+        {
+            name = triggerName,
+            group = "DEFAULT",
+            jobName,
+            jobGroup = "DEFAULT",
+            intervalSeconds = 120,
+            startTimeUtc,
+        }));
+        createResponse.EnsureSuccessStatusCode();
+
+        var response = await _client.GetAsync($"/quartz/api/triggers/DEFAULT/{triggerName}/next-fires?count=3");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+        Assert.Equal(3, doc.RootElement.GetArrayLength());
+    }
+
     // ── pause / resume ───────────────────────────────────────────────────
 
     [Fact]

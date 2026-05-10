@@ -22,7 +22,6 @@ internal sealed class DashboardTestScenario
     public string RequiredPolicy { get; init; } = string.Empty;
     public bool EnableOnAuthorize { get; init; }
     public bool AllowOnAuthorize { get; init; } = true;
-    public bool UseSystemFonts { get; init; }
     public string Title { get; init; } = "QuartzDash Integration";
     public int MaxFireHistory { get; init; } = 500;
     public string SchedulerName { get; init; } = $"QuartzDashboardIntegration-{Guid.NewGuid():N}";
@@ -44,7 +43,6 @@ internal sealed class DashboardTestScenario
             RequiredPolicy = configuration["QuartzDashboardIntegration:RequiredPolicy"] ?? string.Empty,
             EnableOnAuthorize = configuration.GetValue("QuartzDashboardIntegration:EnableOnAuthorize", false),
             AllowOnAuthorize = configuration.GetValue("QuartzDashboardIntegration:AllowOnAuthorize", true),
-            UseSystemFonts = configuration.GetValue("QuartzDashboardIntegration:UseSystemFonts", false),
             Title = configuration["QuartzDashboardIntegration:Title"] ?? "QuartzDash Integration",
             MaxFireHistory = configuration.GetValue("QuartzDashboardIntegration:MaxFireHistory", 500),
             SchedulerName = configuration["QuartzDashboardIntegration:SchedulerName"] ?? $"QuartzDashboardIntegration-{Guid.NewGuid():N}"
@@ -60,7 +58,6 @@ internal sealed class DashboardTestScenario
         options.RequireAuthentication = RequireAuthentication;
         options.AllowedRoles = AllowedRoles;
         options.RequiredPolicy = RequiredPolicy;
-        options.UseSystemFonts = UseSystemFonts;
         options.Title = Title;
         options.MaxFireHistory = MaxFireHistory;
         if (EnableOnAuthorize)

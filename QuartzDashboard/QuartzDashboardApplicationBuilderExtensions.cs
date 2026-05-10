@@ -27,9 +27,25 @@ public static class QuartzDashboardApplicationBuilderExtensions
         new(ThisAssembly, "QuartzDashboard.wwwroot");
 
     /// <summary>
-    /// Mounts the Quartz Dashboard SPA and REST API at the configured path (default: /quartz).
-    /// Uses <c>app.Map()</c> to intercept requests before endpoint routing/fallback.
+    /// Mounts the Quartz Dashboard single-page application and REST API at the configured base path.
+    /// This middleware intercepts dashboard requests before endpoint fallbacks so the embedded UI and API remain reachable.
     /// </summary>
+    /// <param name="app">The application builder used to register the dashboard middleware.</param>
+    /// <returns>The same <see cref="IApplicationBuilder"/> instance so additional middleware can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// var builder = WebApplication.CreateBuilder(args);
+    /// builder.Services.AddQuartz();
+    /// builder.Services.AddQuartzHostedService();
+    /// builder.Services.AddQuartzDashboard();
+    ///
+    /// var app = builder.Build();
+    /// app.UseAuthentication();
+    /// app.UseAuthorization();
+    /// app.UseQuartzDashboard();
+    /// app.Run();
+    /// </code>
+    /// </example>
     public static IApplicationBuilder UseQuartzDashboard(this IApplicationBuilder app)
     {
         var options = app.ApplicationServices.GetRequiredService<QuartzDashboardOptions>();
@@ -142,12 +158,11 @@ public static class QuartzDashboardApplicationBuilderExtensions
     }
 
     /// <summary>
-    /// Maps the SignalR hub for real-time dashboard updates.
-    /// Call this on your <c>IEndpointRouteBuilder</c> (e.g. <c>app</c> in a minimal-API app)
-    /// when <c>UseQuartzDashboard()</c> was called on a plain <c>IApplicationBuilder</c>
-    /// that does not implement <c>IEndpointRouteBuilder</c> (e.g. in a test host).
-    /// In standard <c>WebApplication</c> usage this is called automatically by <c>UseQuartzDashboard()</c>.
+    /// Maps the dashboard SignalR hub when the application builder used with <see cref="UseQuartzDashboard(IApplicationBuilder)"/>
+    /// does not also implement <see cref="IEndpointRouteBuilder"/>.
     /// </summary>
+    /// <param name="app">The endpoint route builder used to register the dashboard hub endpoint.</param>
+    /// <returns>The same <see cref="IEndpointRouteBuilder"/> instance so endpoint mappings can be chained.</returns>
     public static IEndpointRouteBuilder MapQuartzDashboard(this IEndpointRouteBuilder app)
     {
         var options = app.ServiceProvider.GetRequiredService<QuartzDashboardOptions>();
@@ -299,6 +314,11 @@ public static class QuartzDashboardApplicationBuilderExtensions
             // -- Triggers --
             else if (method == "GET" && route is ["triggers"])
                 result = await TriggerHandlers.GetAllTriggers(sched, ctx);
+            else if (method == "GET" && route is ["triggers", _, _, "next-fires"])
+            {
+                var count = int.TryParse(ctx.Request.Query["count"], out var parsedCount) ? parsedCount : 10;
+                result = await TriggerHandlers.GetNextFires(sched, route[1], route[2], count);
+            }
             else if (method == "GET" && route is ["triggers", _, _])
                 result = await TriggerHandlers.GetTriggerDetail(sched, route[1], route[2]);
             else if (method == "POST" && route is ["triggers", _, _, "pause"])
@@ -481,13 +501,6 @@ public static class QuartzDashboardApplicationBuilderExtensions
             ? relativePath[..relativePath.IndexOf('?')]
             : relativePath;
 
-        // Block font files when UseSystemFonts is enabled
-        if (options.UseSystemFonts && filePath.StartsWith("fonts/", StringComparison.OrdinalIgnoreCase))
-        {
-            ctx.Response.StatusCode = 404;
-            return;
-        }
-
         var fileInfo = EmbeddedFiles.GetFileInfo(filePath);
 
         if (fileInfo.Exists && !fileInfo.IsDirectory)
@@ -505,8 +518,14 @@ public static class QuartzDashboardApplicationBuilderExtensions
 
             await ctx.Response.SendFileAsync(fileInfo);
         }
+        else if (filePath.Contains('.'))
+        {
+            // Known file extension but not embedded — return 404 (don't SPA-fallback for assets)
+            ctx.Response.StatusCode = 404;
+        }
         else
         {
+            // SPA fallback for client-side routes
             ctx.Response.ContentType = "text/html; charset=utf-8";
             ctx.Response.Headers.CacheControl = "no-cache";
             await ServeIndexHtml(ctx, basePath, options);
@@ -526,18 +545,6 @@ public static class QuartzDashboardApplicationBuilderExtensions
         html = html.Replace("'__QUARTZ_BASE__'", $"'{basePath}'");
         html = html.Replace("__QUARTZ_VERSION__", AssemblyVersion);
         html = html.Replace("__QUARTZ_TITLE__", System.Text.Encodings.Web.HtmlEncoder.Default.Encode(options.Title));
-
-        if (options.UseSystemFonts)
-        {
-            // Inject a style override that uses system fonts instead of embedded woff2
-            const string systemFontOverride = """
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important; }
-              .mono { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace !important; }
-            </style>
-            """;
-            html = html.Replace("</head>", systemFontOverride + "</head>");
-        }
 
         ctx.Response.ContentType = "text/html; charset=utf-8";
         await ctx.Response.WriteAsync(html);
@@ -644,7 +651,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
                 if (jobType == null)
                 {
                     // Use PlaceholderJob if type not found
-                    jobType = typeof(Services.PlaceholderJob);
+                    jobType = typeof(PlaceholderJob);
                 }
 
                 var jobBuilder = JobBuilder.Create(jobType)

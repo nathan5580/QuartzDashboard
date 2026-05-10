@@ -4,7 +4,6 @@ using Quartz;
 using Quartz.Impl.Matchers;
 using QuartzDashboard.Internal;
 using QuartzDashboard.Models;
-using QuartzDashboard.Services;
 
 namespace QuartzDashboard.Handlers;
 
@@ -170,7 +169,7 @@ internal static class JobHandlers
             {
                 var dataMap = new JobDataMap();
                 foreach (var (mapKey, mapValue) in req.DataMap.Where(x => !string.IsNullOrWhiteSpace(x.Key)))
-                    dataMap.Put(mapKey, mapValue ?? string.Empty);
+                    dataMap[mapKey] = mapValue ?? string.Empty;
 
                 await sched.TriggerJob(key, dataMap);
             }

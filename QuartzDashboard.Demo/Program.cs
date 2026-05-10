@@ -2,9 +2,11 @@ using Quartz;
 using QuartzDashboard;
 
 // ===== CLI Argument Parsing =====
+var version = typeof(QuartzDashboardOptions).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 var port = 5190;
 var authMode = false;
 var readOnlyMode = false;
+var sqliteMode = false;
 
 for (var i = 0; i < args.Length; i++)
 {
@@ -19,15 +21,19 @@ for (var i = 0; i < args.Length; i++)
         case "--readonly":
             readOnlyMode = true;
             break;
+        case "--sqlite":
+            sqliteMode = true;
+            break;
         case "--help" or "-h":
-            Console.WriteLine("""
-                QuartzDashboard Demo v2.0.0
+            Console.WriteLine($"""
+                QuartzDashboard Demo v{version}
                 Usage: dotnet run [options]
                 
                 Options:
                   -p <port>       Port to listen on (default: 5190)
                   --auth          Enable authentication mode
                   --readonly      Enable read-only mode
+                  --sqlite        Enable SQLite history persistence (demo-history.db)
                   --help, -h      Show this help
                 """);
             return;
@@ -98,6 +104,11 @@ builder.Services.AddQuartzDashboard(options =>
 {
     options.Path = "/quartz";
     options.ReadOnly = readOnlyMode;
+    if (sqliteMode)
+    {
+        options.PersistHistoryToSqlite = "demo-history.db";
+    }
+
     if (authMode)
     {
         options.RequireAuthentication = true;
@@ -110,14 +121,15 @@ var app = builder.Build();
 app.UseRouting();
 app.UseQuartzDashboard();
 
-app.MapGet("/", () => $"Quartz Dashboard Demo v2.0 — go to <a href='/quartz'>/quartz</a>");
+app.MapGet("/", () => $"Quartz Dashboard Demo v{version} — go to <a href='/quartz'>/quartz</a>");
 
 Console.WriteLine("╔══════════════════════════════════════════════╗");
-Console.WriteLine("║  QuartzDashboard Demo v2.0                  ║");
+Console.WriteLine($"║  {($"QuartzDashboard Demo v{version}").PadRight(42)}║");
 Console.WriteLine($"║  Open http://localhost:{port}/quartz          ║");
 Console.WriteLine("║  Flags:                                     ║");
 Console.WriteLine($"║   ├─ Auth: {(authMode ? "enabled" : "disabled").PadRight(29)}║");
-Console.WriteLine($"║   └─ Read-only: {(readOnlyMode ? "yes" : "no").PadRight(26)}║");
+Console.WriteLine($"║   ├─ Read-only: {(readOnlyMode ? "yes" : "no").PadRight(26)}║");
+Console.WriteLine($"║   └─ SQLite: {(sqliteMode ? "demo-history.db" : "disabled").PadRight(29)}║");
 Console.WriteLine("║                                              ║");
 Console.WriteLine("║  Jobs:                                       ║");
 Console.WriteLine("║   ├─ HealthCheck         (every 15s, 300ms)  ║");

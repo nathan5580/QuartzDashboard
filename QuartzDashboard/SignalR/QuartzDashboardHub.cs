@@ -7,16 +7,26 @@ using QuartzDashboard.Internal;
 namespace QuartzDashboard;
 
 /// <summary>
-/// SignalR hub for real-time dashboard updates.
-/// Clients call Subscribe() on connect, Unsubscribe() on disconnect.
+/// SignalR hub used by dashboard clients to receive real-time scheduler and job execution updates.
 /// </summary>
 public class QuartzDashboardHub : Hub
 {
+    /// <summary>
+    /// The SignalR group name used for dashboard update broadcasts.
+    /// </summary>
     public const string GroupName = "dashboard";
 
+    /// <summary>
+    /// Adds the current connection to the dashboard broadcast group.
+    /// </summary>
+    /// <returns>A task that completes when the subscription has been registered.</returns>
     public async Task Subscribe() =>
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupName);
 
+    /// <summary>
+    /// Removes the current connection from the dashboard broadcast group.
+    /// </summary>
+    /// <returns>A task that completes when the subscription has been removed.</returns>
     public async Task Unsubscribe() =>
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName);
 }

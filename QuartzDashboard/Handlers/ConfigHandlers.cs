@@ -43,7 +43,8 @@ internal static class ConfigHandlers
             maxFireHistory = options.MaxFireHistory,
             title = options.Title,
             historyRetentionHours = options.HistoryRetentionHours,
-            hasPersistentHistory = !string.IsNullOrWhiteSpace(options.PersistHistoryPath),
+            hasPersistentHistory = !string.IsNullOrWhiteSpace(options.PersistHistoryToSqlite) ||
+                                   !string.IsNullOrWhiteSpace(options.PersistHistoryPath),
             webhookUrl = options.WebhookUrl,
         });
     }

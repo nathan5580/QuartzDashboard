@@ -3,114 +3,110 @@ using Microsoft.AspNetCore.Http;
 namespace QuartzDashboard;
 
 /// <summary>
-/// Options for configuring the Quartz Dashboard middleware.
+/// Options used to configure the Quartz Dashboard middleware and related services.
 /// </summary>
 public class QuartzDashboardOptions
 {
     /// <summary>
-    /// The base path where the dashboard is served. Default: "/quartz"
+    /// Gets or sets the base path where the dashboard is served.
+    /// The default value is <c>"/quartz"</c>.
     /// </summary>
     public string Path { get; set; } = "/quartz";
 
     /// <summary>
-    /// Whether the dashboard is enabled at all. When false, UseQuartzDashboard()
-    /// is a no-op and no routes are registered. Default: true
+    /// Gets or sets a value indicating whether the dashboard is enabled.
+    /// When <see langword="false"/>, <c>UseQuartzDashboard()</c> does not register dashboard routes.
+    /// The default value is <see langword="true"/>.
     /// </summary>
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// Whether the dashboard is read-only (no trigger/start/stop/delete buttons).
-    /// Default: false
+    /// Gets or sets a value indicating whether the dashboard UI should disable mutating actions.
+    /// When enabled, trigger, pause, resume, start, standby, interrupt, and delete actions are blocked.
+    /// The default value is <see langword="false"/>.
     /// </summary>
     public bool ReadOnly { get; set; } = false;
 
     /// <summary>
-    /// Whether to enable SignalR for real-time updates.
-    /// When true, the dashboard pushes execution events instantly to connected browsers.
-    /// Default: true
+    /// Gets or sets a value indicating whether SignalR should be enabled for real-time updates.
+    /// When disabled, the dashboard still works but refreshes data through HTTP requests only.
+    /// The default value is <see langword="true"/>.
     /// </summary>
     public bool UseSignalR { get; set; } = true;
 
     /// <summary>
-    /// Whether to require authentication for all dashboard routes.
-    /// When true, unauthenticated requests receive 401.
-    /// Default: false
+    /// Gets or sets a value indicating whether authentication is required for all dashboard routes.
+    /// Unauthenticated requests receive a 401 response when this option is enabled.
+    /// The default value is <see langword="false"/>.
     /// </summary>
     public bool RequireAuthentication { get; set; } = false;
 
     /// <summary>
-    /// Optional roles that are allowed to access the dashboard.
-    /// Only checked when RequireAuthentication is true.
-    /// When empty, any authenticated user may access.
-    /// Default: empty
+    /// Gets or sets the allowed roles for dashboard access.
+    /// This setting is only evaluated when <see cref="RequireAuthentication"/> is enabled and <see cref="RequiredPolicy"/> is not set.
+    /// An empty array allows any authenticated user.
     /// </summary>
     public string[] AllowedRoles { get; set; } = [];
 
     /// <summary>
-    /// Optional authorization policy name that must be satisfied.
-    /// Only checked when RequireAuthentication is true.
-    /// When empty, fallback to AllowedRoles check or any authenticated user.
-    /// Default: ""
+    /// Gets or sets the authorization policy that must succeed for dashboard access.
+    /// When specified, this policy takes precedence over <see cref="AllowedRoles"/>.
+    /// The default value is an empty string.
     /// </summary>
     public string RequiredPolicy { get; set; } = "";
 
     /// <summary>
-    /// Maximum number of fire history records to keep in memory.
-    /// Only applies when using the default in-memory store.
-    /// Default: 100
+    /// Gets or sets the maximum number of fire history records retained by the default store.
+    /// The default value is <c>500</c>.
     /// </summary>
     public int MaxFireHistory { get; set; } = 500;
 
     /// <summary>
-    /// Maximum number of execution log entries per job.
-    /// Default: 50
+    /// Gets or sets the maximum number of execution log entries retained per job.
+    /// The default value is <c>50</c>.
     /// </summary>
     public int MaxExecutionLogsPerJob { get; set; } = 50;
 
     /// <summary>
-    /// Authorization callback invoked on every dashboard request. Return <c>false</c> to reject with 401.
-    /// Example: <c>OnAuthorize = ctx => ctx.User.IsInRole("Admin")</c>
+    /// Gets or sets an optional authorization callback invoked for every dashboard request.
+    /// Return <see langword="false"/> to reject the request with a 401 response.
     /// </summary>
     public Func<HttpContext, bool>? OnAuthorize { get; set; }
 
-    /// <summary>
-    /// When true, uses the system font stack instead of embedded Inter/JetBrains Mono fonts.
-    /// Reduces package payload by ~286KB. Default: false
-    /// </summary>
-    public bool UseSystemFonts { get; set; } = false;
 
     /// <summary>
-    /// Custom title shown in the sidebar header and browser tab.
-    /// Default: "QuartzDash"
+    /// Gets or sets the title shown in the dashboard UI.
+    /// The default value is <c>"QuartzDash"</c>.
     /// </summary>
     public string Title { get; set; } = "QuartzDash";
 
     /// <summary>
-    /// Number of hours of fire history to retain. Records older than this are pruned automatically.
-    /// Set to 0 to disable TTL pruning (keep all records up to MaxFireHistory).
-    /// Default: 24
+    /// Gets or sets the number of hours that fire history records are retained.
+    /// Set this value to <c>0</c> to disable time-based pruning.
+    /// The default value is <c>24</c>.
     /// </summary>
     public int HistoryRetentionHours { get; set; } = 24;
 
     /// <summary>
-    /// Optional file path for persisting fire history to disk as JSON.
-    /// When set, history survives application restarts and is loaded on startup.
-    /// Example: <c>options.PersistHistoryPath = "quartz-history.json"</c>
-    /// Default: null (in-memory only)
+    /// Gets or sets an optional file path used to persist fire history as JSON.
+    /// When set, history is loaded on startup and survives application restarts.
     /// </summary>
     public string? PersistHistoryPath { get; set; }
 
     /// <summary>
-    /// Optional async callback invoked every time a job fails (throws an exception during execution).
-    /// Useful for Slack alerts, PagerDuty notifications, webhooks, etc.
-    /// The first argument is the job key (group.name), the second is the exception.
-    /// Example: <c>options.OnJobFailed = async (jobKey, ex) => await notifier.AlertAsync(jobKey, ex);</c>
+    /// Gets or sets the path to a SQLite database file used for persistent fire history.
+    /// When set, history survives application restarts and takes precedence over <see cref="PersistHistoryPath"/>.
+    /// </summary>
+    public string? PersistHistoryToSqlite { get; set; }
+
+    /// <summary>
+    /// Gets or sets an optional callback invoked whenever a job execution fails.
+    /// The callback receives the job key and the thrown exception.
     /// </summary>
     public Func<string, Exception, Task>? OnJobFailed { get; set; }
 
     /// <summary>
-    /// Optional webhook URL that receives a JSON payload whenever a job execution fails.
-    /// Default: null
+    /// Gets or sets an optional webhook URL that receives a JSON payload when a job execution fails.
     /// </summary>
     public string? WebhookUrl { get; set; }
 }
