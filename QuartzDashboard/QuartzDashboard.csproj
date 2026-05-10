@@ -44,15 +44,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="wwwroot\**"
-                      Exclude="wwwroot\app.js;wwwroot\app.css;wwwroot\charts.js;wwwroot\tailwind.css;wwwroot\src\**" />
+    <EmbeddedResource Include="wwwroot/**"
+                      Exclude="wwwroot/app.js;wwwroot/app.css;wwwroot/charts.js;wwwroot/tailwind.css;wwwroot/src/**" />
   </ItemGroup>
 
-  <Target Name="MinifyAssets" BeforeTargets="DispatchToInnerBuilds" Condition="'$(SkipMinify)' != 'true' and '$(TargetFramework)' == ''">
+  <!-- Regenerate minified assets if source files are newer -->
+  <Target Name="MinifyAssets" BeforeTargets="BeforeBuild" Condition="'$(SkipMinify)' != 'true'">
     <Exec Command="node build-assets.mjs" WorkingDirectory="$(MSBuildProjectDirectory)" />
-    <ItemGroup>
-      <EmbeddedResource Include="wwwroot\app.min.js;wwwroot\app.min.css;wwwroot\charts.min.js" />
-    </ItemGroup>
   </Target>
 
 </Project>
