@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark" data-theme="dark">
+<html lang="en" class="dark">
 <!-- ============================================================ -->
 <!-- SECTION: Head / Meta / Styles                                -->
 <!-- ============================================================ -->
@@ -10,13 +10,15 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%236366f1'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='white' font-family='system-ui' font-weight='700' font-size='18'%3EQ%3C/text%3E%3C/svg%3E" />
   <script>window.__QUARTZ_BASE = '__QUARTZ_BASE__';</script>
   <script>
-    // Apply saved or system theme before Alpine loads to avoid flash
+    // Apply theme before Alpine loads to avoid flash. Dark is default.
     (function() {
-      var saved = localStorage.getItem('qd-theme') || localStorage.getItem('quartz-dashboard-theme');
-      var theme = saved || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
-      document.documentElement.setAttribute('data-theme', theme);
-      document.documentElement.classList.remove('dark', 'light');
-      document.documentElement.classList.add(theme);
+      var saved = localStorage.getItem('qd-theme');
+      if (saved === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+      }
+      // No else needed: dark is default (no data-theme attr, class="dark" in HTML)
     })();
   </script>
   <script src="signalr.min.js?v=__QUARTZ_VERSION__"></script>
