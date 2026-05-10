@@ -202,25 +202,25 @@ export function createState() {
         ],
 
         // ========================= THEME =========================
+        // Dark is the default (app was designed dark-first). Toggle switches to light.
         theme: (() => {
-          const savedTheme = localStorage.getItem('qd-theme') || localStorage.getItem('quartz-dashboard-theme');
-          return savedTheme || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+          return localStorage.getItem('qd-theme') || 'dark';
         })(),
         applyTheme(theme = this.theme) {
-          const nextTheme = theme === 'dark' ? 'dark' : 'light';
-          this.theme = nextTheme;
-          document.documentElement.setAttribute('data-theme', nextTheme);
-          document.documentElement.classList.remove('dark', 'light');
-          document.documentElement.classList.add(nextTheme);
-          if (document.body) {
-            document.body.classList.toggle('light', nextTheme === 'light');
+          this.theme = theme;
+          // Only set data-theme="light" to override; dark is the default (no attribute needed)
+          if (theme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+          } else {
+            document.documentElement.removeAttribute('data-theme');
           }
+          document.documentElement.classList.remove('dark', 'light');
+          document.documentElement.classList.add(theme);
         },
         toggleTheme() {
           const nextTheme = this.theme === 'dark' ? 'light' : 'dark';
           this.applyTheme(nextTheme);
           localStorage.setItem('qd-theme', nextTheme);
-          localStorage.removeItem('quartz-dashboard-theme');
           this.$nextTick?.(() => {
             this.updateGraphChart?.();
             this.updateTimelineChart?.();
