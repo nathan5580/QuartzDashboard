@@ -86,7 +86,7 @@ export function createTriggersSection() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(body)
             });
-            if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+            if (!res.ok) throw new Error(await this.apiErrorMessage(res));
 
             this.showToast('Trigger ' + this.newTrigger.name + ' created', 'success');
             this.showCreateTriggerModal = false;

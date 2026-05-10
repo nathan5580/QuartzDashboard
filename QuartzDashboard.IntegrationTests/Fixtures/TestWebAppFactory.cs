@@ -71,6 +71,7 @@ public sealed class TestScenarioBuilder
     public string Title { get; set; } = "QuartzDash Integration";
     public int MaxFireHistory { get; set; } = 500;
     public string? SchedulerName { get; set; }
+    public string? WebhookUrl { get; set; }
 
     internal Dictionary<string, string?> ToDictionary() => new()
     {
@@ -85,7 +86,8 @@ public sealed class TestScenarioBuilder
         ["QuartzDashboardIntegration:AllowOnAuthorize"] = AllowOnAuthorize.ToString(),
         ["QuartzDashboardIntegration:Title"] = Title,
         ["QuartzDashboardIntegration:MaxFireHistory"] = MaxFireHistory.ToString(),
-        ["QuartzDashboardIntegration:SchedulerName"] = SchedulerName
+        ["QuartzDashboardIntegration:SchedulerName"] = SchedulerName,
+        ["QuartzDashboardIntegration:WebhookUrl"] = WebhookUrl
     };
 }
 

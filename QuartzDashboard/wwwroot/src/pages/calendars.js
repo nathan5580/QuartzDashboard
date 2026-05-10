@@ -34,7 +34,7 @@ export function createCalendarsSection() {
         async deleteCalendar(name) {
           try {
             const res = await fetch(this._api('/calendars/' + encodeURIComponent(name)), { method: 'DELETE' });
-            if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+            if (!res.ok) throw new Error(await this.apiErrorMessage(res));
             await this.loadCalendars();
             this.showToast('Calendar deleted', 'success');
           } catch (e) { this.showToast('Failed to delete calendar: ' + e.message, 'error'); }

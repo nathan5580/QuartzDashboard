@@ -1,149 +1,145 @@
 <!--
-  ╔══════════════════════════════════════════════════════════╗
-  ║  This file is for AI coding assistants (Claude, Copilot,║
-  ║  Cursor, etc.). Humans: you want README.md instead.    ║
-  ╚══════════════════════════════════════════════════════════╝
+  This file is for AI coding assistants (Claude, Copilot, Cursor, Codex, etc.).
+  Humans: README.md is the friendlier entry point.
 -->
 
-# QuartzDashboard — Agent Guide
+# QuartzDashboard Agent Guide
 
-**NuGet:** `Dot.QuartzDashboard` v2.0.0 — https://www.nuget.org/packages/Dot.QuartzDashboard
+**NuGet:** `Dot.QuartzDashboard` v3.0.3 - https://www.nuget.org/packages/Dot.QuartzDashboard
 **GitHub:** https://github.com/nathan5580/QuartzDashboard
-**NuGet:** https://www.nuget.org/packages/Dot.QuartzDashboard
 
 ## Overview
 
-A self-contained Quartz.NET scheduler dashboard — drop into any ASP.NET Core app with 2 lines of code. Single HTML SPA (Alpine.js + Tailwind CDN) served as an embedded resource. Multi-targets: net8.0 | net9.0 | net10.0.
+A self-contained Quartz.NET scheduler dashboard that can be added to an ASP.NET Core app with:
+
+```csharp
+builder.Services.AddQuartzDashboard();
+app.UseQuartzDashboard();
+```
+
+The package multi-targets `net8.0`, `net9.0`, and `net10.0`. The UI is an embedded Alpine.js SPA with bundled/minified assets, no CDN requirement, and SignalR updates enabled by default.
 
 ## Project Structure
 
-```
+```text
 QuartzDashboard/
-├── QuartzDashboard/                    # Library project (the NuGet package)
-│   ├── QuartzDashboard.csproj          # v2.0.0, multi-target, NuGet metadata, SourceLink, icon
-│   ├── QuartzDashboardServiceCollectionExtensions.cs  # AddQuartzDashboard() + listeners
-│   ├── QuartzDashboardApplicationBuilderExtensions.cs # UseQuartzDashboard() + all API handlers (~1045 lines)
-│   ├── QuartzDashboardOptions.cs       # Path, Enabled, ReadOnly, UseSignalR, auth options
-│   ├── Internal/
-│   │   ├── DashboardEventBus.cs        # In-memory event bus (singleton, decouples from SignalR)
-│   │   ├── DashboardSchedulerListener.cs  # ISchedulerListener — lifecycle events → event bus
-│   │   ├── IFireHistoryStore.cs        # Fire history abstraction + InMemoryFireHistoryStore
-│   │   └── ExecutionLogBuffer.cs       # Per-job in-memory execution log ring buffer
-│   ├── SignalR/
-│   │   └── QuartzDashboardHub.cs       # SignalR hub + DashboardSignalRBridge (IHostedService)
-│   └── wwwroot/
-│       └── index.html                  # SPA (~3,453 lines, Alpine.js + Tailwind, embedded resource)
-├── QuartzDashboard.Demo/               # Demo app with CLI flags (--auth, --readonly, -p)
-│   ├── Program.cs                      # 5 demo jobs, CLI args
-│   └── QuartzDashboard.Demo.csproj
-├── QuartzDashboard.slnx
-├── README.md                           # Full docs — also used as NuGet PackageReadmeFile
-├── AGENTS.md                           # This file
-└── .github/workflows/dotnet.yml        # CI build pipeline
+├── QuartzDashboard/                    # NuGet library
+│   ├── QuartzDashboard.csproj          # package metadata, multi-targeting, SourceLink, embedded assets
+│   ├── QuartzDashboardServiceCollectionExtensions.cs
+│   ├── QuartzDashboardApplicationBuilderExtensions.cs
+│   ├── QuartzDashboardOptions.cs
+│   ├── Handlers/                       # API handlers by feature
+│   ├── Models/                         # request DTOs
+│   ├── Services/                       # runtime services such as execution buckets
+│   ├── Internal/                       # event bus, history stores, listeners, helpers
+│   ├── Middleware/                     # dashboard auth middleware
+│   ├── SignalR/                        # hub + hosted bridge
+│   └── wwwroot/                        # embedded SPA assets
+├── QuartzDashboard.Tests/              # unit tests
+├── QuartzDashboard.IntegrationTests/   # WebApplicationFactory integration tests
+├── QuartzDashboard.Demo/               # interactive demo app
+├── QuartzDashboard.Sample/             # minimal sample app
+├── README.md                           # user docs and NuGet readme
+├── CHANGELOG.md
+└── .github/workflows/dotnet.yml        # CI, pack, publish
 ```
 
 ## Key Registration Methods
 
 ### `AddQuartzDashboard(options?)`
-- Adds singleton `QuartzDashboardOptions` and `DashboardEventBus`
-- If `UseSignalR` (default true): adds SignalR + `DashboardSignalRBridge` (IHostedService)
+
+- Registers `QuartzDashboardOptions`, history storage, execution logs, execution buckets, and the event bus.
+- Registers SignalR and `DashboardSignalRBridge` when `UseSignalR` is true.
+- Attaches job/scheduler listeners so history and live updates work without a separate history call.
+- SQLite history is selected when `PersistHistoryToSqlite` is set; JSON file history is selected when `PersistHistoryPath` is set; otherwise history is in memory.
 
 ### `UseQuartzDashboard()`
-- Uses `app.Map(basePath, branch => ...)` — branches BEFORE endpoint routing to avoid Blazor WASM fallback conflicts
-- `app.Map()` creates a sub-pipeline that intercepts `/quartz/*` requests
-- API: `/api/scheduler|jobs|triggers|executing|history|stats|timeline` — as patterns handled by HandleApi()
-- Static files: serves embedded SPA from `QuartzDashboard.wwwroot` assembly resource
-- SignalR hub: `((IEndpointRouteBuilder)app).MapHub<QuartzDashboardHub>("{basePath}/hub")` — maps outside the Map() branch
-- 666-line file with ~25 API handler methods + fire history (ConcurrentQueue, 100 records limit)
 
-## NuGet Publishing
+- Uses inline path-matched middleware so `/quartz/*` is handled before host fallback routes.
+- Lets `/hub/*` pass through to endpoint routing, then maps `QuartzDashboardHub` at `{Path}/hub` when possible.
+- Routes `/api/*` to feature handlers in `Handlers/`.
+- Redirects `/quartz` to `/quartz/` so relative embedded assets resolve.
+- Serves embedded `index.html`, `app.min.js`, `app.min.css`, `charts.min.js`, favicon, and SignalR client assets.
 
-Current version: 2.0.0. To publish a new version:
+## Current Package Properties
+
+- `PackageId`: `Dot.QuartzDashboard`
+- `Version`: `3.0.3`
+- `PackageLicenseExpression`: `MIT`
+- `PackageReadmeFile`: `README.md`
+- `PackageIcon`: `icon.png`
+- `PublishRepositoryUrl`: `true`
+- `IncludeSymbols` + `SymbolPackageFormat`: `snupkg`
+- Strong-named assembly via `QuartzDashboard.snk`
+
+## Dependencies
+
+- `Quartz` 3.18.0
+- `Quartz.Extensions.DependencyInjection` 3.18.0
+- `Microsoft.Data.Sqlite` 9.0.5
+- `Microsoft.AspNetCore.App` framework reference
+- Frontend build: Node.js 20+, `esbuild`
+
+## Build, Test, Pack
 
 ```bash
-# Build and pack
-cd /Users/home/RiderProjects/QuartzDashboard && dotnet pack QuartzDashboard/QuartzDashboard.csproj -c Release
-# Push to nuget.org
-dotnet nuget push QuartzDashboard/bin/Release/Dot.QuartzDashboard.2.0.0.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
+cd /Users/home/RiderProjects/QuartzDashboard
+
+dotnet build QuartzDashboard.slnx -c Release
+dotnet test QuartzDashboard.Tests/QuartzDashboard.Tests.csproj -c Release
+dotnet test QuartzDashboard.IntegrationTests/QuartzDashboard.IntegrationTests.csproj -c Release
+dotnet pack QuartzDashboard/QuartzDashboard.csproj -c Release
+
+cd QuartzDashboard
+npm ci
+npm run build
+npm run audit
 ```
 
-The NuGet API key is stored in memory. Or use the CI workflow: push a tag `v*` to GitHub.
+## Running the Demo
 
-### Running the Demo
 ```bash
-cd QuartzDashboard.Demo
+cd /Users/home/RiderProjects/QuartzDashboard/QuartzDashboard.Demo
 dotnet run                  # default port 5190
 dotnet run -- --auth        # enable auth mode
 dotnet run -- --readonly    # read-only mode
+dotnet run -- --sqlite      # SQLite persistent history
 dotnet run -- -p 8080       # custom port
 ```
 
-### csproj NuGet Properties
-- `PackageId`: N8.QuartzDashboard
-- `Version`: 1.0.0 (bump for releases)
-- `PackageLicenseExpression`: MIT
-- `PackageReadmeFile`: README.md (from repo root, `../README.md` relative)
-- `IncludeSymbols` + `SymbolPackageFormat`: snupkg
+## Release Flow
 
-## Dependencies
-- Quartz 3.18.0
-- Quartz.Extensions.DependencyInjection 3.18.0
-- Microsoft.AspNetCore.App (FrameworkReference)
-- System.Collections.Concurrent (in-box)
+CI builds, tests, packs, checks package size, publishes to NuGet, and creates a GitHub release. Push a `v*` tag for a tag-driven release, or push a branch with a new csproj version and let the auto-tag job create `v{Version}`.
 
-## NuGet Package Properties
-- `PackageId`: Dot.QuartzDashboard
-- `Version`: 2.0.0
-- `PackageLicenseExpression`: MIT
-- `PackageReadmeFile`: README.md (from repo root)
-- `PackageIcon`: icon.png
-- `PublishRepositoryUrl`: true
-- `IncludeSymbols` + `SymbolPackageFormat`: snupkg
-- `EmbeddedFiles`: *.cs for SourceLink
+Manual pack:
 
+```bash
+cd /Users/home/RiderProjects/QuartzDashboard
+dotnet pack QuartzDashboard/QuartzDashboard.csproj -c Release
+```
 
+Manual push:
 
-## New in v2.0.0
+```bash
+dotnet nuget push QuartzDashboard/bin/Release/Dot.QuartzDashboard.3.0.3.nupkg \
+  --api-key "$NUGET_API_KEY" \
+  --source https://api.nuget.org/v3/index.json \
+  --skip-duplicate
+```
 
-### Dev-Only Gating (Plan A)
-Set `options.Enabled = false` (or use `IHostEnvironment.IsDevelopment()`) to skip dashboard registration entirely in production.
+## v3 Highlights
 
-### Auth Integration (Plan B)
-`options.RequireAuthentication = true` gates all dashboard routes behind authentication.
-`options.AllowedRoles = ["Admin"]` restricts access to specific roles.
-`options.RequiredPolicy = "MyPolicy"` uses an ASP.NET Core authorization policy.
+- Dark/light mode with system preference detection.
+- SQLite-backed persistent history with `PersistHistoryToSqlite`.
+- JSON history fallback with `PersistHistoryPath`.
+- Next fire previews, CSV history export, health dashboard, graph modes, timeline, keyboard shortcuts, and global search.
+- Bundled/minified embedded assets; no CDN allowlist needed.
+- `/api/config` exposes UI-safe flags, not raw credential-bearing webhook URLs.
 
-### Pagination (Plan C3)
-Jobs, triggers, and history endpoints accept `?offset=N&limit=N`. SPA shows "Load More" buttons.
+## Known Pitfalls
 
-### Batch Operations (Plan C5)
-Checkbox-select multiple jobs and pause/resume/trigger/delete in one request.
-
-### Job Execution Logs (Plan C4)
-In-memory ring buffer (last 50 entries per job). Viewable in job detail modal.
-
-### Calendar Management (Plan C6)
-Full Quartz calendar CRUD: create, list, and delete calendars (holiday, monthly, weekly, daily, cron, annual).
-
-### Misfire Instructions (Plan C7)
-Configure misfire handling per trigger: Fire Once Now, Do Nothing, or Ignore Misfire Policy.
-
-### Cron Expression Presets
-Ready-to-use presets in the trigger creation UI: every 5 min, hourly, daily midnight, weekdays 9am, etc.
-
-### `/api/config` Endpoint
-Exposes readOnly, hasFullAccess, isAuthenticated, basePath for SPA to adapt UI.
-
-## Known Issues & Pitfalls
-
-### SignalR + IApplicationBuilder.MapHub
-`UseQuartzDashboard()` uses `((IEndpointRouteBuilder)app).MapHub<>()` which requires the `Microsoft.AspNetCore.Routing` namespace. Works with `<ImplicitUsings>enable</ImplicitUsings>` on .NET 8+.
-
-### Blazor WASM Compatibility
-The `app.Map()` pattern is critical — it runs BEFORE endpoint routing, so `MapFallbackToFile("index.html")` in Blazor WASM apps doesn't catch `/quartz/*` routes.
-
-### Fire History In-Memory Only
-Fire history (configurable via `MaxFireHistory`) and execution buckets (120 entries) are stored in-memory — lost on app restart. Refactored into `IFireHistoryStore` interface with `InMemoryFireHistoryStore` default. Implement a persistent `SqlServerFireHistoryStore` for production audit trails.
-
-### `IListenerManager` API Compatibility
-Quartz 3.10+ uses `IListenerManager` with `AddJobListener`, `AddSchedulerListener`, `AddTriggerListener`. The `GetSchedulerListener` method does NOT exist in this interface. If you see CS1061 about `GetSchedulerListener`, it's a stale build cache — clean and rebuild.
+- `UseQuartzDashboard()` must be registered before `MapFallbackToFile()` in Blazor WASM or SPA hosts.
+- If auth is enabled, `UseAuthentication()` and `UseAuthorization()` must run before `UseQuartzDashboard()`.
+- Do not manually map `QuartzDashboardHub`; the package maps it when `UseSignalR` is true.
+- Fire history is in-memory unless `PersistHistoryToSqlite` or `PersistHistoryPath` is configured.
+- Quartz's `IListenerManager` has `AddJobListener`, `AddSchedulerListener`, and `AddTriggerListener`; it does not have `GetSchedulerListener`.

@@ -74,6 +74,20 @@ public sealed class DashboardConfigTests
     }
 
     [Fact]
+    public async Task GetConfig_WebhookUrlConfigured_DoesNotExposeSecret()
+    {
+        await using var customFactory = new TestWebAppFactory(options =>
+            options.WebhookUrl = "https://hooks.example.test/services/sensitive-token");
+        using var client = customFactory.CreateAnonymousClient();
+
+        using var response = await client.GetAsync("/quartz/api/config");
+        using var config = await response.ReadJsonAsync();
+
+        Assert.True(config.RootElement.GetProperty("hasWebhookConfigured").GetBoolean());
+        Assert.False(config.RootElement.TryGetProperty("webhookUrl", out _));
+    }
+
+    [Fact]
     public async Task GetHistory_MaxFireHistory_IsRespected()
     {
         await using var customFactory = new TestWebAppFactory(options => options.MaxFireHistory = 3);

@@ -38,10 +38,29 @@ export function createApiSection() {
           return base;
         },
 
+        async apiErrorMessage(res) {
+          let detail = '';
+          try {
+            const text = await res.text();
+            if (text) {
+              try {
+                const json = JSON.parse(text);
+                detail = json.error || json.Error || json.message || text;
+              } catch {
+                detail = text;
+              }
+            }
+          } catch {
+            detail = '';
+          }
+          const status = res.status + ' ' + res.statusText;
+          return detail ? status + ': ' + detail : status;
+        },
+
         async fetchApi(path) {
           const url = path.startsWith('http') ? path : this._api(path);
           const res = await fetch(url);
-          if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+          if (!res.ok) throw new Error(await this.apiErrorMessage(res));
           return res.json();
         },
 
@@ -53,7 +72,7 @@ export function createApiSection() {
             options.body = JSON.stringify(body);
           }
           const res = await fetch(url, options);
-          if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+          if (!res.ok) throw new Error(await this.apiErrorMessage(res));
           return res.json();
         },
 
@@ -64,7 +83,7 @@ export function createApiSection() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body || {})
           });
-          if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+          if (!res.ok) throw new Error(await this.apiErrorMessage(res));
           return res.json();
         },
 

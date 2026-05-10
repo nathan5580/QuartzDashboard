@@ -45,7 +45,7 @@ internal static class ConfigHandlers
             historyRetentionHours = options.HistoryRetentionHours,
             hasPersistentHistory = !string.IsNullOrWhiteSpace(options.PersistHistoryToSqlite) ||
                                    !string.IsNullOrWhiteSpace(options.PersistHistoryPath),
-            webhookUrl = options.WebhookUrl,
+            hasWebhookConfigured = !string.IsNullOrWhiteSpace(options.WebhookUrl),
         });
     }
 }

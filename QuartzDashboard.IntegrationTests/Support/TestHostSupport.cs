@@ -25,6 +25,7 @@ internal sealed class DashboardTestScenario
     public string Title { get; init; } = "QuartzDash Integration";
     public int MaxFireHistory { get; init; } = 500;
     public string SchedulerName { get; init; } = $"QuartzDashboardIntegration-{Guid.NewGuid():N}";
+    public string? WebhookUrl { get; init; }
 
     public static DashboardTestScenario FromConfiguration(IConfiguration configuration)
     {
@@ -45,7 +46,8 @@ internal sealed class DashboardTestScenario
             AllowOnAuthorize = configuration.GetValue("QuartzDashboardIntegration:AllowOnAuthorize", true),
             Title = configuration["QuartzDashboardIntegration:Title"] ?? "QuartzDash Integration",
             MaxFireHistory = configuration.GetValue("QuartzDashboardIntegration:MaxFireHistory", 500),
-            SchedulerName = configuration["QuartzDashboardIntegration:SchedulerName"] ?? $"QuartzDashboardIntegration-{Guid.NewGuid():N}"
+            SchedulerName = configuration["QuartzDashboardIntegration:SchedulerName"] ?? $"QuartzDashboardIntegration-{Guid.NewGuid():N}",
+            WebhookUrl = configuration["QuartzDashboardIntegration:WebhookUrl"]
         };
     }
 
@@ -60,6 +62,7 @@ internal sealed class DashboardTestScenario
         options.RequiredPolicy = RequiredPolicy;
         options.Title = Title;
         options.MaxFireHistory = MaxFireHistory;
+        options.WebhookUrl = WebhookUrl;
         if (EnableOnAuthorize)
         {
             options.OnAuthorize = context =>

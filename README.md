@@ -445,13 +445,13 @@ No external storage is required — in-memory works out of the box. For producti
 ## Testing
 
 ```bash
-# Run core unit tests (95 tests)
+# Run core unit tests (107 tests)
 dotnet test QuartzDashboard.Tests -c Release
 
 # Run integration tests (61 tests — real WebApplicationFactory with Quartz scheduler)
 dotnet test QuartzDashboard.IntegrationTests -c Release
 
-# Run all tests (156 total)
+# Run all tests (168 total)
 dotnet test -c Release
 ```
 
@@ -521,4 +521,3 @@ See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 ## License
 
 MIT — use it, ship it, open-source it.
-

@@ -206,8 +206,8 @@ export function createUtilsSection() {
           if (!dateStr) return '\u2014';
           const now = new Date();
           const target = new Date(dateStr);
-          const diffMs = target - now;
-          if (diffMs <= 0) return 'now';
+          const diffMs = Math.abs(target - now);
+          if (diffMs < 1000) return 'now';
           const secs = Math.floor(diffMs / 1000);
           if (secs < 60) return secs + 's';
           const mins = Math.floor(secs / 60);
@@ -216,6 +216,16 @@ export function createUtilsSection() {
           const hours = Math.floor(mins / 60);
           const remMins = mins % 60;
           return hours + 'h ' + remMins + 'm';
+        },
+
+        relativeTimePhrase(dateStr, futurePrefix = 'in ', pastSuffix = ' ago') {
+          if (!dateStr) return '\u2014';
+          const target = new Date(dateStr);
+          if (isNaN(target.getTime())) return '\u2014';
+          const diffMs = target.getTime() - Date.now();
+          const value = this.relativeTime(dateStr);
+          if (value === 'now') return 'now';
+          return diffMs >= 0 ? futurePrefix + value : value + pastSuffix;
         },
 
         formatDuration(d) {

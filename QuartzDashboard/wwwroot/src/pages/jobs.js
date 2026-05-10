@@ -105,7 +105,7 @@ export function createJobsSection() {
         },
         jobDrawerLastFireLabel() {
           const lastTrigger = this.jobDrawerTriggers.find(t => t.lastFireTime);
-          return lastTrigger?.lastFireTime ? this.relativeTime(lastTrigger.lastFireTime) + ' ago' : '—';
+          return lastTrigger?.lastFireTime ? this.relativeTimePhrase(lastTrigger.lastFireTime) : '—';
         },
         triggerFrequencyLabel(trig) {
           if (!trig || !(trig.intervalMs > 0)) return 'cron';
@@ -248,7 +248,7 @@ export function createJobsSection() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(body)
             });
-            if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+            if (!res.ok) throw new Error(await this.apiErrorMessage(res));
 
             this.showToast('Job ' + this.newJob.name + ' created', 'success');
             this.showCreateJobModal = false;
@@ -284,10 +284,7 @@ export function createJobsSection() {
                 : '/triggers/' + encodeURIComponent(group) + '/' + encodeURIComponent(name);
 
               const res = await fetch(this._api(endpoint), { method: 'DELETE' });
-              if (!res.ok) {
-                const text = await res.text();
-                throw new Error(text || res.statusText);
-              }
+              if (!res.ok) throw new Error(await this.apiErrorMessage(res));
 
               this.showToast((type === 'job' ? 'Job' : 'Trigger') + ' ' + group + '.' + name + ' deleted', 'success');
               this.showDeleteConfirm = false;

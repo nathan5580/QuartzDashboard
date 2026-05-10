@@ -1,14 +1,19 @@
 {
   "name": "quartzdashboard",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "3.0.3",
+  "description": "Frontend asset build for Dot.QuartzDashboard.",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "node build-assets.mjs",
+    "audit": "npm audit --audit-level=moderate"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "quartz",
+    "dashboard",
+    "scheduler"
+  ],
+  "author": "n8",
+  "license": "MIT",
   "type": "commonjs",
   "devDependencies": {
     "esbuild": "^0.28.0"

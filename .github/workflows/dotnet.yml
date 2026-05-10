@@ -31,6 +31,13 @@ jobs:
     - name: Restore
       run: dotnet restore
 
+    - name: Check NuGet vulnerabilities
+      run: |
+        dotnet list package --vulnerable --include-transitive | tee vulnerable-packages.txt
+        if grep -q "has the following vulnerable packages" vulnerable-packages.txt; then
+          exit 1
+        fi
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
@@ -38,6 +45,9 @@ jobs:
 
     - name: Install frontend dependencies
       run: cd QuartzDashboard && npm ci
+
+    - name: Audit frontend dependencies
+      run: cd QuartzDashboard && npm run audit
 
     - name: Build
       run: dotnet build -c Release --no-restore
@@ -108,7 +118,7 @@ jobs:
       timeout-minutes: 5
 
   auto-tag:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
+    if: github.event_name == 'push'
     needs: [build-and-test, demo-build, integration-test]
     runs-on: ubuntu-latest
     permissions:
@@ -133,6 +143,7 @@ jobs:
 
     - name: Check if tag already exists
       id: tagcheck
+      if: startsWith(github.ref, 'refs/heads/')
       run: |
         if git ls-remote --tags origin "refs/tags/${{ steps.pkg.outputs.tag }}" | grep -q .; then
           echo "exists=true" >> $GITHUB_OUTPUT
@@ -144,7 +155,7 @@ jobs:
         fi
 
     - name: Create and push tag
-      if: steps.tagcheck.outputs.exists == 'false'
+      if: startsWith(github.ref, 'refs/heads/') && steps.tagcheck.outputs.exists == 'false'
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

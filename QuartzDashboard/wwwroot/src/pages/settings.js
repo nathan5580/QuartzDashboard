@@ -351,7 +351,8 @@ export function createSettingsSection() {
         formatCountdown(isoString) {
           if (!isoString) return '—';
           const diff = new Date(isoString).getTime() - this.nowTick;
-          if (diff < 0) return 'past';
+          if (diff < -5000) return 'overdue';
+          if (diff <= 0) return 'due now';
           if (diff < 60000) return `in ${Math.floor(diff / 1000)}s`;
           if (diff < 3600000) return `in ${Math.floor(diff / 60000)}m ${Math.floor((diff % 60000) / 1000)}s`;
           if (diff < 86400000) return `in ${Math.floor(diff / 3600000)}h ${Math.floor((diff % 3600000) / 60000)}m`;
@@ -361,6 +362,7 @@ export function createSettingsSection() {
         triggerCountdown(nextFireTime) {
           if (!nextFireTime) return '';
           const diff = new Date(nextFireTime).getTime() - this.nowTick;
+          if (diff < -5000) return 'overdue';
           if (diff <= 0) return 'now';
           if (diff < 60000) return Math.ceil(diff / 1000) + 's';
           if (diff < 3600000) return Math.ceil(diff / 60000) + 'm';

@@ -8,7 +8,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>__QUARTZ_TITLE__</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%236366f1'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='white' font-family='system-ui' font-weight='700' font-size='18'%3EQ%3C/text%3E%3C/svg%3E" />
-  <script>window.__QUARTZ_BASE = '__QUARTZ_BASE__';</script>
+  <script>
+    window.__QUARTZ_BASE = '__QUARTZ_BASE__';
+    window.__QUARTZ_DASHBOARD_VERSION = '__QUARTZ_VERSION__';
+  </script>
   <script>
     // Apply theme before Alpine loads to avoid flash. Dark is default.
     (function() {
@@ -93,11 +96,11 @@
   <!-- SECTION: Modals / Create Job                                -->
   <!-- ============================================================ -->
   <!-- ============ CREATE JOB MODAL ============ -->
-    <div x-show="showCreateJobModal" class="modal-overlay" @click.self="showCreateJobModal = false" style="display: none;">
-      <div class="modal-card">
+    <div x-show="showCreateJobModal" class="modal-overlay" @click.self="showCreateJobModal = false" @keydown.escape.window="showCreateJobModal = false" :aria-hidden="(!showCreateJobModal).toString()" style="display: none;">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="create-job-title">
         <div class="flex items-center justify-between mb-5">
-          <h2 class="text-base font-semibold text-gray-100">Create Job</h2>
-          <button @click="showCreateJobModal = false" class="btn-icon">
+          <h2 id="create-job-title" class="text-base font-semibold text-gray-100">Create Job</h2>
+          <button @click="showCreateJobModal = false" class="btn-icon" aria-label="Close create job">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -144,11 +147,11 @@
   <!-- SECTION: Modals / Create Trigger                            -->
   <!-- ============================================================ -->
   <!-- ============ CREATE TRIGGER MODAL ============ -->
-    <div x-show="showCreateTriggerModal" class="modal-overlay" @click.self="showCreateTriggerModal = false" style="display: none;">
-      <div class="modal-card">
+    <div x-show="showCreateTriggerModal" class="modal-overlay" @click.self="showCreateTriggerModal = false" @keydown.escape.window="showCreateTriggerModal = false" :aria-hidden="(!showCreateTriggerModal).toString()" style="display: none;">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="create-trigger-title">
         <div class="flex items-center justify-between mb-5">
-          <h2 class="text-base font-semibold text-gray-100">Create Trigger</h2>
-          <button @click="showCreateTriggerModal = false" class="btn-icon">
+          <h2 id="create-trigger-title" class="text-base font-semibold text-gray-100">Create Trigger</h2>
+          <button @click="showCreateTriggerModal = false" class="btn-icon" aria-label="Close create trigger">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -244,14 +247,14 @@
   <!-- SECTION: Modals / Trigger Job                               -->
   <!-- ============================================================ -->
   <!-- ============ TRIGGER JOB MODAL ============ -->
-    <div x-show="showTriggerJobModal" class="modal-overlay" @click.self="closeTriggerJobModal()" style="display: none;">
-      <div class="modal-card max-w-lg">
+    <div x-show="showTriggerJobModal" class="modal-overlay" @click.self="closeTriggerJobModal()" @keydown.escape.window="closeTriggerJobModal()" :aria-hidden="(!showTriggerJobModal).toString()" style="display: none;">
+      <div class="modal-card max-w-lg" role="dialog" aria-modal="true" aria-labelledby="run-job-title">
         <div class="flex items-center justify-between mb-5">
           <div>
-            <h2 class="text-base font-semibold text-gray-100">Run Job</h2>
+            <h2 id="run-job-title" class="text-base font-semibold text-gray-100">Run Job</h2>
             <p class="text-xs text-gray-500 mt-1" x-text="triggerJobTarget ? (triggerJobTarget.group + '.' + triggerJobTarget.name) : ''"></p>
           </div>
-          <button @click="closeTriggerJobModal()" class="btn-icon">
+          <button @click="closeTriggerJobModal()" class="btn-icon" aria-label="Close run job">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -292,14 +295,14 @@
   <!-- SECTION: Modals / Edit Trigger                              -->
   <!-- ============================================================ -->
   <!-- ============ EDIT TRIGGER MODAL ============ -->
-    <div x-show="showEditTriggerModal" class="modal-overlay" @click.self="showEditTriggerModal = false" style="display: none;">
-      <div class="modal-card max-w-md">
+    <div x-show="showEditTriggerModal" class="modal-overlay" @click.self="showEditTriggerModal = false" @keydown.escape.window="showEditTriggerModal = false" :aria-hidden="(!showEditTriggerModal).toString()" style="display: none;">
+      <div class="modal-card max-w-md" role="dialog" aria-modal="true" aria-labelledby="edit-trigger-title">
         <div class="flex items-center justify-between mb-5">
           <div>
-            <h2 class="text-base font-semibold text-gray-100">Edit Trigger</h2>
+            <h2 id="edit-trigger-title" class="text-base font-semibold text-gray-100">Edit Trigger</h2>
             <p class="text-xs text-gray-500 mt-1" x-text="editTriggerData ? (editTriggerData.group + '.' + editTriggerData.name) : ''"></p>
           </div>
-          <button @click="showEditTriggerModal = false" class="btn-icon">
+          <button @click="showEditTriggerModal = false" class="btn-icon" aria-label="Close edit trigger">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -337,14 +340,14 @@
   <!-- ============================================================ -->
   <!-- SECTION: Modals / Trigger Detail                            -->
   <!-- ============================================================ -->
-    <div x-show="showTriggerDetailModal" class="modal-overlay" @click.self="closeTriggerDetail()" style="display: none;">
-      <div class="modal-card max-w-2xl">
+    <div x-show="showTriggerDetailModal" class="modal-overlay" @click.self="closeTriggerDetail()" @keydown.escape.window="closeTriggerDetail()" :aria-hidden="(!showTriggerDetailModal).toString()" style="display: none;">
+      <div class="modal-card max-w-2xl" role="dialog" aria-modal="true" aria-labelledby="trigger-details-title">
         <div class="flex items-center justify-between mb-5">
           <div>
-            <h2 class="text-base font-semibold text-gray-100">Trigger Details</h2>
+            <h2 id="trigger-details-title" class="text-base font-semibold text-gray-100">Trigger Details</h2>
             <p class="text-xs text-gray-500 mt-1" x-text="triggerDetailData ? (triggerDetailData.group + '.' + triggerDetailData.name) : ''"></p>
           </div>
-          <button @click="closeTriggerDetail()" class="btn-icon">
+          <button @click="closeTriggerDetail()" class="btn-icon" aria-label="Close trigger details">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -399,11 +402,11 @@
   <!-- SECTION: Modals / Create Calendar                           -->
   <!-- ============================================================ -->
   <!-- ============ CREATE CALENDAR MODAL ============ -->
-    <div x-show="showCreateCalendarModal" class="modal-overlay" @click.self="showCreateCalendarModal = false" style="display: none;">
-      <div class="modal-card max-w-md">
+    <div x-show="showCreateCalendarModal" class="modal-overlay" @click.self="showCreateCalendarModal = false" @keydown.escape.window="showCreateCalendarModal = false" :aria-hidden="(!showCreateCalendarModal).toString()" style="display: none;">
+      <div class="modal-card max-w-md" role="dialog" aria-modal="true" aria-labelledby="create-calendar-title">
         <div class="flex items-center justify-between mb-5">
-          <h2 class="text-base font-semibold text-gray-100">Create Calendar</h2>
-          <button @click="showCreateCalendarModal = false" class="btn-icon">
+          <h2 id="create-calendar-title" class="text-base font-semibold text-gray-100">Create Calendar</h2>
+          <button @click="showCreateCalendarModal = false" class="btn-icon" aria-label="Close create calendar">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -443,11 +446,11 @@
   <!-- SECTION: Modals / Delete Confirm                            -->
   <!-- ============================================================ -->
   <!-- ============ DELETE CONFIRMATION MODAL ============ -->
-    <div x-show="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false" style="display: none;">
-      <div class="modal-card max-w-sm">
+    <div x-show="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false" @keydown.escape.window="showDeleteConfirm = false" :aria-hidden="(!showDeleteConfirm).toString()" style="display: none;">
+      <div class="modal-card max-w-sm" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-base font-semibold text-gray-100">Confirm Delete</h2>
-          <button @click="showDeleteConfirm = false" class="btn-icon">
+          <h2 id="delete-confirm-title" class="text-base font-semibold text-gray-100">Confirm Delete</h2>
+          <button @click="showDeleteConfirm = false" class="btn-icon" aria-label="Close delete confirmation">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -504,7 +507,7 @@
       <div class="card-gradient rounded-xl shadow-2xl w-full max-w-md mx-auto p-6">
         <div class="flex items-center justify-between mb-5">
           <h2 class="text-sm font-semibold text-gray-100">Keyboard Shortcuts</h2>
-          <button @click="showShortcutsModal = false" class="btn-icon"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          <button @click="showShortcutsModal = false" class="btn-icon" aria-label="Close shortcuts"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         <div class="space-y-4">
           <div>
@@ -607,7 +610,7 @@
               <span x-text="schedulerStatusLabel()"></span>
             </span>
           </div>
-          <span class="text-[10px] text-gray-600 font-mono" x-text="'v' + (scheduler.version || '?')"></span>
+          <span class="text-[10px] text-gray-600 font-mono" x-text="'Quartz v' + (scheduler.version || '?')"></span>
         </div>
         <button @click="sidebarOpen = !sidebarOpen"
                 class="w-full flex items-center justify-center py-1.5 rounded-lg hover:bg-white/[0.04] text-gray-500 hover:text-gray-300 transition-colors"
@@ -676,7 +679,7 @@
       <div class="shortcuts-box">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-base font-semibold text-gray-100">Keyboard Shortcuts</h3>
-          <button @click="showShortcutsHelp = false" class="text-gray-500 hover:text-gray-300">&times;</button>
+          <button @click="showShortcutsHelp = false" class="text-gray-500 hover:text-gray-300" aria-label="Close shortcuts help">&times;</button>
         </div>
         <div class="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
           <div class="flex items-center justify-between"><span class="text-gray-400">Show shortcuts</span><span class="shortcut-key">?</span></div>
@@ -704,7 +707,7 @@
       <div class="p-6">
         <div class="flex items-center justify-between mb-6">
           <h3 class="text-base font-semibold text-gray-100">Execution Detail</h3>
-          <button @click="closeHistoryDetail()" class="text-gray-500 hover:text-gray-300 text-xl">&times;</button>
+          <button @click="closeHistoryDetail()" class="text-gray-500 hover:text-gray-300 text-xl" aria-label="Close execution detail">&times;</button>
         </div>
         <template x-if="historyDetailData">
           <div class="space-y-4">
@@ -743,7 +746,7 @@
       <div class="cron-builder w-full max-w-lg mx-4">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-base font-semibold text-gray-100">CRON Expression Builder</h3>
-          <button @click="closeCronBuilder()" class="text-gray-500 hover:text-gray-300 text-xl">&times;</button>
+          <button @click="closeCronBuilder()" class="text-gray-500 hover:text-gray-300 text-xl" aria-label="Close cron builder">&times;</button>
         </div>
 
         <!-- Result preview -->
@@ -824,7 +827,7 @@
             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
           </template>
         </button>
-        <button @click="toggleFullscreen()" class="btn-icon w-8 h-8" :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'">
+        <button @click="toggleFullscreen()" class="btn-icon w-8 h-8" :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'" :aria-label="isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'">
           <svg x-show="!isFullscreen" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
           <svg x-show="isFullscreen" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
         </button>
@@ -1123,8 +1126,8 @@
               </div>
               <div class="flex items-center gap-2">
                 <span class="flex items-center gap-1.5 text-xs text-gray-500">
-                  <span :class="['status-dot', healthData?.status === 'healthy' ? 'status-dot-running' : 'status-dot-stopped']"></span>
-                  <span x-text="healthData?.status || 'unknown'" class="capitalize"></span>
+                  <span :class="['status-dot', healthData?.status === 'healthy' || (!healthData && scheduler.isStarted && !scheduler.isStandbyMode) ? 'status-dot-running' : healthData?.status === 'degraded' || scheduler.isStandbyMode ? 'status-dot-standby' : 'status-dot-stopped']"></span>
+                  <span x-text="healthData?.status || schedulerStatusLabel()" class="capitalize"></span>
                 </span>
                 <button @click="loadHealth(); loadStats()" class="btn btn-ghost">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
@@ -1438,7 +1441,7 @@
                         <template x-for="item in jobRows" :key="item.key">
                           <tr class="table-row-hover" :class="[
                                 item.isHeader
-                                  ? 'cursor-pointer hover:bg-white/[0.02] bg-white/[0.015]'
+                                  ? 'job-group-row cursor-pointer hover:bg-white/[0.02] bg-white/[0.015]'
                                   : 'group cursor-pointer hover:bg-white/[0.025] transition-colors duration-100',
                                 !item.isHeader && item.job && jobDrawerData && jobDrawerData.group === item.job.group && jobDrawerData.name === item.job.name ? 'bg-indigo-500/[0.06] border-l-2 border-l-indigo-500' : '',
                                 !item.isHeader && item.job && jobFlash[item.job.group + '.' + item.job.name] === 'success' ? 'ring-1 ring-inset ring-emerald-400/40 bg-emerald-400/5' : '',
@@ -1460,9 +1463,9 @@
                                 <span class="text-[10px] bg-white/[0.06] text-gray-500 px-1.5 py-0.5 rounded-full"
                                       x-text="item.count + ' job' + (item.count !== 1 ? 's' : '')"></span>
                                 <div class="ml-auto flex items-center gap-1" x-show="!config.readOnly" @click.stop>
-                                  <button @click="pauseJobGroup(item.groupName)" title="Pause all jobs in this group"
+                                  <button @click="pauseJobGroup(item.groupName)" title="Pause all jobs in this group" :aria-label="'Pause all jobs in ' + item.groupName"
                                           class="px-2 py-0.5 text-[10px] rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-colors">Pause</button>
-                                  <button @click="resumeJobGroup(item.groupName)" title="Resume all jobs in this group"
+                                  <button @click="resumeJobGroup(item.groupName)" title="Resume all jobs in this group" :aria-label="'Resume all jobs in ' + item.groupName"
                                           class="px-2 py-0.5 text-[10px] rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors">Resume</button>
                                 </div>
                               </div>
@@ -1512,21 +1515,22 @@
                                 <button @click.stop="item.job && togglePinJob(item.job.group, item.job.name)"
                                         class="btn-icon w-6 h-6"
                                         :class="item.job && isJobPinned(item.job.group, item.job.name) ? 'text-amber-400' : 'text-gray-700 hover:text-gray-400'"
-                                        :title="item.job && isJobPinned(item.job.group, item.job.name) ? 'Unpin' : 'Pin to overview'">
+                                        :title="item.job && isJobPinned(item.job.group, item.job.name) ? 'Unpin' : 'Pin to overview'"
+                                        :aria-label="item.job ? (isJobPinned(item.job.group, item.job.name) ? 'Unpin ' + item.job.name : 'Pin ' + item.job.name + ' to overview') : 'Pin job to overview'">
                                   <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M16 2a2 2 0 00-2 2v2.586l-3.293 3.293a1 1 0 000 1.414l5 5a1 1 0 001.414 0L20.414 13A2 2 0 0021 11.586V8a2 2 0 00-2-2h-1V4a2 2 0 00-2-2zM5.293 16.293l-3 3a1 1 0 101.414 1.414l3-3a1 1 0 00-1.414-1.414z"/></svg>
                                 </button>
-                                <button @click="item.job && openTriggerJobModal(item.job.group, item.job.name)" class="btn btn-primary p-1.5" title="Run Now">
+                                <button @click="item.job && openTriggerJobModal(item.job.group, item.job.name)" class="btn btn-primary p-1.5" title="Run Now" :aria-label="item.job ? 'Run ' + item.job.name + ' now' : 'Run job now'">
                                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                                 </button>
-                                <button x-show="item.job && item.job.status !== 'Paused'" @click="item.job && pauseJob(item.job.group, item.job.name)" class="btn btn-warning p-1.5" title="Pause" :disabled="item.job && isActionPending('pause', item.job.group, item.job.name)">
+                                <button x-show="item.job && item.job.status !== 'Paused'" @click="item.job && pauseJob(item.job.group, item.job.name)" class="btn btn-warning p-1.5" title="Pause" :aria-label="item.job ? 'Pause ' + item.job.name : 'Pause job'" :disabled="item.job && isActionPending('pause', item.job.group, item.job.name)">
                                   <span x-show="item.job && isActionPending('pause', item.job.group, item.job.name)" class="spinner" style="display: none;"></span>
                                   <svg x-show="!(item.job && isActionPending('pause', item.job.group, item.job.name))" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
                                 </button>
-                                <button x-show="item.job && item.job.status === 'Paused'" @click="item.job && resumeJob(item.job.group, item.job.name)" class="btn btn-success p-1.5" title="Resume" :disabled="item.job && isActionPending('resume', item.job.group, item.job.name)">
+                                <button x-show="item.job && item.job.status === 'Paused'" @click="item.job && resumeJob(item.job.group, item.job.name)" class="btn btn-success p-1.5" title="Resume" :aria-label="item.job ? 'Resume ' + item.job.name : 'Resume job'" :disabled="item.job && isActionPending('resume', item.job.group, item.job.name)">
                                   <span x-show="item.job && isActionPending('resume', item.job.group, item.job.name)" class="spinner" style="display: none;"></span>
                                   <svg x-show="!(item.job && isActionPending('resume', item.job.group, item.job.name))" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                                 </button>
-                                <button x-show="!config.readOnly" @click="item.job && deleteJob(item.job.group, item.job.name)" class="btn btn-danger p-1.5" title="Delete">
+                                <button x-show="!config.readOnly" @click="item.job && deleteJob(item.job.group, item.job.name)" class="btn btn-danger p-1.5" title="Delete" :aria-label="item.job ? 'Delete ' + item.job.name : 'Delete job'">
                                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
                                 </button>
                               </div>
@@ -1623,7 +1627,7 @@
                       <span x-show="jobDrawerData.jobType" class="mono text-gray-600 truncate max-w-[220px]" x-text="jobDrawerData.jobType"></span>
                     </p>
                   </div>
-                  <button @click="closeJobDrawer()" class="btn-icon text-gray-500 hover:text-gray-200 flex-shrink-0 mt-0.5">
+                  <button @click="closeJobDrawer()" class="btn-icon text-gray-500 hover:text-gray-200 flex-shrink-0 mt-0.5" aria-label="Close job details">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
                 </div>
@@ -1648,10 +1652,10 @@
                     <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                     Duplicate
                   </button>
-                  <button @click="copyJobJson()" class="btn btn-ghost p-2" title="Copy JSON">
+                  <button @click="copyJobJson()" class="btn btn-ghost p-2" title="Copy JSON" aria-label="Copy job JSON">
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                   </button>
-                  <button x-show="!config.readOnly" @click="deleteJob(jobDrawerData.group, jobDrawerData.name); closeJobDrawer()" class="btn btn-danger p-2" title="Delete Job">
+                  <button x-show="!config.readOnly" @click="deleteJob(jobDrawerData.group, jobDrawerData.name); closeJobDrawer()" class="btn btn-danger p-2" title="Delete Job" aria-label="Delete job">
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
                   </button>
                 </div>
@@ -1691,7 +1695,7 @@
                       <div class="rounded-lg bg-white/[0.03] border border-white/[0.06] px-4 py-3">
                         <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Next Fire</div>
                         <div class="text-sm font-medium" :class="jobDrawerNextFire ? 'text-gray-200' : 'text-gray-600'"
-                             x-text="jobDrawerNextFire ? 'in ' + relativeTime(jobDrawerNextFire) : 'Not scheduled'"></div>
+                             x-text="jobDrawerNextFire ? relativeTimePhrase(jobDrawerNextFire) : 'Not scheduled'"></div>
                       </div>
                       <div class="rounded-lg bg-white/[0.03] border border-white/[0.06] px-4 py-3">
                         <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Last Fire</div>
@@ -1708,8 +1712,8 @@
                           <span :class="jobDrawerData.isDurable ? 'bg-indigo-500/20 text-indigo-400' : 'bg-white/[0.04] text-gray-600'"
                                 class="w-4 h-4 rounded flex items-center justify-center flex-shrink-0">
                             <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                              <template x-if="jobDrawerData.isDurable"><polyline points="20 6 9 17 4 12"/></template>
-                              <template x-if="!jobDrawerData.isDurable"><line x1="18" y1="6" x2="6" y2="18"/></template>
+                              <polyline x-show="jobDrawerData.isDurable" points="20 6 9 17 4 12"/>
+                              <line x-show="!jobDrawerData.isDurable" x1="18" y1="6" x2="6" y2="18"/>
                             </svg>
                           </span>
                           <span class="text-xs" :class="jobDrawerData.isDurable ? 'text-gray-300' : 'text-gray-600'">Durable</span>
@@ -1718,8 +1722,8 @@
                           <span :class="jobDrawerData.concurrentExecutionDisallowed ? 'bg-amber-500/20 text-amber-400' : 'bg-white/[0.04] text-gray-600'"
                                 class="w-4 h-4 rounded flex items-center justify-center flex-shrink-0">
                             <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                              <template x-if="jobDrawerData.concurrentExecutionDisallowed"><polyline points="20 6 9 17 4 12"/></template>
-                              <template x-if="!jobDrawerData.concurrentExecutionDisallowed"><line x1="18" y1="6" x2="6" y2="18"/></template>
+                              <polyline x-show="jobDrawerData.concurrentExecutionDisallowed" points="20 6 9 17 4 12"/>
+                              <line x-show="!jobDrawerData.concurrentExecutionDisallowed" x1="18" y1="6" x2="6" y2="18"/>
                             </svg>
                           </span>
                           <span class="text-xs" :class="jobDrawerData.concurrentExecutionDisallowed ? 'text-gray-300' : 'text-gray-600'">No Concurrency</span>
@@ -1728,8 +1732,8 @@
                           <span :class="jobDrawerData.persistJobDataAfterExecution ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/[0.04] text-gray-600'"
                                 class="w-4 h-4 rounded flex items-center justify-center flex-shrink-0">
                             <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                              <template x-if="jobDrawerData.persistJobDataAfterExecution"><polyline points="20 6 9 17 4 12"/></template>
-                              <template x-if="!jobDrawerData.persistJobDataAfterExecution"><line x1="18" y1="6" x2="6" y2="18"/></template>
+                              <polyline x-show="jobDrawerData.persistJobDataAfterExecution" points="20 6 9 17 4 12"/>
+                              <line x-show="!jobDrawerData.persistJobDataAfterExecution" x1="18" y1="6" x2="6" y2="18"/>
                             </svg>
                           </span>
                           <span class="text-xs" :class="jobDrawerData.persistJobDataAfterExecution ? 'text-gray-300' : 'text-gray-600'">Persist Data</span>
@@ -1738,8 +1742,8 @@
                           <span :class="jobDrawerData.requestsRecovery ? 'bg-blue-500/20 text-blue-400' : 'bg-white/[0.04] text-gray-600'"
                                 class="w-4 h-4 rounded flex items-center justify-center flex-shrink-0">
                             <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                              <template x-if="jobDrawerData.requestsRecovery"><polyline points="20 6 9 17 4 12"/></template>
-                              <template x-if="!jobDrawerData.requestsRecovery"><line x1="18" y1="6" x2="6" y2="18"/></template>
+                              <polyline x-show="jobDrawerData.requestsRecovery" points="20 6 9 17 4 12"/>
+                              <line x-show="!jobDrawerData.requestsRecovery" x1="18" y1="6" x2="6" y2="18"/>
                             </svg>
                           </span>
                           <span class="text-xs" :class="jobDrawerData.requestsRecovery ? 'text-gray-300' : 'text-gray-600'">Recovery</span>
@@ -1800,7 +1804,7 @@
                                    class="flex-1 min-w-0 px-2 py-1 text-xs bg-white/[0.05] border border-white/[0.08] rounded text-gray-300 placeholder-gray-600 focus:outline-none focus:border-indigo-500/60 mono" />
                             <input x-model="row.value" placeholder="value" type="text"
                                    class="flex-1 min-w-0 px-2 py-1 text-xs bg-white/[0.05] border border-white/[0.08] rounded text-gray-300 placeholder-gray-600 focus:outline-none focus:border-indigo-500/60 mono" />
-                            <button @click="removeDataMapRow(idx)" class="text-gray-600 hover:text-red-400 flex-shrink-0">
+                            <button @click="removeDataMapRow(idx)" class="text-gray-600 hover:text-red-400 flex-shrink-0" aria-label="Remove data map entry">
                               <svg style="width:12px;height:12px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             </button>
                           </div>
@@ -1842,12 +1846,12 @@
                                   <div class="flex items-center gap-2 text-xs">
                                     <span class="text-gray-500 w-20 flex-shrink-0">Last fire</span>
                                     <span class="mono" :class="t.lastFireTime ? 'text-gray-300' : 'text-gray-600'"
-                                          x-text="t.lastFireTime ? relativeTime(t.lastFireTime) + ' ago' : 'Never'"></span>
+                                          x-text="t.lastFireTime ? relativeTimePhrase(t.lastFireTime) : 'Never'"></span>
                                   </div>
                                   <div class="flex items-center gap-2 text-xs">
                                     <span class="text-gray-500 w-20 flex-shrink-0">Next fire</span>
                                     <span class="mono" :class="t.nextFireTime ? 'text-indigo-400' : 'text-gray-600'"
-                                          x-text="t.nextFireTime ? 'in ' + relativeTime(t.nextFireTime) : 'Not scheduled'"></span>
+                                          x-text="t.nextFireTime ? relativeTimePhrase(t.nextFireTime) : 'Not scheduled'"></span>
                                   </div>
                                   <template x-if="t.priority !== undefined && t.priority !== 5">
                                     <div class="flex items-center gap-2 text-xs">
@@ -1913,7 +1917,7 @@
                               </div>
                               <div x-show="h.errorMessage" class="text-red-400 text-[11px] truncate mt-0.5" x-text="h.errorMessage"></div>
                             </div>
-                            <span class="text-gray-600 flex-shrink-0" x-text="h.fireTime ? relativeTime(h.fireTime) + ' ago' : ''"></span>
+                            <span class="text-gray-600 flex-shrink-0" x-text="h.fireTime ? relativeTimePhrase(h.fireTime) : ''"></span>
                           </div>
                         </template>
                     </div>
@@ -2043,7 +2047,7 @@
                                   <span :class="'badge ' + (t.state === 'Normal' ? 'badge-normal' : t.state === 'Paused' ? 'badge-paused' : 'badge-idle')" x-text="t.state"></span>
                                 </td>
                                 <td class="hidden md:table-cell text-xs text-gray-400" x-text="t.scheduleDescription || '\u2014'"></td>
-                                <td class="hidden md:table-cell text-xs mono text-gray-500" x-text="t.lastFireTime ? relativeTime(t.lastFireTime) + ' ago' : '\u2014'"></td>
+                                <td class="hidden md:table-cell text-xs mono text-gray-500" x-text="t.lastFireTime ? relativeTimePhrase(t.lastFireTime) : '\u2014'"></td>
                                 <td class="hidden lg:table-cell"><span class="badge badge-idle text-[9px]" x-text="t.misfireInstruction || 'SmartPolicy'"></span></td>
                                 <td class="text-xs mono text-gray-400">
                                   <span :title="t.nextFireTime ? formatDate(t.nextFireTime) : ''" x-text="formatCountdown(t.nextFireTime)"></span>
@@ -2051,15 +2055,15 @@
                                 </td>
                                 <td class="text-right">
                                   <div class="flex gap-1 justify-end">
-                                    <button @click.stop="openTriggerDetail(t)" class="btn btn-ghost text-[10px] px-2 py-1" title="View">
+                                    <button @click.stop="openTriggerDetail(t)" class="btn btn-ghost text-[10px] px-2 py-1" title="View" :aria-label="'View trigger ' + t.name">
                                       <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
                                     </button>
-                                    <button @click.stop="openEditTrigger(t)" class="btn btn-ghost text-[10px] px-2 py-1" title="Edit">
+                                    <button @click.stop="openEditTrigger(t)" class="btn btn-ghost text-[10px] px-2 py-1" title="Edit" :aria-label="'Edit trigger ' + t.name">
                                       <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
                                     </button>
-                                    <button x-show="t.state !== 'Paused'" @click.stop="pauseTrigger(t.group, t.name)" class="btn btn-warning text-[10px] px-2 py-1">Pause</button>
-                                    <button x-show="t.state === 'Paused'" @click.stop="resumeTrigger(t.group, t.name)" class="btn btn-success text-[10px] px-2 py-1">Resume</button>
-                                    <button @click.stop="deleteTrigger(t.group, t.name)" class="btn btn-danger text-[10px] px-2 py-1">Delete</button>
+                                    <button x-show="t.state !== 'Paused'" @click.stop="pauseTrigger(t.group, t.name)" class="btn btn-warning text-[10px] px-2 py-1" :aria-label="'Pause trigger ' + t.name">Pause</button>
+                                    <button x-show="t.state === 'Paused'" @click.stop="resumeTrigger(t.group, t.name)" class="btn btn-success text-[10px] px-2 py-1" :aria-label="'Resume trigger ' + t.name">Resume</button>
+                                    <button @click.stop="deleteTrigger(t.group, t.name)" class="btn btn-danger text-[10px] px-2 py-1" :aria-label="'Delete trigger ' + t.name">Delete</button>
                                   </div>
                                 </td>
                               </tr>
@@ -2308,7 +2312,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <template x-for="(h, idx) in sortedHistory" :key="idx">
+                      <template x-for="(h, idx) in filteredHistory" :key="h.fireTime + '-' + h.jobKey + '-' + idx">
                         <template x-if="true">
                           <tr class="table-row-hover cursor-pointer" @click="openHistoryDetail(h)">
                             <td class="mono text-xs text-gray-400" data-label="Time" x-text="formatDate(h.fireTime)"></td>
@@ -2346,7 +2350,7 @@
                   <span class="text-xs text-gray-500" x-text="historyTotal + ' total records'"></span>
                   <div class="flex items-center gap-1">
                     <template x-for="_ in [historyCurrentPage]" :key="'history-prev'">
-                      <button @click="historyPrevPage()" :disabled="historyCurrentPage <= 1" class="btn-icon" :class="historyCurrentPage <= 1 ? 'opacity-30' : ''">
+                      <button @click="historyPrevPage()" :disabled="historyCurrentPage <= 1" class="btn-icon" :class="historyCurrentPage <= 1 ? 'opacity-30' : ''" aria-label="Previous history page">
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                       </button>
                     </template>
@@ -2354,7 +2358,7 @@
                       <span class="text-xs text-gray-400 tabular-nums px-2" x-text="historyCurrentPage + ' / ' + historyPageCount"></span>
                     </template>
                     <template x-for="_ in [historyCurrentPage]" :key="'history-next'">
-                      <button @click="historyNextPage()" :disabled="historyCurrentPage >= historyPageCount" class="btn-icon" :class="historyCurrentPage >= historyPageCount ? 'opacity-30' : ''">
+                      <button @click="historyNextPage()" :disabled="historyCurrentPage >= historyPageCount" class="btn-icon" :class="historyCurrentPage >= historyPageCount ? 'opacity-30' : ''" aria-label="Next history page">
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                       </button>
                     </template>
@@ -2388,7 +2392,7 @@
                 <!-- Live / History view toggle -->
                 <div class="flex gap-0.5">
                   <button @click="graphView = 'live'; graphData = getGraphData()" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', graphView === 'live' ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200']">Live</button>
-                  <button @click="graphView = 'history'; loadGraphHistoryData()" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', graphView === 'history' ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200']">History</button>
+                  <button @click="graphView = 'history'; loadGraphHistoryData()" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', graphView === 'history' ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200']">History Data</button>
                 </div>
                 <span class="w-px h-5 bg-white/10"></span>
                 <!-- Chart mode toggle -->
@@ -2780,7 +2784,7 @@
                           </div>
                           <p class="text-xs text-gray-500 mt-1 break-all" x-text="calendar.description || calendar.cronExpression || 'No description'"></p>
                         </div>
-                        <button @click="deleteCalendar(calendar.name)" class="btn btn-danger text-[10px] px-2 py-1">Delete</button>
+                        <button @click="deleteCalendar(calendar.name)" class="btn btn-danger text-[10px] px-2 py-1" :aria-label="'Delete calendar ' + calendar.name">Delete</button>
                       </div>
                       <dl class="space-y-2 text-xs">
                         <div class="flex items-center justify-between gap-3">
@@ -3033,7 +3037,7 @@
                 </div>
                 <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02] gap-3">
                   <span class="text-gray-500">Failure webhook</span>
-                  <code class="text-gray-300 font-mono text-[10px] truncate max-w-[220px]" x-text="config.webhookUrl || 'Not configured'"></code>
+                  <span class="text-gray-300 text-xs" x-text="config.hasWebhookConfigured ? 'Configured' : 'Not configured'"></span>
                 </div>
                 <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02]">
                   <span class="text-gray-500">Last refresh</span>
@@ -3059,7 +3063,11 @@
                   <span class="text-gray-300 font-mono mt-0.5 block">Dot.QuartzDashboard</span>
                 </div>
                 <div class="py-2 px-3 rounded-lg bg-white/[0.02]">
-                  <span class="text-gray-600 block">Version</span>
+                  <span class="text-gray-600 block">Dashboard</span>
+                  <span class="text-gray-300 font-mono mt-0.5 block">v__QUARTZ_VERSION__</span>
+                </div>
+                <div class="py-2 px-3 rounded-lg bg-white/[0.02]">
+                  <span class="text-gray-600 block">Quartz</span>
                   <span class="text-gray-300 font-mono mt-0.5 block" x-text="'v' + (scheduler.version || '?')"></span>
                 </div>
                 <div class="py-2 px-3 rounded-lg bg-white/[0.02]">
@@ -3117,32 +3125,32 @@
         <span :class="signalRConnected ? 'text-emerald-400' : signalRPolling ? 'text-amber-400' : 'text-gray-500'" x-text="connectionStatus"></span>
         <span class="data-pulse-dot" x-show="(Date.now() - lastDataPulse) < 2000" style="display:none"></span>
       </span>
-      <span class="ml-auto text-gray-500" x-text="'v' + (scheduler.version || '?')"></span>
+      <span class="ml-auto text-gray-500">Dashboard v__QUARTZ_VERSION__</span>
       <span class="text-gray-700 mx-1.5">·</span>
       <span class="text-gray-600" x-text="'Last: ' + (lastRefreshed ? formatDate(lastRefreshed) : '—')"></span>
     </div>
   </div>
 
   <!-- Mobile Bottom Nav -->
-  <div class="mobile-bottom-nav" x-show="isMobile && !embedMode">
-    <button @click="currentPage = 'overview'" class="mobile-nav-item" :class="currentPage === 'overview' ? 'active' : ''">
+  <div class="mobile-bottom-nav" x-show="isMobile && !embedMode" role="navigation" aria-label="Mobile dashboard navigation">
+    <button @click="currentPage = 'overview'" class="mobile-nav-item" :class="currentPage === 'overview' ? 'active' : ''" aria-label="Go to overview">
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       <span>Overview</span>
     </button>
-    <button @click="currentPage = 'jobs'" class="mobile-nav-item" :class="currentPage === 'jobs' ? 'active' : ''">
+    <button @click="currentPage = 'jobs'" class="mobile-nav-item" :class="currentPage === 'jobs' ? 'active' : ''" aria-label="Go to jobs">
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       <span>Jobs</span>
     </button>
-    <button @click="currentPage = 'history'" class="mobile-nav-item" :class="currentPage === 'history' ? 'active' : ''">
+    <button @click="currentPage = 'history'" class="mobile-nav-item" :class="currentPage === 'history' ? 'active' : ''" aria-label="Go to history">
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       <span>History</span>
     </button>
-    <button @click="currentPage = 'health'" class="mobile-nav-item" :class="currentPage === 'health' ? 'active' : ''" style="position:relative">
+    <button @click="currentPage = 'health'" class="mobile-nav-item" :class="currentPage === 'health' ? 'active' : ''" style="position:relative" aria-label="Go to health">
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
       <span>Health</span>
       <span x-show="healthAlertCount > 0" class="nav-badge"></span>
     </button>
-    <button @click="currentPage = 'settings'" class="mobile-nav-item" :class="currentPage === 'settings' ? 'active' : ''">
+    <button @click="currentPage = 'settings'" class="mobile-nav-item" :class="currentPage === 'settings' ? 'active' : ''" aria-label="Go to settings">
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       <span>Settings</span>
     </button>
