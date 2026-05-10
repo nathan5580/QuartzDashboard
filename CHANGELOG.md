@@ -2,6 +2,17 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [3.0.1] — 2026-05-10
+
+### Fixed
+- Restored dark-first visual theme variables to prevent broken light/washed-out UI.
+- Removed "button inside button" look in Graph toolbar toggle groups.
+- Fixed CI packaging reliability by tracking lock/minified assets required by embedded-resource tests.
+
+### CI/CD
+- Added **automatic tag creation** after successful `build-and-test`, `demo-build`, and `integration-test`.
+- CI now auto-pushes `v<Version>` from `QuartzDashboard.csproj`, which triggers NuGet publish workflow.
+
 ## [3.0.0] — 2026-05-10
 
 ### ⚠️ Breaking Changes
