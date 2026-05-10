@@ -39,8 +39,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.5" />
-    <PackageReference Include="Quartz" Version="3.18.0" />
-    <PackageReference Include="Quartz.Extensions.DependencyInjection" Version="3.18.0" />
+    <PackageReference Include="Quartz" Version="3.18.1" />
+    <PackageReference Include="Quartz.Extensions.DependencyInjection" Version="3.18.1" />
   </ItemGroup>
 
   <ItemGroup>
