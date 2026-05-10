@@ -2,6 +2,12 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [3.0.3] — 2026-05-10
+
+### CI/CD
+- Fixed `Create GitHub Release` in auto-tag publish flow by explicitly setting `tag_name` when run is branch-triggered.
+- This unblocks fully automated release pipeline: tests pass -> auto-tag -> NuGet push -> GitHub Release.
+
 ## [3.0.2] — 2026-05-10
 
 ### CI/CD
