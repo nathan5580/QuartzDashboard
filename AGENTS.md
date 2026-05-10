@@ -1,3 +1,10 @@
+<!--
+  ╔══════════════════════════════════════════════════════════╗
+  ║  This file is for AI coding assistants (Claude, Copilot,║
+  ║  Cursor, etc.). Humans: you want README.md instead.    ║
+  ╚══════════════════════════════════════════════════════════╝
+-->
+
 # QuartzDashboard — Agent Guide
 
 **NuGet:** `Dot.QuartzDashboard` v2.0.0 — https://www.nuget.org/packages/Dot.QuartzDashboard

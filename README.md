@@ -1,5 +1,9 @@
 # Dot.QuartzDashboard
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/nathan5580/QuartzDashboard/main/assets/logo.svg" width="200" alt="Dot.QuartzDashboard">
+</p>
+
 A beautiful, self-contained **Quartz.NET scheduler dashboard** — drop it into any ASP.NET Core app with two lines of code.
 
 [![NuGet](https://img.shields.io/nuget/v/Dot.QuartzDashboard?style=flat-square&logo=nuget&color=004880)](https://www.nuget.org/packages/Dot.QuartzDashboard)
@@ -7,6 +11,33 @@ A beautiful, self-contained **Quartz.NET scheduler dashboard** — drop it into 
 [![Build](https://img.shields.io/github/actions/workflow/status/nathan5580/QuartzDashboard/dotnet.yml?branch=main&style=flat-square&logo=github)](https://github.com/nathan5580/QuartzDashboard/actions)
 [![.NET](https://img.shields.io/badge/.NET-8.0%20|%209.0%20|%2010.0-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
+
+---
+
+## Contents
+
+- [What's New in v3.0.0](#whats-new-in-v300)
+- [🤖 AI Prompt](#-ai-prompt----copy-this-into-any-copilotai-assistant)
+- [What it does](#what-it-does)
+- [Quick Start](#quick-start)
+- [Dashboard Pages](#dashboard-pages)
+- [Configuration](#configuration)
+  - [SQLite persistent history](#sqlite-persistent-history)
+  - [Dark mode](#dark-mode)
+  - [Bind from appsettings.json](#bind-from-appsettingsjson)
+  - [Environment gating](#environment-gating)
+  - [Authentication & Authorization](#authentication--authorization)
+- [Migrating from v2.x to v3.0.0](#migrating-from-v2x-to-v300)
+- [Middleware Placement](#middleware-placement)
+- [API Endpoints](#api-endpoints)
+- [SignalR Real-Time Updates](#signalr-real-time-updates)
+- [History & Stats](#history--stats)
+- [Testing](#testing)
+- [Common Issues](#common-issues)
+- [Architecture](#architecture)
+- [Demo](#demo)
+- [Changelog](#changelog)
+- [License](#license)
 
 ---
 
