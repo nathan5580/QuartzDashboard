@@ -113,6 +113,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      version: ${{ steps.pkg.outputs.version }}
+      tag: ${{ steps.pkg.outputs.tag }}
+      tag_created: ${{ steps.tagcheck.outputs.tag_created }}
 
     steps:
     - name: Checkout
@@ -132,9 +136,11 @@ jobs:
       run: |
         if git ls-remote --tags origin "refs/tags/${{ steps.pkg.outputs.tag }}" | grep -q .; then
           echo "exists=true" >> $GITHUB_OUTPUT
+          echo "tag_created=false" >> $GITHUB_OUTPUT
           echo "Tag ${{ steps.pkg.outputs.tag }} already exists, skipping."
         else
           echo "exists=false" >> $GITHUB_OUTPUT
+          echo "tag_created=true" >> $GITHUB_OUTPUT
         fi
 
     - name: Create and push tag
@@ -146,8 +152,12 @@ jobs:
         git push origin "${{ steps.pkg.outputs.tag }}"
 
   publish:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: [build-and-test, demo-build, integration-test]
+    if: |
+      github.event_name == 'push' && (
+        startsWith(github.ref, 'refs/tags/v') ||
+        (startsWith(github.ref, 'refs/heads/') && needs.auto-tag.outputs.tag_created == 'true')
+      )
+    needs: [build-and-test, demo-build, integration-test, auto-tag]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -163,9 +173,14 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: Extract version from tag
+    - name: Resolve release version
       id: version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      run: |
+        if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+          echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        else
+          echo "VERSION=${{ needs.auto-tag.outputs.version }}" >> $GITHUB_OUTPUT
+        fi
 
     - name: Restore
       run: dotnet restore
