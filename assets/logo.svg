@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5e9"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <g opacity="0.06" stroke="#0ea5e9" stroke-width="1">
+    <line x1="0" y1="128" x2="512" y2="128"/><line x1="0" y1="256" x2="512" y2="256"/>
+    <line x1="0" y1="384" x2="512" y2="384"/><line x1="128" y1="0" x2="128" y2="512"/>
+    <line x1="256" y1="0" x2="256" y2="512"/><line x1="384" y1="0" x2="384" y2="512"/>
+  </g>
+  <rect x="56" y="56" width="120" height="80" rx="16" fill="#0ea5e9" opacity="0.12"/>
+  <text x="116" y="86" font-family="system-ui,sans-serif" font-size="12" fill="#0ea5e9" opacity="0.6" text-anchor="middle">JOBS</text>
+  <text x="116" y="118" font-family="system-ui,sans-serif" font-size="28" font-weight="800" fill="#0ea5e9" text-anchor="middle">42</text>
+  <rect x="196" y="56" width="120" height="80" rx="16" fill="#6366f1" opacity="0.12"/>
+  <text x="256" y="86" font-family="system-ui,sans-serif" font-size="12" fill="#6366f1" opacity="0.6" text-anchor="middle">RUNNING</text>
+  <text x="256" y="118" font-family="system-ui,sans-serif" font-size="28" font-weight="800" fill="#6366f1" text-anchor="middle">12</text>
+  <rect x="336" y="56" width="120" height="80" rx="16" fill="#10b981" opacity="0.12"/>
+  <text x="396" y="86" font-family="system-ui,sans-serif" font-size="12" fill="#10b981" opacity="0.6" text-anchor="middle">SUCCESS</text>
+  <text x="396" y="118" font-family="system-ui,sans-serif" font-size="28" font-weight="800" fill="#10b981" text-anchor="middle">98%</text>
+  <g transform="translate(56,160)">
+    <rect width="400" height="160" rx="16" fill="#0ea5e9" opacity="0.04"/>
+    <g stroke="#0ea5e9" stroke-width="0.5" opacity="0.08">
+      <line x1="0" y1="40" x2="400" y2="40"/><line x1="0" y1="80" x2="400" y2="80"/><line x1="0" y1="120" x2="400" y2="120"/>
+    </g>
+    <linearGradient id="area" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.3"/><stop offset="100%" stop-color="#0ea5e9" stop-opacity="0.02"/>
+    </linearGradient>
+    <path d="M0,130 L22,120 L44,100 L66,110 L88,80 L110,95 L132,70 L154,85 L176,55 L198,65 L220,40 L242,50 L264,30 L286,45 L308,20 L330,35 L352,15 L374,25 L396,10 L400,12 L400,160 L0,160 Z" fill="url(#area)"/>
+    <polyline points="0,130 22,120 44,100 66,110 88,80 110,95 132,70 154,85 176,55 198,65 220,40 242,50 264,30 286,45 308,20 330,35 352,15 374,25 396,10 400,12" fill="none" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <polyline points="0,150 44,148 88,145 132,155 176,140 220,148 264,142 308,150 352,145 400,148" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
+    <circle cx="308" cy="20" r="4" fill="#0ea5e9"/><circle cx="308" cy="20" r="8" fill="#0ea5e9" opacity="0.2"/>
+    <rect x="278" y="2" rx="6" fill="#1a1a2e" stroke="#0ea5e9" stroke-width="1"/>
+    <text x="308" y="16" font-family="system-ui,sans-serif" font-size="9" fill="#0ea5e9" text-anchor="middle">88 ms avg</text>
+  </g>
+  <g transform="translate(56,340)" opacity="0.5">
+    <rect x="0" y="20" width="80" height="12" rx="3" fill="#10b981"/>
+    <rect x="95" y="40" width="120" height="12" rx="3" fill="#10b981"/>
+    <rect x="230" y="10" width="60" height="12" rx="3" fill="#ef4444"/>
+    <rect x="305" y="30" width="95" height="12" rx="3" fill="#f59e0b"/>
+  </g>
+  <g transform="translate(256,290)" opacity="0.9">
+    <polygon points="0,-28 22,-6 22,18 0,32 -22,18 -22,-6" fill="none" stroke="url(#accent)" stroke-width="2.5" stroke-linejoin="round"/>
+    <polygon points="0,-28 22,-6 0,8 -22,-6" fill="#0ea5e9" opacity="0.15"/>
+    <line x1="0" y1="-28" x2="0" y2="32" stroke="url(#accent)" stroke-width="1" opacity="0.3"/>
+    <line x1="-22" y1="-6" x2="22" y2="18" stroke="url(#accent)" stroke-width="1" opacity="0.3"/>
+  </g>
+  <text x="256" y="440" font-family="system-ui,-apple-system,sans-serif" font-size="36" font-weight="800" fill="#f8fafc" text-anchor="middle" letter-spacing="4">QUARTZ</text>
+  <text x="256" y="470" font-family="system-ui,-apple-system,sans-serif" font-size="16" font-weight="500" fill="#0ea5e9" text-anchor="middle" letter-spacing="8">DASHBOARD</text>
+</svg>
