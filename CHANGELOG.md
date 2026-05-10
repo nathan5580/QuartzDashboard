@@ -2,6 +2,59 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [3.0.0] — 2026-05-10
+
+### ⚠️ Breaking Changes
+- Removed `AddQuartzDashboardHistory()` — history is now automatically registered by `AddQuartzDashboard()`
+- Removed `UseSystemFonts` option — system fonts are now the default (no embedded fonts)
+- Package ID remains `Dot.QuartzDashboard`
+
+### Added
+- **Dark mode** — automatic system preference detection + manual toggle, persisted in localStorage
+- **SQLite persistent history** — `PersistHistoryToSqlite` option for fire history that survives restarts
+- **Next-N-fires preview** — trigger detail shows next 10 scheduled fire times
+- **CSV history export** — one-click client-side CSV download of fire history
+- **Favicon badge** — browser tab shows red badge with failed job count
+- **Job search/filter** — real-time search across job name, group, type, and description
+- **esbuild minification pipeline** — JS/CSS assets minified at build time
+- **XML documentation** — full IntelliSense support for all public APIs
+- **Structured error responses** — API errors return JSON `{ error, type }` instead of raw strings
+
+### Changed
+- **Package size reduced ~50%** — 1.7MB → ~860KB (removed fonts, minified assets)
+- Frontend split into ES modules (`src/`) bundled by esbuild
+- Backend router refactored to dictionary-based dispatch with route constants
+- `FileFireHistoryStore` now uses debounced writes (5s) instead of per-event disk I/O
+- SignalR bridge uses typed `Channel<DashboardEvent>` with explicit unsubscribe
+- All fire-and-forget paths now log warnings via `ILogger`
+- `index.html` organized with 29 section markers
+- Non-embedded file requests now return 404 instead of SPA fallback
+
+### Fixed
+- CS0618 warnings from obsolete `StringKeyDirtyFlagMap.Put()` usage
+- Memory leak risk from missing SignalR event unsubscribe in `StopAsync()`
+- Silent exception swallowing in webhook, callback, and persistence paths
+
+### Removed
+- Embedded Inter and JetBrains Mono fonts (279KB savings)
+- Dead `tailwind.css` (empty file)
+- Dead `RecordExecution()` stub
+- Duplicate `Internal/QuartzDashboardOptions.cs`
+- `[Obsolete] AddQuartzDashboardHistory()` method
+
+### Infrastructure
+- Added `.editorconfig`, `Directory.Build.props`, `global.json`
+- Enabled `GenerateDocumentationFile` for XML doc output
+- CI: fixed duplicate integration test runs, added Node.js setup, added package size gate (900KB)
+
+## [2.4.5] — 2025-05-09
+- Bug fixes and UI improvements
+
+## [2.4.0] — 2025-05-01
+- Embedded assets (fonts, JS, CSS) — zero CDN dependency
+- Health monitoring page
+- Execution heatmap visualization
+
 ## [2.3.2] — 2026-05-09
 
 ### Fixed
@@ -274,7 +327,6 @@ All notable changes to **Dot.QuartzDashboard** are documented here.
 ## [2.1.31] — 2026-05-08
 
 ### Added
-- `UseSystemFonts` option — skip embedded fonts, use system font stack (saves ~286KB)
 - CI auto-publish on `v*` tags with GitHub Release creation
 - Failing demo job (`UnstableImport`) to populate Health page error data
 - CHANGELOG.md for version tracking

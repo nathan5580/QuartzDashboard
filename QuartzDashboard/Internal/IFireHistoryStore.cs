@@ -1,33 +1,94 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace QuartzDashboard.Internal;
 
 /// <summary>
-/// Abstraction for storing and retrieving fire history records.
-/// Default implementation uses an in-memory ConcurrentQueue.
+/// Defines storage operations for persisting and querying recent Quartz job execution history.
 /// </summary>
 public interface IFireHistoryStore
 {
+    /// <summary>
+    /// Records a completed job execution.
+    /// </summary>
+    /// <param name="jobKey">The fully qualified Quartz job key in <c>group.name</c> format.</param>
+    /// <param name="triggerKey">The fully qualified Quartz trigger key in <c>group.name</c> format.</param>
+    /// <param name="fireTime">The UTC time when the execution started.</param>
+    /// <param name="duration">The total execution duration.</param>
+    /// <param name="success"><see langword="true"/> when the execution completed without an exception.</param>
+    /// <param name="refireCount">The Quartz refire count for the execution.</param>
+    /// <param name="exceptionMessage">The exception message captured for a failed execution, if any.</param>
+    /// <param name="exceptionType">The exception type captured for a failed execution, if any.</param>
     void RecordFire(string jobKey, string triggerKey, DateTimeOffset fireTime, TimeSpan duration, bool success, int refireCount = 0, string? exceptionMessage = null, string? exceptionType = null);
+
+    /// <summary>
+    /// Gets the number of records currently stored.
+    /// </summary>
     int Count { get; }
+
+    /// <summary>
+    /// Gets recent execution records in reverse chronological order.
+    /// </summary>
+    /// <param name="count">The maximum number of records to return.</param>
+    /// <param name="offset">The number of most recent records to skip.</param>
+    /// <returns>A sequence of recent <see cref="FireRecord"/> entries.</returns>
     IEnumerable<FireRecord> GetRecent(int count, int offset = 0);
+
+    /// <summary>
+    /// Removes all stored execution records.
+    /// </summary>
     void Clear();
+
+    /// <summary>
+    /// Occurs when a new execution record is stored.
+    /// </summary>
     event Action<FireRecord>? OnFireRecorded;
 }
 
 /// <summary>
-/// A single fire execution record.
+/// Represents a single recorded Quartz job execution.
 /// </summary>
 public sealed record FireRecord
 {
+    /// <summary>
+    /// Gets or sets the fully qualified Quartz job key in <c>group.name</c> format.
+    /// </summary>
     public string JobKey { get; set; } = "";
+
+    /// <summary>
+    /// Gets or sets the fully qualified Quartz trigger key in <c>group.name</c> format.
+    /// </summary>
     public string TriggerKey { get; set; } = "";
+
+    /// <summary>
+    /// Gets or sets the UTC time when the execution started.
+    /// </summary>
     public DateTimeOffset FireTime { get; set; }
+
+    /// <summary>
+    /// Gets or sets the total duration of the execution.
+    /// </summary>
     public TimeSpan Duration { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the execution completed successfully.
+    /// </summary>
     public bool Success { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Quartz refire count for the execution.
+    /// </summary>
     public int RefireCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets the captured exception message for a failed execution, if available.
+    /// </summary>
     public string? ExceptionMessage { get; set; }
+
+    /// <summary>
+    /// Gets or sets the captured exception type for a failed execution, if available.
+    /// </summary>
     public string? ExceptionType { get; set; }
 }
 
@@ -88,7 +149,7 @@ internal sealed class InMemoryFireHistoryStore : IFireHistoryStore
             var cutoff = DateTimeOffset.UtcNow.AddHours(-_retentionHours);
             all = all.Where(r => r.FireTime >= cutoff).ToArray();
         }
-        return all.Reverse().Skip(offset).Take(count);
+        return ((IEnumerable<FireRecord>)all).Reverse().Skip(offset).Take(count);
     }
 
     public void Clear()
@@ -112,11 +173,13 @@ internal sealed class FileFireHistoryStore : IFireHistoryStore
 {
     private readonly InMemoryFireHistoryStore _inner;
     private readonly string _filePath;
+    private readonly ILogger<FileFireHistoryStore> _logger;
     private readonly object _writeLock = new();
 
-    public FileFireHistoryStore(string filePath, int maxRecords = 500, int retentionHours = 24)
+    public FileFireHistoryStore(string filePath, ILogger<FileFireHistoryStore> logger, int maxRecords = 500, int retentionHours = 24)
     {
         _filePath = filePath;
+        _logger = logger;
         _inner = new InMemoryFireHistoryStore(maxRecords, retentionHours);
         _inner.OnFireRecorded += _ => PersistAsync();
 
@@ -172,7 +235,10 @@ internal sealed class FileFireHistoryStore : IFireHistoryStore
                     File.WriteAllText(_filePath, json);
                 }
             }
-            catch { /* best-effort persistence */ }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to persist fire history to {Path}", _filePath);
+            }
         });
     }
 }

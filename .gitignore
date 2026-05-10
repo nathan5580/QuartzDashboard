@@ -6,3 +6,17 @@ obj/
 *.log
 .DS_Store
 nupkg/
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# Node modules (for esbuild tooling)
+node_modules/
+package-lock.json
+
+# Minified build output
+*.min.js
+*.min.css
+!**/alpine.min.js
+!**/signalr.min.js

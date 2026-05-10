@@ -14,9 +14,23 @@ namespace QuartzDashboard;
 public static class QuartzDashboardServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds Quartz Dashboard services. Quartz must already be configured
-    /// (<c>AddQuartz</c> and <c>AddQuartzHostedService</c>).
+    /// Registers the services required by Quartz Dashboard, including history storage,
+    /// execution logging, event publishing, and optional SignalR updates.
     /// </summary>
+    /// <param name="services">The service collection to add Quartz Dashboard services to.</param>
+    /// <param name="configure">An optional callback used to configure <see cref="QuartzDashboardOptions"/>.</param>
+    /// <returns>The same <see cref="IServiceCollection"/> instance so calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// builder.Services.AddQuartz();
+    /// builder.Services.AddQuartzHostedService();
+    /// builder.Services.AddQuartzDashboard(options =&gt;
+    /// {
+    ///     options.Path = "/quartz";
+    ///     options.RequireAuthentication = true;
+    /// });
+    /// </code>
+    /// </example>
     public static IServiceCollection AddQuartzDashboard(this IServiceCollection services, Action<QuartzDashboardOptions>? configure = null)
     {
         var options = new QuartzDashboardOptions();
@@ -24,9 +38,19 @@ public static class QuartzDashboardServiceCollectionExtensions
         services.AddSingleton(options);
         services.AddHttpClient();
 
-        // Fire history store — file-backed if PersistHistoryPath is set, otherwise in-memory
-        if (!string.IsNullOrWhiteSpace(options.PersistHistoryPath))
-            services.AddSingleton<IFireHistoryStore>(_ => new FileFireHistoryStore(options.PersistHistoryPath, options.MaxFireHistory, options.HistoryRetentionHours));
+        // Fire history store — SQLite takes precedence over JSON file persistence, otherwise in-memory
+        if (!string.IsNullOrWhiteSpace(options.PersistHistoryToSqlite))
+            services.AddSingleton<IFireHistoryStore>(sp => new SqliteFireHistoryStore(
+                options.PersistHistoryToSqlite,
+                options.MaxFireHistory,
+                options.HistoryRetentionHours,
+                sp.GetRequiredService<ILogger<SqliteFireHistoryStore>>()));
+        else if (!string.IsNullOrWhiteSpace(options.PersistHistoryPath))
+            services.AddSingleton<IFireHistoryStore>(sp => new FileFireHistoryStore(
+                options.PersistHistoryPath,
+                sp.GetRequiredService<ILogger<FileFireHistoryStore>>(),
+                options.MaxFireHistory,
+                options.HistoryRetentionHours));
         else
             services.AddSingleton<IFireHistoryStore>(_ => new InMemoryFireHistoryStore(options.MaxFireHistory, options.HistoryRetentionHours));
 
@@ -53,9 +77,11 @@ public static class QuartzDashboardServiceCollectionExtensions
     }
 
     /// <summary>
-    /// No-op — history is now registered automatically by <c>AddQuartzDashboard()</c>.
-    /// Kept for backwards compatibility.
+    /// No-op retained for backwards compatibility because history registration is now handled by
+    /// <see cref="AddQuartzDashboard(IServiceCollection, Action{QuartzDashboardOptions}?)"/>.
     /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <returns>The same <see cref="IServiceCollection"/> instance.</returns>
     [Obsolete("History is registered automatically by AddQuartzDashboard(). This call is no longer needed.")]
     public static IServiceCollection AddQuartzDashboardHistory(this IServiceCollection services) => services;
 }
@@ -69,6 +95,7 @@ internal sealed class DashboardListenerAttacher(
     ExecutionBucketService? bucketService,
     QuartzDashboardOptions options,
     IHttpClientFactory? httpClientFactory,
+    ILogger<DashboardJobListener> jobListenerLogger,
     ILogger<DashboardListenerAttacher> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken ct)
@@ -82,7 +109,8 @@ internal sealed class DashboardListenerAttacher(
                 logBuffer,
                 bucketService,
                 options,
-                httpClientFactory));
+                httpClientFactory,
+                jobListenerLogger));
             scheduler.ListenerManager.AddSchedulerListener(schedulerListener);
             logger.LogDebug("QuartzDashboard listeners attached");
         }
@@ -101,8 +129,11 @@ internal sealed class DashboardJobListener(
     ExecutionLogBuffer? logBuffer,
     ExecutionBucketService? bucketService,
     QuartzDashboardOptions options,
-    IHttpClientFactory? httpClientFactory) : IJobListener
+    IHttpClientFactory? httpClientFactory,
+    ILogger<DashboardJobListener> logger) : IJobListener
 {
+    private readonly ILogger<DashboardJobListener> _logger = logger;
+
     public string Name => "QuartzDashboardListener";
 
     public Task JobToBeExecuted(IJobExecutionContext context, CancellationToken ct)
@@ -167,13 +198,20 @@ internal sealed class DashboardJobListener(
             {
                 _ = Task.Run(async () =>
                 {
-                    try { await options.OnJobFailed(jobKey, jobException); }
-                    catch { /* never propagate callback exceptions */ }
+                    try
+                    {
+                        await options.OnJobFailed(jobKey, jobException);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "OnJobFailed callback threw an exception for job {JobKey}", jobKey);
+                    }
                 });
             }
 
             if (!string.IsNullOrWhiteSpace(options.WebhookUrl) && httpClientFactory != null)
             {
+                var webhookUrl = options.WebhookUrl;
                 _ = Task.Run(async () =>
                 {
                     try
@@ -190,11 +228,11 @@ internal sealed class DashboardJobListener(
 
                         using var client = httpClientFactory.CreateClient();
                         using var content = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
-                        await client.PostAsync(options.WebhookUrl, content, CancellationToken.None).ConfigureAwait(false);
+                        await client.PostAsync(webhookUrl, content, CancellationToken.None).ConfigureAwait(false);
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // never propagate webhook exceptions
+                        _logger.LogWarning(ex, "Failed to POST webhook to {Url}", webhookUrl);
                     }
                 });
             }

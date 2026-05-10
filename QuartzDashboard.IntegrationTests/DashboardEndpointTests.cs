@@ -40,7 +40,7 @@ public sealed class DashboardEndpointTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         response.AssertHtmlContentType();
         Assert.Contains("alpine.min.js", html);
-        Assert.Contains("app.js", html);
+        Assert.Contains("app.min.js", html);
     }
 
     [Theory]

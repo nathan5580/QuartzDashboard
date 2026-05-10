@@ -3,33 +3,43 @@ using System.Text.Json.Serialization;
 namespace QuartzDashboard.Models;
 
 /// <summary>
-/// Request to create a new Quartz calendar.
+/// Represents a request to create a Quartz calendar.
 /// </summary>
 public sealed record CreateCalendarRequest
 {
-    /// <summary>Calendar name (required).</summary>
+    /// <summary>
+    /// Gets the unique calendar name.
+    /// </summary>
     [JsonPropertyName("name")]
     public string Name { get; init; } = "";
 
     /// <summary>
-    /// Calendar type: "holiday", "monthly", "weekly", "daily", "cron", "annual".
+    /// Gets the calendar type, such as <c>holiday</c>, <c>monthly</c>, <c>weekly</c>, <c>daily</c>, <c>cron</c>, or <c>annual</c>.
     /// </summary>
     [JsonPropertyName("type")]
     public string? Type { get; init; }
 
-    /// <summary>Optional description.</summary>
+    /// <summary>
+    /// Gets an optional calendar description.
+    /// </summary>
     [JsonPropertyName("description")]
     public string? Description { get; init; }
 
-    /// <summary>Cron expression (required for "cron" type).</summary>
+    /// <summary>
+    /// Gets the cron expression used when creating a cron calendar.
+    /// </summary>
     [JsonPropertyName("cronExpression")]
     public string? CronExpression { get; init; }
 
-    /// <summary>Timezone (optional).</summary>
+    /// <summary>
+    /// Gets the time zone identifier applied to the calendar.
+    /// </summary>
     [JsonPropertyName("timezone")]
     public string? Timezone { get; init; }
 
-    /// <summary>Base calendar name to compose with.</summary>
+    /// <summary>
+    /// Gets the optional base calendar name used for calendar composition.
+    /// </summary>
     [JsonPropertyName("baseCalendarName")]
     public string? BaseCalendarName { get; init; }
 }

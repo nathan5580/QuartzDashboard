@@ -2,8 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <!-- Reference v2.0.0 of Dot.QuartzDashboard (project reference for development, NuGet for consumers) -->

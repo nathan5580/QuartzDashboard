@@ -68,7 +68,6 @@ public sealed class TestScenarioBuilder
     public string RequiredPolicy { get; set; } = string.Empty;
     public bool EnableOnAuthorize { get; set; }
     public bool AllowOnAuthorize { get; set; } = true;
-    public bool UseSystemFonts { get; set; }
     public string Title { get; set; } = "QuartzDash Integration";
     public int MaxFireHistory { get; set; } = 500;
     public string? SchedulerName { get; set; }
@@ -84,7 +83,6 @@ public sealed class TestScenarioBuilder
         ["QuartzDashboardIntegration:RequiredPolicy"] = RequiredPolicy,
         ["QuartzDashboardIntegration:EnableOnAuthorize"] = EnableOnAuthorize.ToString(),
         ["QuartzDashboardIntegration:AllowOnAuthorize"] = AllowOnAuthorize.ToString(),
-        ["QuartzDashboardIntegration:UseSystemFonts"] = UseSystemFonts.ToString(),
         ["QuartzDashboardIntegration:Title"] = Title,
         ["QuartzDashboardIntegration:MaxFireHistory"] = MaxFireHistory.ToString(),
         ["QuartzDashboardIntegration:SchedulerName"] = SchedulerName

@@ -130,10 +130,16 @@ public class SchedulerHandlerTests : IClassFixture<QuartzTestFixture>
     }
 
     [Fact]
-    public async Task UnknownEndpoint_ReturnsNotFound()
+    public async Task UnknownEndpoint_ReturnsJsonNotFoundError()
     {
         var response = await _client.GetAsync("/quartz/api/nonexistent");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+
+        var json = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+        Assert.Equal("Unknown endpoint", doc.RootElement.GetProperty("error").GetString());
+        Assert.True(doc.RootElement.TryGetProperty("path", out _));
     }
 
     [Fact]

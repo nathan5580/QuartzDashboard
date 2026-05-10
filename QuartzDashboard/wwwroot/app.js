@@ -37,7 +37,7 @@
         embedMode: false,
 
         // Jobs page
-        jobsFilter: '',
+        jobSearchQuery: '',
         jobsPage: 1,
         jobsPageSize: 25,
         jobsTotal: 0,
@@ -217,6 +217,67 @@
         },
         isActionPending(type, group, name) {
           return !!this.actionPending[this.actionKey(type, group, name)];
+        },
+        deletePendingActionKey() {
+          return this.deletePending?.type === 'trigger' ? 'delete-trigger' : 'delete-job';
+        },
+        isDeletePending() {
+          return this.isActionPending(this.deletePendingActionKey(), this.deletePending?.group, this.deletePending?.name);
+        },
+        deletePendingButtonLabel() {
+          return this.isDeletePending() ? 'Deleting...' : 'Delete';
+        },
+        schedulerStatusLabel() {
+          return this.scheduler.isStarted ? (this.scheduler.isStandbyMode ? 'Standby' : 'Running') : 'Stopped';
+        },
+        schedulerStaleMessage() {
+          return !this.scheduler.isStarted
+            ? 'Scheduler is stopped — data may be stale'
+            : this.scheduler.isStandbyMode
+              ? 'Scheduler is in standby mode — jobs are paused'
+              : 'Real-time connection lost — data may be stale';
+        },
+        formatShortDuration(ms, empty = '—') {
+          if (!Number.isFinite(ms) || ms < 0) return empty;
+          if (ms < 1000) return ms.toFixed(1) + 'ms';
+          return (ms / 1000).toFixed(2) + 's';
+        },
+        jobDrawerLastFireLabel() {
+          const lastTrigger = this.jobDrawerTriggers.find(t => t.lastFireTime);
+          return lastTrigger?.lastFireTime ? this.relativeTime(lastTrigger.lastFireTime) + ' ago' : '—';
+        },
+        triggerFrequencyLabel(trig) {
+          if (!trig || !(trig.intervalMs > 0)) return 'cron';
+          const perHour = Math.round((3600000 / trig.intervalMs) * 10) / 10;
+          const perDay = Math.round(perHour * 24);
+          return perHour + '/hr · ' + perDay + '/day';
+        },
+        jobDrawerHistorySparklinePoints() {
+          const history = this.jobDrawerHistory.slice().reverse().slice(-40);
+          if (history.length < 2) return '';
+          const maxDuration = Math.max(...history.map(x => x.duration || x.runTimeMs || 0), 1);
+          const width = 300;
+          const step = width / (history.length - 1);
+          return history
+            .map((x, i) => (i * step).toFixed(1) + ',' + (30 - (((x.duration || x.runTimeMs || 0) / maxDuration) * 28)).toFixed(1))
+            .join(' ');
+        },
+        renderFailureRateBars() {
+          const data = (this.executionBuckets || []).slice(-24);
+          if (!data.length) return '';
+          const width = 668;
+          const count = data.length;
+          return data.map((bucket, idx) => {
+            if (!bucket) return '';
+            const errorRate = bucket.errorRate || 0;
+            const barWidth = Math.min(22, Math.max(6, (width / count) * 0.6));
+            const centerX = 36 + (idx + 0.5) * (width / count);
+            const barHeight = Math.max(4, (errorRate / 100) * 120);
+            const color = errorRate > 0 ? '#ef4444' : '#22c55e';
+            const opacity = errorRate > 0 ? 0.78 : 0.35;
+            return '<rect x=&quot;' + (centerX - barWidth / 2) + '&quot; y=&quot;' + (148 - barHeight) + '&quot; width=&quot;' + barWidth + '&quot; height=&quot;' + barHeight + '&quot; rx=&quot;2&quot; fill=&quot;' + color + '&quot; fill-opacity=&quot;' + opacity + '&quot;/>' +
+              '<text x=&quot;' + centerX + '&quot; y=&quot;165&quot; text-anchor=&quot;middle&quot; style=&quot;font-size:9px;fill:#374151&quot;>' + (bucket.label || '') + '</text>';
+          }).join('');
         },
         async withActionPending(type, group, name, callback) {
           const key = this.actionKey(type, group, name);
@@ -399,8 +460,31 @@
           { key: '1-9', label: 'Quick page navigation' },
         ],
 
-        // ========================= LIGHT MODE =========================
-        lightMode: false,
+        // ========================= THEME =========================
+        theme: (() => {
+          const savedTheme = localStorage.getItem('qd-theme') || localStorage.getItem('quartz-dashboard-theme');
+          return savedTheme || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+        })(),
+        applyTheme(theme = this.theme) {
+          const nextTheme = theme === 'dark' ? 'dark' : 'light';
+          this.theme = nextTheme;
+          document.documentElement.setAttribute('data-theme', nextTheme);
+          document.documentElement.classList.remove('dark', 'light');
+          document.documentElement.classList.add(nextTheme);
+          if (document.body) {
+            document.body.classList.toggle('light', nextTheme === 'light');
+          }
+        },
+        toggleTheme() {
+          const nextTheme = this.theme === 'dark' ? 'light' : 'dark';
+          this.applyTheme(nextTheme);
+          localStorage.setItem('qd-theme', nextTheme);
+          localStorage.removeItem('quartz-dashboard-theme');
+          this.$nextTick?.(() => {
+            this.updateGraphChart?.();
+            this.updateTimelineChart?.();
+          });
+        },
 
         // ========================= CREATE JOB MODAL =========================
         showCreateJobModal: false,
@@ -510,14 +594,18 @@
           return this.getSortedCollection('jobs', this.jobs || []);
         },
 
+        filterJobs() {
+          this.selectedJobIndex = -1;
+        },
+
         get filteredJobs() {
-          if (!this.jobsFilter) return this.sortedJobs;
-          const q = this.jobsFilter.toLowerCase();
+          const q = (this.jobSearchQuery || '').trim().toLowerCase();
+          if (!q) return this.sortedJobs;
           return this.sortedJobs.filter(j =>
-            j.name.toLowerCase().includes(q) ||
-            j.group.toLowerCase().includes(q) ||
+            (j.name || '').toLowerCase().includes(q) ||
+            (j.group || '').toLowerCase().includes(q) ||
             (j.jobType || '').toLowerCase().includes(q) ||
-            (j.status || '').toLowerCase().includes(q)
+            (j.description || '').toLowerCase().includes(q)
           );
         },
 
@@ -638,7 +726,7 @@
         // Flat list: header items + job items interleaved.
         // Single x-for in template — avoids nested template x-for scope chain issues in Alpine.js.
         get jobRows() {
-          const jobs = this.jobsFilter ? this.filteredJobs : (this.jobs || []);
+          const jobs = this.filteredJobs || [];
           const groups = {};
           jobs.forEach(j => {
             const g = j.group || 'Default';
@@ -783,7 +871,7 @@
         },
 
         getChartColors() {
-          return this.lightMode
+          return this.theme === 'light'
             ? {
                 primary: '#4f46e5',
                 text: '#374151',
@@ -1244,16 +1332,8 @@
           window.addEventListener('resize', () => { this.isMobile = window.innerWidth < 768; });
           if (this.embedMode) this.sidebarOpen = false;
 
-          // Sync Alpine lightMode state with what the inline script already applied to <html>
-          const savedTheme = localStorage.getItem('quartz-dashboard-theme');
-          const isLight = savedTheme === 'light' ||
-            (!savedTheme && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
-          if (isLight) {
-            this.lightMode = true;
-            document.documentElement.classList.remove('dark');
-            document.documentElement.classList.add('light');
-            document.body.classList.add('light');
-          }
+          // Sync Alpine theme state with the preloaded document theme.
+          this.applyTheme(this.theme);
 
           // Load persistent settings
           try {
@@ -1304,13 +1384,8 @@
 
           this.startAutoRefresh();
           this.$watch('currentPage', (val) => { this.onPageChange(val); window.location.hash = val; });
-          this.$watch('jobsFilter', () => {
-            this.debounce(() => {
-              if (this.jobsPage !== 1) {
-                this.jobsPage = 1;
-                this.loadJobs();
-              }
-            }, 'jobs-filter', 200);
+          this.$watch('jobSearchQuery', () => {
+            this.selectedJobIndex = -1;
           });
           this.$watch('triggersFilter', () => {
             this.debounce(() => {
@@ -1659,7 +1734,7 @@
           // t: toggle theme
           if (e.key === 't' && !e.metaKey && !e.ctrlKey && !e.altKey) {
             e.preventDefault();
-            this.toggleLightMode();
+            this.toggleTheme();
             return;
           }
 
@@ -1782,26 +1857,6 @@
           } else if (cmd.action === 'triggerJob') {
             this.openTriggerJobModal(cmd.group, cmd.name);
           }
-        },
-
-        // ========================= LIGHT MODE =========================
-        toggleLightMode() {
-          this.lightMode = !this.lightMode;
-          if (this.lightMode) {
-            document.documentElement.classList.remove('dark');
-            document.documentElement.classList.add('light');
-            document.body.classList.add('light');
-            localStorage.setItem('quartz-dashboard-theme', 'light');
-          } else {
-            document.documentElement.classList.remove('light');
-            document.documentElement.classList.add('dark');
-            document.body.classList.remove('light');
-            localStorage.setItem('quartz-dashboard-theme', 'dark');
-          }
-          this.$nextTick(() => {
-            this.updateGraphChart();
-            this.updateTimelineChart();
-          });
         },
 
         // ========================= CREATE JOB =========================

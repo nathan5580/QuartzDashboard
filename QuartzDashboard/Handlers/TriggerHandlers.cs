@@ -111,6 +111,26 @@ internal static class TriggerHandlers
         });
     }
 
+    public static async Task<IResult> GetNextFires(IScheduler scheduler, string group, string name, int count = 10)
+    {
+        var triggerKey = new TriggerKey(name, group);
+        var trigger = await scheduler.GetTrigger(triggerKey);
+        if (trigger == null)
+            return Results.NotFound(new { error = "Trigger not found" });
+
+        count = Math.Clamp(count, 1, 100);
+
+        var fires = new List<DateTimeOffset>();
+        DateTimeOffset? next = trigger.GetNextFireTimeUtc();
+        for (var i = 0; i < count && next.HasValue; i++)
+        {
+            fires.Add(next.Value);
+            next = trigger.GetFireTimeAfter(next.Value);
+        }
+
+        return Results.Json(fires);
+    }
+
     public static async Task<IResult> PauseTrigger(IScheduler sched, string group, string name,
         QuartzDashboardOptions options)
     {

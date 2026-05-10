@@ -56,7 +56,7 @@ public class EmbeddedAssetsTests : IClassFixture<QuartzTestFixture>
     [Fact]
     public async Task AppCss_IsServedFromEmbeddedResources()
     {
-        var response = await _client.GetAsync("/quartz/app.css");
+        var response = await _client.GetAsync("/quartz/app.min.css");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("css", response.Content.Headers.ContentType?.MediaType ?? "");
     }
@@ -64,7 +64,7 @@ public class EmbeddedAssetsTests : IClassFixture<QuartzTestFixture>
     [Fact]
     public async Task ChartsJs_IsServedFromEmbeddedResources()
     {
-        var response = await _client.GetAsync("/quartz/charts.js");
+        var response = await _client.GetAsync("/quartz/charts.min.js");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("javascript", response.Content.Headers.ContentType?.MediaType ?? "");
     }
@@ -72,7 +72,7 @@ public class EmbeddedAssetsTests : IClassFixture<QuartzTestFixture>
     [Fact]
     public async Task AppJs_IsServedFromEmbeddedResources()
     {
-        var response = await _client.GetAsync("/quartz/app.js");
+        var response = await _client.GetAsync("/quartz/app.min.js");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("javascript", response.Content.Headers.ContentType?.MediaType ?? "");
     }
@@ -126,11 +126,13 @@ public class EmbeddedAssetsTests : IClassFixture<QuartzTestFixture>
     }
 
     [Fact]
-    public async Task IndexHtml_ReferencesEmbeddedTailwindCss()
+    public async Task IndexHtml_ReferencesEmbeddedAppCss()
     {
         var response = await _client.GetAsync("/quartz/");
         var html = await response.Content.ReadAsStringAsync();
-        Assert.Contains("tailwind.css", html);
+        Assert.Contains("app.min.css", html);
+        Assert.Contains("app.min.js", html);
+        Assert.Contains("charts.min.js", html);
     }
 
     [Fact]
@@ -142,27 +144,26 @@ public class EmbeddedAssetsTests : IClassFixture<QuartzTestFixture>
     }
 
     [Fact]
-    public async Task TailwindCss_IsServedAsEmbeddedResource()
+    public async Task AppCss_UsesSystemFontStack()
     {
-        var response = await _client.GetAsync("/quartz/tailwind.css");
+        var response = await _client.GetAsync("/quartz/app.min.css");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var content = await response.Content.ReadAsStringAsync();
-        Assert.Contains(".bg-gray-950", content);
+        Assert.Contains("BlinkMacSystemFont", content);
+        Assert.DoesNotContain("@font-face", content);
     }
 
     [Fact]
-    public async Task Fonts_InterIsServedAsEmbeddedResource()
+    public async Task Fonts_InterIsNoLongerServed()
     {
         var response = await _client.GetAsync("/quartz/fonts/inter-latin.woff2");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.True(response.Content.Headers.ContentLength > 10000);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
-    public async Task Fonts_JetBrainsMonoIsServedAsEmbeddedResource()
+    public async Task Fonts_JetBrainsMonoIsNoLongerServed()
     {
         var response = await _client.GetAsync("/quartz/fonts/jetbrains-mono-latin.woff2");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.True(response.Content.Headers.ContentLength > 10000);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 }

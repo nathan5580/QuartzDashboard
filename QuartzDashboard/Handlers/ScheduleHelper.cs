@@ -35,8 +35,6 @@ internal static class ScheduleHelper
             ".png" => "image/png",
             ".ico" => "image/x-icon",
             ".json" => "application/json",
-            ".woff2" => "font/woff2",
-            ".woff" => "font/woff",
             _ => "application/octet-stream",
         };
     }
