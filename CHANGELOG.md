@@ -2,6 +2,12 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [3.0.2] — 2026-05-10
+
+### CI/CD
+- Fixed auto-tag flow so NuGet publish runs in the same successful CI run after tag creation.
+- Prevented missed publish when tag is created by `GITHUB_TOKEN` (which does not trigger a second workflow run).
+
 ## [3.0.1] — 2026-05-10
 
 ### Fixed
