@@ -107,6 +107,44 @@ jobs:
       run: dotnet test QuartzDashboard.IntegrationTests/QuartzDashboard.IntegrationTests.csproj -c Release --no-build --verbosity normal
       timeout-minutes: 5
 
+  auto-tag:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
+    needs: [build-and-test, demo-build, integration-test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Read package version
+      id: pkg
+      run: |
+        VERSION=$(grep -oPm1 '(?<=<Version>)[^<]+' QuartzDashboard/QuartzDashboard.csproj)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Check if tag already exists
+      id: tagcheck
+      run: |
+        if git ls-remote --tags origin "refs/tags/${{ steps.pkg.outputs.tag }}" | grep -q .; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "Tag ${{ steps.pkg.outputs.tag }} already exists, skipping."
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create and push tag
+      if: steps.tagcheck.outputs.exists == 'false'
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git tag -a "${{ steps.pkg.outputs.tag }}" -m "Release ${{ steps.pkg.outputs.tag }}"
+        git push origin "${{ steps.pkg.outputs.tag }}"
+
   publish:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: [build-and-test, demo-build, integration-test]
