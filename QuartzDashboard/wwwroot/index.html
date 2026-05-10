@@ -2386,18 +2386,20 @@
               </div>
               <div class="flex items-center gap-2">
                 <!-- Live / History view toggle -->
-                <div class="flex rounded-lg bg-gray-900 p-0.5 gap-0.5">
+                <div class="flex gap-0.5">
                   <button @click="graphView = 'live'; graphData = getGraphData()" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', graphView === 'live' ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200']">Live</button>
                   <button @click="graphView = 'history'; loadGraphHistoryData()" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', graphView === 'history' ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200']">History</button>
                 </div>
+                <span class="w-px h-5 bg-white/10"></span>
                 <!-- Chart mode toggle -->
-                <div class="flex rounded-lg bg-gray-900 p-0.5 gap-0.5">
+                <div class="flex gap-0.5">
                   <button @click="graphChartMode = 'line'" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', graphChartMode === 'line' ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200']">Line</button>
                   <button @click="graphChartMode = 'bar'" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', graphChartMode === 'bar' ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200']">Bar</button>
                   <button @click="graphChartMode = 'heatmap'" :class="['px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors', graphChartMode === 'heatmap' ? 'bg-quartz-600 text-white' : 'text-gray-400 hover:text-gray-200']">Heat</button>
                 </div>
+                <span class="w-px h-5 bg-white/10"></span>
                 <!-- Time range buttons -->
-                <div class="flex rounded-lg bg-gray-900 p-0.5 gap-0.5">
+                <div class="flex gap-0.5">
                   <button @click="graphTimeRange = 5; loadGraphData()" :class="['px-2 py-1 text-[10px] font-medium rounded-md transition-colors', graphTimeRange === 5 ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']">5m</button>
                   <button @click="graphTimeRange = 15; loadGraphData()" :class="['px-2 py-1 text-[10px] font-medium rounded-md transition-colors', graphTimeRange === 15 ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']">15m</button>
                   <button @click="graphTimeRange = 30; loadGraphData()" :class="['px-2 py-1 text-[10px] font-medium rounded-md transition-colors', graphTimeRange === 30 ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']">30m</button>
