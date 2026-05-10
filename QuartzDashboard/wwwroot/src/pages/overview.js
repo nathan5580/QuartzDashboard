@@ -99,8 +99,8 @@ export function createOverviewSection() {
             const barHeight = Math.max(4, (errorRate / 100) * 120);
             const color = errorRate > 0 ? '#ef4444' : '#22c55e';
             const opacity = errorRate > 0 ? 0.78 : 0.35;
-            return '<rect x=&quot;' + (centerX - barWidth / 2) + '&quot; y=&quot;' + (148 - barHeight) + '&quot; width=&quot;' + barWidth + '&quot; height=&quot;' + barHeight + '&quot; rx=&quot;2&quot; fill=&quot;' + color + '&quot; fill-opacity=&quot;' + opacity + '&quot;/>' +
-              '<text x=&quot;' + centerX + '&quot; y=&quot;165&quot; text-anchor=&quot;middle&quot; style=&quot;font-size:9px;fill:#374151&quot;>' + (bucket.label || '') + '</text>';
+            return '<rect x="' + (centerX - barWidth / 2) + '" y="' + (148 - barHeight) + '" width="' + barWidth + '" height="' + barHeight + '" rx="2" fill="' + color + '" fill-opacity="' + opacity + '"/>' +
+              '<text x="' + centerX + '" y="165" text-anchor="middle" style="font-size:9px;fill:#374151">' + (bucket.label || '') + '</text>';
           }).join('');
         },
 
