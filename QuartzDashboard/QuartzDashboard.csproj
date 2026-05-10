@@ -45,7 +45,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="wwwroot/**"
-                      Exclude="wwwroot/app.js;wwwroot/app.css;wwwroot/charts.js;wwwroot/tailwind.css;wwwroot/src/**" />
+                      Exclude="wwwroot/app.js;wwwroot/app.css;wwwroot/charts.js;wwwroot/tailwind.css;wwwroot/src/**;wwwroot/styles/**" />
   </ItemGroup>
 
   <!-- Regenerate minified assets if source files are newer -->

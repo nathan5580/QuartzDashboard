@@ -164,9 +164,9 @@ export function createSignalRSection() {
         },
 
         handleJobsUpdated(data) {
-          // Silently refresh jobs and triggers
-          this.loadJobs();
-          this.loadTriggers();
+          // Coalesce bursts to avoid excessive re-renders/fetches under heavy scheduler churn.
+          this.debounce(() => this.loadJobs(), 'signalr-jobs-updated-jobs', 200);
+          this.debounce(() => this.loadTriggers(), 'signalr-jobs-updated-triggers', 200);
         },
 
         // ========================= POLLING FALLBACK =========================

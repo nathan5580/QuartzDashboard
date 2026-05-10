@@ -1,0 +1,19 @@
+/* Light theme override (dark is the default) */
+    [data-theme="light"] {
+      --color-bg: #f3f4f6;
+      --color-surface: rgba(255,255,255,0.9);
+      --color-surface-hover: rgba(255,255,255,1);
+      --color-border: rgba(0,0,0,0.1);
+      --color-border-hover: rgba(0,0,0,0.2);
+      --color-text: #111827;
+      --color-text-secondary: #6b7280;
+      --color-text-muted: #9ca3af;
+      --color-success: #10b981;
+      --color-warning: #f59e0b;
+      --color-error: #ef4444;
+    }
+    [data-theme="light"] body { background: #f3f4f6 !important; color: #111827 !important; }
+    [data-theme="light"] .sidebar { background: #ffffff !important; border-color: #e5e7eb !important; }
+    [data-theme="light"] .card-gradient { background: rgba(255,255,255,0.9) !important; border-color: rgba(0,0,0,0.08) !important; }
+    [data-theme="light"] .glass-input, [data-theme="light"] .glass-textarea { background: #ffffff !important; border-color: #d1d5db !important; color: #111827 !important; }
+    [data-theme="light"] .modal-card { background: #ffffff !important; border-color: #e5e7eb !important; }

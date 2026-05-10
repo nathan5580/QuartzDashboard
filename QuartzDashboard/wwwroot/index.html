@@ -96,18 +96,24 @@
   <!-- SECTION: Modals / Create Job                                -->
   <!-- ============================================================ -->
   <!-- ============ CREATE JOB MODAL ============ -->
-    <div x-show="showCreateJobModal" class="modal-overlay" @click.self="showCreateJobModal = false" @keydown.escape.window="showCreateJobModal = false" :aria-hidden="(!showCreateJobModal).toString()" style="display: none;">
+    <div x-show="showCreateJobModal" class="modal-overlay" @click.self="showCreateJobModal = false; createJobErrors = {}; createJobSubmitted = false" @keydown.escape.window="showCreateJobModal = false; createJobErrors = {}; createJobSubmitted = false" :aria-hidden="(!showCreateJobModal).toString()" style="display: none;">
       <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="create-job-title">
         <div class="flex items-center justify-between mb-5">
           <h2 id="create-job-title" class="text-base font-semibold text-gray-100">Create Job</h2>
-          <button @click="showCreateJobModal = false" class="btn-icon" aria-label="Close create job">
+          <button @click="showCreateJobModal = false; createJobErrors = {}; createJobSubmitted = false" class="btn-icon" aria-label="Close create job">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
         <div class="space-y-4">
           <div>
             <label class="form-label">Name *</label>
-            <input type="text" x-model="newJob.name" class="glass-input w-full" placeholder="MyJob">
+            <input type="text" x-model="newJob.name" x-ref="newJobName"
+                   @input="if (createJobErrors.name && newJob.name) createJobErrors.name = ''"
+                   :aria-invalid="!!createJobErrors.name"
+                   aria-describedby="create-job-name-error"
+                   :class="['glass-input w-full', createJobErrors.name ? 'ring-1 ring-red-500/60 border-red-500/50' : '']"
+                   placeholder="MyJob">
+            <p id="create-job-name-error" x-show="createJobErrors.name" x-text="createJobErrors.name" class="mt-1 text-xs text-red-300" style="display:none"></p>
           </div>
           <div>
             <label class="form-label">Group</label>
@@ -136,8 +142,8 @@
             </label>
           </div>
           <div class="flex justify-end gap-2 pt-2">
-            <button @click="showCreateJobModal = false" class="btn btn-ghost">Cancel</button>
-            <button @click="submitCreateJob()" :disabled="!newJob.name" class="btn btn-primary">Create Job</button>
+            <button @click="showCreateJobModal = false; createJobErrors = {}; createJobSubmitted = false" class="btn btn-ghost">Cancel</button>
+            <button @click="submitCreateJob()" class="btn btn-primary">Create Job</button>
           </div>
         </div>
       </div>
@@ -470,21 +476,31 @@
   <!-- ============================================================ -->
   <!-- ============ COMMAND PALETTE ============ -->
     <div x-show="showCommandPalette" class="command-palette-overlay" @click.self="showCommandPalette = false" style="display: none;">
-      <div class="command-palette-card" @keydown.escape="showCommandPalette = false" @keydown.arrow-up.prevent="commandPalettePrev" @keydown.arrow-down.prevent="commandPaletteNext" @keydown.enter.prevent="commandPaletteSelect">
+      <div class="command-palette-card" role="dialog" aria-modal="true" aria-label="Command palette" tabindex="-1" x-ref="commandPaletteRoot"
+           x-effect="if (showCommandPalette) $nextTick(() => $refs.commandPaletteInput?.focus?.())"
+           @keydown.escape="showCommandPalette = false" @keydown.tab.prevent="handleCommandPaletteTab($event)"
+           @keydown.arrow-up.prevent="commandPalettePrev" @keydown.arrow-down.prevent="commandPaletteNext" @keydown.enter.prevent="commandPaletteSelect">
         <div class="flex items-center px-4 py-3 border-b border-white/[0.06]">
           <svg class="w-4 h-4 text-gray-500 mr-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
           <input type="text" x-model="commandPaletteQuery" x-ref="commandPaletteInput"
-                 placeholder="Search pages and actions..."
-                 class="flex-1 bg-transparent border-none outline-none text-sm text-gray-200 placeholder-gray-500"
-                 @keydown.escape.stop="showCommandPalette = false">
+                  placeholder="Search pages and actions..."
+                  class="flex-1 bg-transparent border-none outline-none text-sm text-gray-200 placeholder-gray-500"
+                  @keydown.escape.stop="showCommandPalette = false">
         </div>
-        <div class="max-h-64 overflow-y-auto p-1" x-ref="commandPaletteList">
+        <div class="max-h-64 overflow-y-auto p-1" x-ref="commandPaletteList" role="listbox" aria-label="Command suggestions">
           <template x-for="(cmd, idx) in filteredCommands" :key="cmd.id">
             <div @click="executeCommand(cmd)"
-                 :class="['command-item rounded-lg text-sm', commandPaletteIndex === idx ? 'active' : '']"
-                 @mouseenter="commandPaletteIndex = idx">
+                  :class="['command-item rounded-lg text-sm', commandPaletteIndex === idx ? 'active' : '']"
+                  :id="'command-option-' + idx"
+                  :data-cmd-idx="idx"
+                  role="option"
+                  :aria-selected="(commandPaletteIndex === idx).toString()"
+                  tabindex="0"
+                  @focus="commandPaletteIndex = idx"
+                  @keydown.enter.prevent="executeCommand(cmd)"
+                  @mouseenter="commandPaletteIndex = idx">
               <div class="flex items-center gap-3">
                 <span x-html="cmd.icon" class="w-4 h-4 text-gray-500 flex-shrink-0"></span>
                 <span x-text="cmd.label" class="text-gray-200"></span>
@@ -577,7 +593,7 @@
       <!-- Nav items -->
       <nav class="flex-1 p-2 space-y-0.5 overflow-y-auto scrollbar-thin mt-1">
         <template x-for="item in navItems" :key="item.id">
-          <button type="button" @click="currentPage = item.id"
+          <button type="button" @click="navigateTo(item.id)"
                   :aria-current="currentPage === item.id ? 'page' : undefined"
                   :class="['sidebar-item w-full text-left bg-transparent border-0', currentPage === item.id ? 'active' : '', sidebarOpen ? '' : 'justify-center px-0']"
                   :title="!sidebarOpen ? item.label : ''">
@@ -635,7 +651,7 @@
             <div>
               <div class="global-search-category">Jobs</div>
               <template x-for="j in globalSearchResults.jobs" :key="j.group + '.' + j.name">
-                <div class="global-search-item" @click="currentPage = 'jobs'; closeGlobalSearch()">
+                <div class="global-search-item" @click="navigateTo('jobs'); closeGlobalSearch()">
                   <span class="text-xs text-indigo-400">●</span>
                   <span class="text-sm text-gray-200" x-text="j.group + '.' + j.name"></span>
                   <span class="text-[10px] text-gray-500 ml-auto" x-text="j.status"></span>
@@ -647,7 +663,7 @@
             <div>
               <div class="global-search-category">Triggers</div>
               <template x-for="t in globalSearchResults.triggers" :key="t.group + '.' + t.name">
-                <div class="global-search-item" @click="currentPage = 'triggers'; closeGlobalSearch()">
+                <div class="global-search-item" @click="navigateTo('triggers'); closeGlobalSearch()">
                   <span class="text-xs text-emerald-400">●</span>
                   <span class="text-sm text-gray-200" x-text="t.group + '.' + t.name"></span>
                   <span class="text-[10px] text-gray-500 ml-auto" x-text="t.state"></span>
@@ -659,7 +675,7 @@
             <div>
               <div class="global-search-category">History</div>
               <template x-for="h in globalSearchResults.history" :key="h.fireTime">
-                <div class="global-search-item" @click="currentPage = 'history'; closeGlobalSearch()">
+                <div class="global-search-item" @click="navigateTo('history'); closeGlobalSearch()">
                   <span class="text-xs" :class="h.success ? 'text-emerald-400' : 'text-red-400'">●</span>
                   <span class="text-sm text-gray-200" x-text="h.jobKey"></span>
                   <span class="text-[10px] text-gray-500 ml-auto" x-text="new Date(h.fireTime).toLocaleTimeString()"></span>
@@ -1361,7 +1377,7 @@
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
                   Expand all
                 </button>
-                <button @click="showCreateJobModal = true" class="btn btn-primary" x-show="!config.readOnly">
+                <button @click="closeTransientUi(); createJobErrors = {}; createJobSubmitted = false; showCreateJobModal = true; $nextTick(() => $refs.newJobName?.focus?.())" class="btn btn-primary" x-show="!config.readOnly">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   New Job
                 </button>
@@ -1384,10 +1400,10 @@
               <input type="text"
                      x-model="jobSearchQuery"
                      placeholder="Search jobs by name or group..."
-                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                     class="glass-input w-full"
                      @input.debounce.200ms="filterJobs()">
               <div class="flex items-center justify-between gap-2">
-                <span x-show="jobSearchQuery" class="text-sm text-gray-500"
+                <span x-show="jobSearchQuery" class="text-sm text-gray-400"
                       x-text="`Showing ${filteredJobs.length} of ${jobs.length} jobs`"></span>
                 <button x-show="jobSearchQuery" @click="jobSearchQuery = ''; filterJobs()" class="btn btn-ghost text-xs">Clear</button>
               </div>
@@ -1424,6 +1440,10 @@
                 </div>
                 <template x-if="filteredJobs.length">
                   <div class="rounded-xl border border-white/[0.06] overflow-hidden">
+                    <div x-show="isJobRenderCapped" class="px-4 py-2 border-b border-amber-500/20 bg-amber-500/10 text-[11px] text-amber-300">
+                      Rendering the first <span x-text="renderedJobsCount"></span> of <span x-text="filteredJobs.length"></span> loaded jobs to keep the UI responsive.
+                      Narrow the search or use pagination for the rest.
+                    </div>
                     <table class="w-full text-sm mobile-card-table">
                       <thead>
                         <tr class="border-b border-white/[0.06] bg-white/[0.02]">
@@ -1511,28 +1531,45 @@
                                     x-text="item.job && getJobLastExecution(item.job.group, item.job.name) ? formatDate(getJobLastExecution(item.job.group, item.job.name).fireTime) : '—'"></span>
                             </td>
                             <td x-show="!item.isHeader" class="py-3.5 px-4 text-right" data-label="Actions">
-                              <div x-show="item.job" class="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
-                                <button @click.stop="item.job && togglePinJob(item.job.group, item.job.name)"
-                                        class="btn-icon w-6 h-6"
-                                        :class="item.job && isJobPinned(item.job.group, item.job.name) ? 'text-amber-400' : 'text-gray-700 hover:text-gray-400'"
-                                        :title="item.job && isJobPinned(item.job.group, item.job.name) ? 'Unpin' : 'Pin to overview'"
-                                        :aria-label="item.job ? (isJobPinned(item.job.group, item.job.name) ? 'Unpin ' + item.job.name : 'Pin ' + item.job.name + ' to overview') : 'Pin job to overview'">
-                                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M16 2a2 2 0 00-2 2v2.586l-3.293 3.293a1 1 0 000 1.414l5 5a1 1 0 001.414 0L20.414 13A2 2 0 0021 11.586V8a2 2 0 00-2-2h-1V4a2 2 0 00-2-2zM5.293 16.293l-3 3a1 1 0 101.414 1.414l3-3a1 1 0 00-1.414-1.414z"/></svg>
+                              <div x-show="item.job" class="relative inline-flex justify-end" @click.stop>
+                                <button @click.stop="item.job && toggleRowActionsMenu(item.job.group, item.job.name)"
+                                        class="btn btn-ghost text-xs px-2.5 py-1.5 gap-1.5 min-w-[78px] justify-center"
+                                        :aria-expanded="(item.job && rowActionsOpenFor === rowActionKey(item.job.group, item.job.name)).toString()"
+                                        :aria-label="item.job ? ('Open actions for ' + item.job.name) : 'Open actions'">
+                                  <span>Actions</span>
+                                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
                                 </button>
-                                <button @click="item.job && openTriggerJobModal(item.job.group, item.job.name)" class="btn btn-primary p-1.5" title="Run Now" :aria-label="item.job ? 'Run ' + item.job.name + ' now' : 'Run job now'">
-                                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                                </button>
-                                <button x-show="item.job && item.job.status !== 'Paused'" @click="item.job && pauseJob(item.job.group, item.job.name)" class="btn btn-warning p-1.5" title="Pause" :aria-label="item.job ? 'Pause ' + item.job.name : 'Pause job'" :disabled="item.job && isActionPending('pause', item.job.group, item.job.name)">
-                                  <span x-show="item.job && isActionPending('pause', item.job.group, item.job.name)" class="spinner" style="display: none;"></span>
-                                  <svg x-show="!(item.job && isActionPending('pause', item.job.group, item.job.name))" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                                </button>
-                                <button x-show="item.job && item.job.status === 'Paused'" @click="item.job && resumeJob(item.job.group, item.job.name)" class="btn btn-success p-1.5" title="Resume" :aria-label="item.job ? 'Resume ' + item.job.name : 'Resume job'" :disabled="item.job && isActionPending('resume', item.job.group, item.job.name)">
-                                  <span x-show="item.job && isActionPending('resume', item.job.group, item.job.name)" class="spinner" style="display: none;"></span>
-                                  <svg x-show="!(item.job && isActionPending('resume', item.job.group, item.job.name))" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                                </button>
-                                <button x-show="!config.readOnly" @click="item.job && deleteJob(item.job.group, item.job.name)" class="btn btn-danger p-1.5" title="Delete" :aria-label="item.job ? 'Delete ' + item.job.name : 'Delete job'">
-                                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                                </button>
+                                <div x-show="item.job && rowActionsOpenFor === rowActionKey(item.job.group, item.job.name)"
+                                     x-transition.opacity
+                                     @click.outside="closeRowActionsMenu()"
+                                     class="row-actions-menu"
+                                     style="display:none">
+                                  <button @click="item.job && (togglePinJob(item.job.group, item.job.name), closeRowActionsMenu())" class="row-actions-item"
+                                          :aria-label="item.job ? (isJobPinned(item.job.group, item.job.name) ? 'Unpin ' + item.job.name : 'Pin ' + item.job.name) : 'Pin job'">
+                                    <span x-text="item.job && isJobPinned(item.job.group, item.job.name) ? 'Unpin from overview' : 'Pin to overview'"></span>
+                                  </button>
+                                  <button @click="item.job && openTriggerJobModal(item.job.group, item.job.name)" class="row-actions-item"
+                                          :aria-label="item.job ? 'Run ' + item.job.name + ' now' : 'Run job now'">
+                                    <span>Run now</span>
+                                  </button>
+                                  <button x-show="item.job && item.job.status !== 'Paused'" @click="item.job && (pauseJob(item.job.group, item.job.name), closeRowActionsMenu())"
+                                          class="row-actions-item"
+                                          :aria-label="item.job ? 'Pause ' + item.job.name : 'Pause job'"
+                                          :disabled="item.job && isActionPending('pause', item.job.group, item.job.name)">
+                                    <span x-text="item.job && isActionPending('pause', item.job.group, item.job.name) ? 'Pausing...' : 'Pause'"></span>
+                                  </button>
+                                  <button x-show="item.job && item.job.status === 'Paused'" @click="item.job && (resumeJob(item.job.group, item.job.name), closeRowActionsMenu())"
+                                          class="row-actions-item"
+                                          :aria-label="item.job ? 'Resume ' + item.job.name : 'Resume job'"
+                                          :disabled="item.job && isActionPending('resume', item.job.group, item.job.name)">
+                                    <span x-text="item.job && isActionPending('resume', item.job.group, item.job.name) ? 'Resuming...' : 'Resume'"></span>
+                                  </button>
+                                  <button x-show="!config.readOnly" @click="item.job && (deleteJob(item.job.group, item.job.name), closeRowActionsMenu())"
+                                          class="row-actions-item row-actions-item-danger"
+                                          :aria-label="item.job ? 'Delete ' + item.job.name : 'Delete job'">
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
                               </div>
                             </td>
                           </tr>
@@ -1542,11 +1579,11 @@
                     <div class="flex items-center justify-between px-4 py-3 border-t border-white/[0.04]" x-show="jobsTotal > 0">
                       <span class="text-xs text-gray-500" x-text="jobsTotal + ' total jobs'"></span>
                       <div class="flex items-center gap-1">
-                        <button @click="jobsPrevPage()" :disabled="jobsPage <= 1" class="btn-icon" :class="jobsPage <= 1 ? 'opacity-30' : ''">
+                        <button @click="jobsPrevPage()" :disabled="jobsPage <= 1" class="btn-icon" :class="jobsPage <= 1 ? 'opacity-30' : ''" aria-label="Previous jobs page">
                           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                         </button>
                         <span class="text-xs text-gray-400 tabular-nums px-2" x-text="jobsPage + ' / ' + jobsTotalPages"></span>
-                        <button @click="jobsNextPage()" :disabled="jobsPage >= jobsTotalPages" class="btn-icon" :class="jobsPage >= jobsTotalPages ? 'opacity-30' : ''">
+                        <button @click="jobsNextPage()" :disabled="jobsPage >= jobsTotalPages" class="btn-icon" :class="jobsPage >= jobsTotalPages ? 'opacity-30' : ''" aria-label="Next jobs page">
                           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                         </button>
                       </div>
@@ -1557,11 +1594,11 @@
                 <div x-show="!filteredJobs.length && jobsTotal > 0 && !jobSearchQuery" class="flex items-center justify-between px-4 py-3 border border-white/[0.04] rounded-xl bg-white/[0.02]">
                   <span class="text-xs text-gray-500" x-text="jobsTotal + ' total jobs'"></span>
                   <div class="flex items-center gap-1">
-                    <button @click="jobsPrevPage()" :disabled="jobsPage <= 1" class="btn-icon" :class="jobsPage <= 1 ? 'opacity-30' : ''">
+                    <button @click="jobsPrevPage()" :disabled="jobsPage <= 1" class="btn-icon" :class="jobsPage <= 1 ? 'opacity-30' : ''" aria-label="Previous jobs page">
                       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                     </button>
                     <span class="text-xs text-gray-400 tabular-nums px-2" x-text="jobsPage + ' / ' + jobsTotalPages"></span>
-                    <button @click="jobsNextPage()" :disabled="jobsPage >= jobsTotalPages" class="btn-icon" :class="jobsPage >= jobsTotalPages ? 'opacity-30' : ''">
+                    <button @click="jobsNextPage()" :disabled="jobsPage >= jobsTotalPages" class="btn-icon" :class="jobsPage >= jobsTotalPages ? 'opacity-30' : ''" aria-label="Next jobs page">
                       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                     </button>
                   </div>
@@ -1968,7 +2005,7 @@
                     <svg style="width:12px;height:12px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
                 </div>
-                <button @click="showCreateTriggerModal = true" class="btn btn-primary">
+                <button @click="closeTransientUi(); showCreateTriggerModal = true" class="btn btn-primary">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Create Trigger
                 </button>
@@ -2077,11 +2114,11 @@
                 <div x-show="triggersTotal > 0" class="flex items-center justify-between px-4 py-3 border border-white/[0.04] rounded-xl bg-white/[0.02]">
                   <span class="text-xs text-gray-500" x-text="triggersTotal + ' total triggers'"></span>
                   <div class="flex items-center gap-1">
-                    <button @click="triggersPrevPage()" :disabled="triggersPage <= 1" class="btn-icon" :class="triggersPage <= 1 ? 'opacity-30' : ''">
+                    <button @click="triggersPrevPage()" :disabled="triggersPage <= 1" class="btn-icon" :class="triggersPage <= 1 ? 'opacity-30' : ''" aria-label="Previous triggers page">
                       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                     </button>
                     <span class="text-xs text-gray-400 tabular-nums px-2" x-text="triggersPage + ' / ' + triggersTotalPages"></span>
-                    <button @click="triggersNextPage()" :disabled="triggersPage >= triggersTotalPages" class="btn-icon" :class="triggersPage >= triggersTotalPages ? 'opacity-30' : ''">
+                    <button @click="triggersNextPage()" :disabled="triggersPage >= triggersTotalPages" class="btn-icon" :class="triggersPage >= triggersTotalPages ? 'opacity-30' : ''" aria-label="Next triggers page">
                       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                     </button>
                   </div>
@@ -3133,24 +3170,24 @@
 
   <!-- Mobile Bottom Nav -->
   <div class="mobile-bottom-nav" x-show="isMobile && !embedMode" role="navigation" aria-label="Mobile dashboard navigation">
-    <button @click="currentPage = 'overview'" class="mobile-nav-item" :class="currentPage === 'overview' ? 'active' : ''" aria-label="Go to overview">
+    <button @click="navigateTo('overview')" class="mobile-nav-item" :class="currentPage === 'overview' ? 'active' : ''" aria-label="Go to overview">
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       <span>Overview</span>
     </button>
-    <button @click="currentPage = 'jobs'" class="mobile-nav-item" :class="currentPage === 'jobs' ? 'active' : ''" aria-label="Go to jobs">
+    <button @click="navigateTo('jobs')" class="mobile-nav-item" :class="currentPage === 'jobs' ? 'active' : ''" aria-label="Go to jobs">
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       <span>Jobs</span>
     </button>
-    <button @click="currentPage = 'history'" class="mobile-nav-item" :class="currentPage === 'history' ? 'active' : ''" aria-label="Go to history">
+    <button @click="navigateTo('history')" class="mobile-nav-item" :class="currentPage === 'history' ? 'active' : ''" aria-label="Go to history">
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       <span>History</span>
     </button>
-    <button @click="currentPage = 'health'" class="mobile-nav-item" :class="currentPage === 'health' ? 'active' : ''" style="position:relative" aria-label="Go to health">
+    <button @click="navigateTo('health')" class="mobile-nav-item" :class="currentPage === 'health' ? 'active' : ''" style="position:relative" aria-label="Go to health">
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
       <span>Health</span>
       <span x-show="healthAlertCount > 0" class="nav-badge"></span>
     </button>
-    <button @click="currentPage = 'settings'" class="mobile-nav-item" :class="currentPage === 'settings' ? 'active' : ''" aria-label="Go to settings">
+    <button @click="navigateTo('settings')" class="mobile-nav-item" :class="currentPage === 'settings' ? 'active' : ''" aria-label="Go to settings">
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       <span>Settings</span>
     </button>

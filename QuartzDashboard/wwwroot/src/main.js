@@ -108,12 +108,12 @@ function createMainSection() {
           // Deep linking via URL hash
           const hash = window.location.hash.replace('#', '');
           if (hash && this.navItems.find(n => n.id === hash)) {
-            this.currentPage = hash;
+            this.navigateTo(hash);
           }
           window.addEventListener('hashchange', () => {
             const h = window.location.hash.replace('#', '');
             if (h && this.navItems.find(n => n.id === h) && this.currentPage !== h) {
-              this.currentPage = h;
+              this.navigateTo(h);
             }
           });
           this.$watch('settings.refreshInterval', () => { this.startAutoRefresh(); this.saveSettings(); });

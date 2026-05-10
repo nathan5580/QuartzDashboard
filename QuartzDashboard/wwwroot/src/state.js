@@ -170,11 +170,13 @@ export function createState() {
         // ========================= TOAST QUEUE =========================
         toastQueue: [],
         toastIdCounter: 0,
+        toastTimers: {},
 
 
         showCommandPalette: false,
         commandPaletteQuery: '',
         commandPaletteIndex: 0,
+        rowActionsOpenFor: null,
 
         // ========================= GLOBAL SEARCH =========================
         globalSearchQuery: '',
@@ -229,6 +231,8 @@ export function createState() {
 
         // ========================= CREATE JOB MODAL =========================
         showCreateJobModal: false,
+        createJobErrors: {},
+        createJobSubmitted: false,
         newJob: {
           name: '',
           group: 'DEFAULT',

@@ -191,13 +191,23 @@ export function createUtilsSection() {
 
         showToast(msg, type = 'info') {
           const id = ++this.toastIdCounter;
+          if (String(msg || '').startsWith('Scheduler ')) {
+            const removed = this.toastQueue.filter(t => String(t.message || '').startsWith('Scheduler '));
+            removed.forEach((t) => {
+              const timer = this.toastTimers[t.id];
+              if (timer) clearTimeout(timer);
+              delete this.toastTimers[t.id];
+            });
+            this.toastQueue = this.toastQueue.filter(t => !String(t.message || '').startsWith('Scheduler '));
+          }
           this.toastQueue.push({ id: id, message: msg, type: type });
           if (this.toastQueue.length > 10) this.toastQueue.shift();
           // Also keep the legacy toast for backward compatibility
           this.toast = { show: true, message: msg, type };
-          setTimeout(() => {
+          this.toastTimers[id] = setTimeout(() => {
             this.toastQueue = this.toastQueue.filter(t => t.id !== id);
             this.toast.show = false;
+            delete this.toastTimers[id];
           }, 3000);
         },
 
