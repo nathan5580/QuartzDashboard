@@ -6,7 +6,7 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
 
     <PackageId>Dot.QuartzDashboard.Sqlite</PackageId>
-    <Version>4.0.0</Version>
+    <Version>4.0.1</Version>
     <Authors>n8</Authors>
     <Description>SQLite-backed persistent fire-history store for Dot.QuartzDashboard. Survives restarts, indexes by job key, uses WAL for concurrent reads.</Description>
     <PackageTags>quartz;dashboard;scheduler;sqlite;history</PackageTags>
