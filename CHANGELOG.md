@@ -2,6 +2,60 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [4.0.0] — 2026-05-11
+
+This release splits the package into three:
+- **`Dot.QuartzDashboard`** — the dashboard middleware, handlers, in-memory + file history stores.
+- **`Dot.QuartzDashboard.Abstractions`** — `IFireHistoryStore` + `FireRecord`. Reference this if you only need to implement a custom store.
+- **`Dot.QuartzDashboard.Sqlite`** — SQLite-backed persistent history store. Opt-in.
+
+### ⚠️ Breaking changes
+
+- **`IFireHistoryStore` and `FireRecord` moved** from `QuartzDashboard.Internal` to `QuartzDashboard.Abstractions` (in the new `Dot.QuartzDashboard.Abstractions` package). Update your `using` statements.
+- **`QuartzDashboardOptions.PersistHistoryToSqlite` removed.** SQLite persistence now lives in the separate `Dot.QuartzDashboard.Sqlite` package:
+  ```csharp
+  // before (v3):
+  services.AddQuartzDashboard(o => o.PersistHistoryToSqlite = "history.db");
+
+  // after (v4):
+  services.AddQuartzDashboard();
+  services.AddQuartzDashboardSqliteHistory("history.db");  // call AFTER AddQuartzDashboard
+  ```
+  Add a `<PackageReference Include="Dot.QuartzDashboard.Sqlite" />`. The main package no longer depends on `Microsoft.Data.Sqlite`.
+- **`ConfigHandlers` `hasPersistentHistory`** is now derived from the registered store type (any store other than the in-memory default counts as persistent) rather than reading an options flag.
+
+### Added
+- **`IQuartzDashboardOptions`** — read-only contract over `QuartzDashboardOptions`. Handlers and external integrations should depend on this rather than the mutable concrete class. Registered alongside the mutable type in DI.
+- **`PagedResponse<T>`**, **`StatusResponse`**, **`ErrorResponse`**, **`FireRecordDto`** response records in `QuartzDashboard.Models`. Wire format is identical to the previous anonymous shape (camelCase; null-valued fields omitted).
+- **`ApiRouter`** — declarative route table replaces the 250-line if/else chain in `HandleApi`. Each route is a `(method, pattern, handler)` triple; patterns use `{}` for single-segment wildcards. New routes are one line apiece.
+
+### Internal
+- The dashboard SPA assets, in-memory + file history stores, middleware, and SignalR bridge remain in the main `Dot.QuartzDashboard` package.
+
+---
+
+## [3.1.0] — 2026-05-11
+
+### Fixed
+- **`ExecutionBucketService` pruning bug** — encoded-minute arithmetic was non-contiguous, so `cutoff = minute - MaxBuckets` deleted the wrong cells across hour/day rollovers. Switched to Unix-epoch minutes (wire format unchanged).
+- **API 500 responses no longer leak `Exception.Message`** — internal details (file paths, SQL fragments, etc.) are now logged with a correlation id and the response carries only `{ "error": "Internal server error", "correlationId": "…" }`.
+- **`OnAuthorize` callback now applies to SignalR hub** — the `/hub/*` bypass previously ran before auth checks, so `OnAuthorize` was never invoked for hub negotiate. Reordered the middleware so all auth gates apply uniformly.
+- **`OnAuthorize` returns 403 when the user is authenticated** (permission denied), 401 only when there is no identity — previously it always returned 401.
+- **Stack traces in the job log buffer are no longer truncated to 800 chars** — the bottom frames (often the most diagnostic) were being cut off. Stored in full; the buffer's per-job count cap bounds memory.
+
+### Changed
+- **SQLite history store** now enables `PRAGMA journal_mode=WAL` and `synchronous=NORMAL` for concurrent reads and far fewer fsyncs. Added an index on `job_key`. TTL pruning is throttled to once per minute (was running on every read at the 5s dashboard cadence).
+- **`IFireHistoryStore` gains filter-pushdown methods** (`GetRecent(count, offset, jobKey)` and `CountFiltered(jobKey)`) with default interface implementations — non-breaking for existing custom stores. The `GET /api/history?job=…` endpoint now pushes the filter down to SQL instead of materializing the full store.
+- **`FileFireHistoryStore` debounces writes** — coalesces all `RecordFire` calls inside a 1-second window into a single disk write (was one whole-file write per fire). Flushes synchronously on `Dispose`.
+- **`ImportJobs` reflection is cached** — was scanning every loaded assembly's types on every imported job; now memoized in a `ConcurrentDictionary`, invalidated when new assemblies load.
+- **Options are validated at registration time** — `AddQuartzDashboard()` now throws `ArgumentException` for empty `Path`, missing leading `/`, negative counts, or non-http(s) `WebhookUrl` (was silently broken at first request).
+- **Webhook JSON uses a cached `JsonSerializerOptions`** instead of allocating one per failure.
+- **`Quartz` / `Quartz.Extensions.DependencyInjection`** package references now use bracketed ranges `[3.18.0, 4.0.0)` — locks out unverified 4.x without changing the floor.
+
+### Removed
+- Dead `RecordExecution` no-op method.
+- Duplicate `StringExtensions.Truncate` (one copy retained in `Internal/`).
+
 ## [3.0.6] — 2026-05-11
 
 ### Changed

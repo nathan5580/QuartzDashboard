@@ -1,7 +1,8 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Quartz.Logging;
-using QuartzDashboard.Internal;
+using QuartzDashboard.Abstractions;
+using QuartzDashboard.Sqlite;
 using Xunit;
 
 namespace QuartzDashboard.Tests;
@@ -9,10 +10,9 @@ namespace QuartzDashboard.Tests;
 public sealed class SqliteFireHistoryStoreTests
 {
     [Fact]
-    public void AddQuartzDashboard_PrefersSqlitePersistence_WhenBothOptionsAreSet()
+    public void AddQuartzDashboardSqliteHistory_ReplacesDefaultInMemoryStore()
     {
-        var sqlitePath = GetArtifactPath("priority");
-        var jsonPath = Path.Combine(Path.GetDirectoryName(sqlitePath)!, "history.json");
+        var sqlitePath = GetArtifactPath("replace");
 
         try
         {
@@ -23,20 +23,18 @@ public sealed class SqliteFireHistoryStoreTests
             services.AddQuartzDashboard(options =>
             {
                 options.UseSignalR = false;
-                options.PersistHistoryToSqlite = sqlitePath;
-                options.PersistHistoryPath = jsonPath;
             });
+            services.AddQuartzDashboardSqliteHistory(sqlitePath);
 
             using var provider = services.BuildServiceProvider();
             var store = provider.GetRequiredService<IFireHistoryStore>();
 
-            Assert.Equal("SqliteFireHistoryStore", store.GetType().Name);
+            Assert.IsType<SqliteFireHistoryStore>(store);
         }
         finally
         {
             ResetQuartzLogProvider();
             DeleteIfExists(sqlitePath);
-            DeleteIfExists(jsonPath);
         }
     }
 
@@ -258,6 +256,63 @@ public sealed class SqliteFireHistoryStoreTests
     }
 
     [Fact]
+    public void SqliteFireHistoryStore_GetRecentWithJobFilter_OnlyReturnsMatchingJob()
+    {
+        var sqlitePath = GetArtifactPath("filter");
+        var baseTime = DateTimeOffset.UtcNow.AddMinutes(-10);
+
+        try
+        {
+            ResetQuartzLogProvider();
+
+            using var provider = CreateProvider(sqlitePath, maxHistory: 100, retentionHours: 0);
+            var store = provider.GetRequiredService<IFireHistoryStore>();
+
+            store.RecordFire("jobs.alpha", "t.alpha", baseTime.AddMinutes(1), TimeSpan.FromSeconds(1), success: true);
+            store.RecordFire("jobs.beta",  "t.beta",  baseTime.AddMinutes(2), TimeSpan.FromSeconds(1), success: true);
+            store.RecordFire("jobs.alpha", "t.alpha", baseTime.AddMinutes(3), TimeSpan.FromSeconds(1), success: false, exceptionMessage: "boom");
+            store.RecordFire("jobs.beta",  "t.beta",  baseTime.AddMinutes(4), TimeSpan.FromSeconds(1), success: true);
+
+            var alphaOnly = store.GetRecent(100, 0, "jobs.alpha").ToList();
+            Assert.Equal(2, alphaOnly.Count);
+            Assert.All(alphaOnly, r => Assert.Equal("jobs.alpha", r.JobKey));
+
+            Assert.Equal(2, store.CountFiltered("jobs.alpha"));
+            Assert.Equal(2, store.CountFiltered("jobs.beta"));
+            Assert.Equal(4, store.CountFiltered(null));
+        }
+        finally
+        {
+            ResetQuartzLogProvider();
+            DeleteIfExists(sqlitePath);
+        }
+    }
+
+    [Fact]
+    public void SqliteFireHistoryStore_GetRecentWithJobFilter_IsCaseInsensitive()
+    {
+        var sqlitePath = GetArtifactPath("filter-case");
+
+        try
+        {
+            ResetQuartzLogProvider();
+
+            using var provider = CreateProvider(sqlitePath, maxHistory: 100, retentionHours: 0);
+            var store = provider.GetRequiredService<IFireHistoryStore>();
+
+            store.RecordFire("Jobs.Alpha", "t.alpha", DateTimeOffset.UtcNow.AddMinutes(-1), TimeSpan.FromSeconds(1), success: true);
+
+            Assert.Single(store.GetRecent(100, 0, "jobs.alpha"));
+            Assert.Equal(1, store.CountFiltered("JOBS.ALPHA"));
+        }
+        finally
+        {
+            ResetQuartzLogProvider();
+            DeleteIfExists(sqlitePath);
+        }
+    }
+
+    [Fact]
     public void SqliteFireHistoryStore_DatabaseFile_IsAutoCreated()
     {
         var sqlitePath = GetArtifactPath("auto-create");
@@ -286,10 +341,10 @@ public sealed class SqliteFireHistoryStoreTests
         services.AddQuartzDashboard(options =>
         {
             options.UseSignalR = false;
-            options.PersistHistoryToSqlite = sqlitePath;
             options.MaxFireHistory = maxHistory;
             options.HistoryRetentionHours = retentionHours;
         });
+        services.AddQuartzDashboardSqliteHistory(sqlitePath, maxHistory, retentionHours);
 
         return services.BuildServiceProvider();
     }

@@ -139,7 +139,7 @@ internal static class TriggerHandlers
         if (await sched.CheckExists(key))
         {
             await sched.PauseTrigger(key);
-            return Results.Ok(new { Status = "paused" });
+            return Results.Ok(new StatusResponse("paused"));
         }
         return Results.NotFound(new { Error = $"Trigger '{group}.{name}' not found" });
     }
@@ -152,7 +152,7 @@ internal static class TriggerHandlers
         if (await sched.CheckExists(key))
         {
             await sched.ResumeTrigger(key);
-            return Results.Ok(new { Status = "resumed" });
+            return Results.Ok(new StatusResponse("resumed"));
         }
         return Results.NotFound(new { Error = $"Trigger '{group}.{name}' not found" });
     }
@@ -225,7 +225,7 @@ internal static class TriggerHandlers
         }
 
         await sched.ScheduleJob(trigger);
-        return Results.Ok(new { Status = "created", Trigger = $"{triggerKey.Group}.{triggerKey.Name}" });
+        return Results.Ok(new StatusResponse("created", Trigger: $"{triggerKey.Group}.{triggerKey.Name}"));
     }
 
     public static async Task<IResult> UpdateTrigger(IScheduler sched, string group, string name,
@@ -288,7 +288,7 @@ internal static class TriggerHandlers
         }
 
         await sched.RescheduleJob(key, updatedTrigger);
-        return Results.Ok(new { Status = "updated", Trigger = $"{group}.{name}" });
+        return Results.Ok(new StatusResponse("updated", Trigger: $"{group}.{name}"));
     }
 
     public static async Task<IResult> DeleteTrigger(IScheduler sched, string group, string name,
@@ -299,7 +299,7 @@ internal static class TriggerHandlers
         if (await sched.CheckExists(key))
         {
             await sched.UnscheduleJob(key);
-            return Results.Ok(new { Status = "deleted", Trigger = $"{group}.{name}" });
+            return Results.Ok(new StatusResponse("deleted", Trigger: $"{group}.{name}"));
         }
         return Results.NotFound(new { Error = $"Trigger '{group}.{name}' not found" });
     }

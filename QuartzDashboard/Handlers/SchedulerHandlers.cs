@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Quartz;
+using QuartzDashboard.Models;
 
 namespace QuartzDashboard.Handlers;
 
@@ -39,9 +40,9 @@ internal static class SchedulerHandlers
         if (!sched.InStandbyMode)
         {
             await sched.Standby();
-            return Results.Ok(new { Status = "standby" });
+            return Results.Ok(new StatusResponse("standby"));
         }
-        return Results.Ok(new { Status = "already_standby" });
+        return Results.Ok(new StatusResponse("already_standby"));
     }
 
     public static async Task<IResult> GetSchedulers(ISchedulerFactory factory)
@@ -57,8 +58,8 @@ internal static class SchedulerHandlers
         if (!sched.IsStarted || sched.InStandbyMode)
         {
             await sched.Start();
-            return Results.Ok(new { Status = "started" });
+            return Results.Ok(new StatusResponse("started"));
         }
-        return Results.Ok(new { Status = "already_running" });
+        return Results.Ok(new StatusResponse("already_running"));
     }
 }

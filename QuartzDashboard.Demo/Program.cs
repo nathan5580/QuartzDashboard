@@ -1,5 +1,6 @@
 using Quartz;
 using QuartzDashboard;
+using QuartzDashboard.Sqlite;
 
 // ===== CLI Argument Parsing =====
 var version = typeof(QuartzDashboardOptions).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
@@ -104,10 +105,6 @@ builder.Services.AddQuartzDashboard(options =>
 {
     options.Path = "/quartz";
     options.ReadOnly = readOnlyMode;
-    if (sqliteMode)
-    {
-        options.PersistHistoryToSqlite = "demo-history.db";
-    }
 
     if (authMode)
     {
@@ -115,6 +112,13 @@ builder.Services.AddQuartzDashboard(options =>
         options.AllowedRoles = ["Admin"];
     }
 });
+
+// SQLite history persistence (via the Dot.QuartzDashboard.Sqlite package).
+// Call AFTER AddQuartzDashboard so the SQLite store replaces the default in-memory one.
+if (sqliteMode)
+{
+    builder.Services.AddQuartzDashboardSqliteHistory("demo-history.db");
+}
 
 var app = builder.Build();
 

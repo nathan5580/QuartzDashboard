@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\QuartzDashboard\QuartzDashboard.csproj" />
+    <ProjectReference Include="..\QuartzDashboard.Sqlite\QuartzDashboard.Sqlite.csproj" />
   </ItemGroup>
 
 </Project>

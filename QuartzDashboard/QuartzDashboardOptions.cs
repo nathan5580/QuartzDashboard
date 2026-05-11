@@ -4,8 +4,9 @@ namespace QuartzDashboard;
 
 /// <summary>
 /// Options used to configure the Quartz Dashboard middleware and related services.
+/// Implements <see cref="IQuartzDashboardOptions"/>, the read-only contract consumed by handlers.
 /// </summary>
-public class QuartzDashboardOptions
+public class QuartzDashboardOptions : IQuartzDashboardOptions
 {
     /// <summary>
     /// Gets or sets the base path where the dashboard is served.
@@ -47,6 +48,9 @@ public class QuartzDashboardOptions
     /// An empty array allows any authenticated user.
     /// </summary>
     public string[] AllowedRoles { get; set; } = [];
+
+    /// <inheritdoc />
+    IReadOnlyList<string> IQuartzDashboardOptions.AllowedRoles => AllowedRoles;
 
     /// <summary>
     /// Gets or sets the authorization policy that must succeed for dashboard access.
@@ -90,14 +94,10 @@ public class QuartzDashboardOptions
     /// <summary>
     /// Gets or sets an optional file path used to persist fire history as JSON.
     /// When set, history is loaded on startup and survives application restarts.
+    /// For higher-volume schedulers, prefer the SQLite store via <c>AddQuartzDashboardSqliteHistory</c>
+    /// in the <c>Dot.QuartzDashboard.Sqlite</c> package.
     /// </summary>
     public string? PersistHistoryPath { get; set; }
-
-    /// <summary>
-    /// Gets or sets the path to a SQLite database file used for persistent fire history.
-    /// When set, history survives application restarts and takes precedence over <see cref="PersistHistoryPath"/>.
-    /// </summary>
-    public string? PersistHistoryToSqlite { get; set; }
 
     /// <summary>
     /// Gets or sets an optional callback invoked whenever a job execution fails.

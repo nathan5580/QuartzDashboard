@@ -5,9 +5,11 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging;
 using Quartz;
 using QuartzDashboard.Handlers;
 using QuartzDashboard.Internal;
+using QuartzDashboard.Abstractions;
 using QuartzDashboard.Middleware;
 using QuartzDashboard.Services;
 using System.Reflection;
@@ -71,30 +73,22 @@ public static class QuartzDashboardApplicationBuilderExtensions
 
             var suffixStr = suffix.Value ?? "";
 
-            // Let SignalR hub negotiate/connect pass through to MapHub endpoint routing
-            if (suffixStr.StartsWith("/hub", StringComparison.OrdinalIgnoreCase))
-            {
-                await next(ctx);
-                return;
-            }
-
-            // Optional custom authorization callback
+            // Auth checks apply to every dashboard request including SignalR negotiate.
+            // OnAuthorize returns 403 when the user is authenticated (permission denied)
+            // and 401 otherwise (no identity). RequireAuthentication / RequiredPolicy /
+            // AllowedRoles run after, in the documented order.
             if (options.OnAuthorize != null && !options.OnAuthorize(ctx))
             {
-                ctx.Response.StatusCode = 401;
-                ctx.Response.ContentType = "application/json";
-                await ctx.Response.WriteAsync("{\"error\":\"Unauthorized\"}");
+                var authed = ctx.User.Identity?.IsAuthenticated == true;
+                await WriteJsonError(ctx, authed ? 403 : 401, authed ? "Forbidden" : "Unauthorized");
                 return;
             }
 
-            // Optional auth check
             if (options.RequireAuthentication)
             {
                 if (ctx.User.Identity?.IsAuthenticated != true)
                 {
-                    ctx.Response.StatusCode = 401;
-                    ctx.Response.ContentType = "application/json";
-                    await ctx.Response.WriteAsync("{\"error\":\"Authentication required\"}");
+                    await WriteJsonError(ctx, 401, "Authentication required");
                     return;
                 }
 
@@ -104,19 +98,24 @@ public static class QuartzDashboardApplicationBuilderExtensions
                     var result = await authService.AuthorizeAsync(ctx.User, null, options.RequiredPolicy);
                     if (!result.Succeeded)
                     {
-                        ctx.Response.StatusCode = 403;
-                        ctx.Response.ContentType = "application/json";
-                        await ctx.Response.WriteAsync("{\"error\":\"Insufficient permissions\"}");
+                        await WriteJsonError(ctx, 403, "Insufficient permissions");
                         return;
                     }
                 }
                 else if (options.AllowedRoles.Length > 0 && !options.AllowedRoles.Any(r => ctx.User.IsInRole(r)))
                 {
-                    ctx.Response.StatusCode = 403;
-                    ctx.Response.ContentType = "application/json";
-                    await ctx.Response.WriteAsync("{\"error\":\"Insufficient role\"}");
+                    await WriteJsonError(ctx, 403, "Insufficient role");
                     return;
                 }
+            }
+
+            // SignalR hub negotiate/connect: hand off to MapHub endpoint routing.
+            // The auth checks above already gated the request — this lets OnAuthorize
+            // and friends apply to the hub the same way they apply to the REST API.
+            if (suffixStr.StartsWith("/hub", StringComparison.OrdinalIgnoreCase))
+            {
+                await next(ctx);
+                return;
             }
 
             // --- API endpoints ---
@@ -211,283 +210,50 @@ public static class QuartzDashboardApplicationBuilderExtensions
         if (segments.Length > 1 && string.Equals(segments[1], "v1", StringComparison.OrdinalIgnoreCase))
             apiOffset = 2;
         var route = segments.Length > apiOffset ? segments[apiOffset..] : [];
-        var method = ctx.Request.Method;
-
-        object? result = null;
 
         try
         {
-            // -- Health --
-            if (method == "GET" && route is ["health"])
-            {
-                var historyStore = ctx.RequestServices.GetRequiredService<IFireHistoryStore>();
-                result = await HealthHandlers.GetHealth(sched, historyStore);
-            }
-
-            // -- Config --
-            else if (method == "GET" && route is ["config"])
-                result = await ConfigHandlers.GetDashboardConfig(ctx, options);
-
-            // -- Multi-scheduler: list all schedulers --
-            else if (method == "GET" && route is ["schedulers"])
-                result = await SchedulerHandlers.GetSchedulers(schedFactory);
-
-            // -- Scheduler --
-            else if (method == "GET" && route is ["scheduler"])
-                result = await SchedulerHandlers.GetSchedulerInfo(sched);
-            else if (method == "POST" && route is ["scheduler", "standby"])
-                result = await SchedulerHandlers.StandbyScheduler(sched, options);
-            else if (method == "POST" && route is ["scheduler", "start"])
-                result = await SchedulerHandlers.StartScheduler(sched, options);
-
-            // -- Jobs --
-            else if (method == "GET" && route is ["jobs"] && !ctx.Request.Query.ContainsKey("batch"))
-                result = await JobHandlers.GetAllJobs(sched, ctx, options);
-            else if (method == "GET" && route is ["jobs", _, _])
-                result = await JobHandlers.GetJobDetail(sched, route[1], route[2]);
-            else if (method == "POST" && route is ["jobs", _, _, "trigger"])
-            {
-                Models.TriggerJobRequest? req = null;
-                if (ctx.Request.ContentLength > 0)
-                    req = await ctx.Request.ReadFromJsonAsync<Models.TriggerJobRequest>();
-                result = await JobHandlers.TriggerJob(sched, route[1], route[2], req, options);
-            }
-            else if (method == "POST" && route is ["jobs", _, _, "pause"])
-                result = await JobHandlers.PauseJob(sched, route[1], route[2], options);
-            else if (method == "POST" && route is ["jobs", _, _, "resume"])
-                result = await JobHandlers.ResumeJob(sched, route[1], route[2], options);
-            else if (method == "POST" && route is ["jobs", _, _, "interrupt"])
-                result = await JobHandlers.InterruptJob(sched, route[1], route[2], options);
-            else if (method == "POST" && route is ["jobs", "group", _, "pause"])
-            {
-                if (options.ReadOnly) { result = DashboardResults.ReadOnly(); }
-                else { await sched.PauseJobs(Quartz.Impl.Matchers.GroupMatcher<Quartz.JobKey>.GroupEquals(route[2])); result = Results.Ok(new { Status = "paused", Group = route[2] }); }
-            }
-            else if (method == "POST" && route is ["jobs", "group", _, "resume"])
-            {
-                if (options.ReadOnly) { result = DashboardResults.ReadOnly(); }
-                else { await sched.ResumeJobs(Quartz.Impl.Matchers.GroupMatcher<Quartz.JobKey>.GroupEquals(route[2])); result = Results.Ok(new { Status = "resumed", Group = route[2] }); }
-            }
-            else if (method == "POST" && route is ["jobs"])
-            {
-                var req = await ctx.Request
-                    .ReadFromJsonAsync<Models.CreateJobRequest>();
-                result = await JobHandlers.CreateJob(sched, req, options);
-            }
-            else if (method == "DELETE" && route is ["jobs", _, _])
-                result = await JobHandlers.DeleteJob(sched, route[1], route[2], options);
-            else if (method == "PUT" && route is ["jobs", _, _])
-            {
-                var req = await ctx.Request
-                    .ReadFromJsonAsync<Models.UpdateJobRequest>();
-                result = await JobHandlers.UpdateJob(sched, route[1], route[2], req, options);
-            }
-            else if (method == "GET" && route is ["jobs", _, _, "logs"])
-                result = JobHandlers.GetJobLogs(ctx, route[1], route[2]);
-
-            // -- Batch operations --
-            else if (method == "POST" && route is ["jobs", "batch", "pause"])
-            {
-                var req = await ctx.Request
-                    .ReadFromJsonAsync<Models.BatchJobRequest>();
-                result = await JobHandlers.BatchPauseJobs(sched, req, options);
-            }
-            else if (method == "POST" && route is ["jobs", "batch", "resume"])
-            {
-                var req = await ctx.Request
-                    .ReadFromJsonAsync<Models.BatchJobRequest>();
-                result = await JobHandlers.BatchResumeJobs(sched, req, options);
-            }
-            else if (method == "POST" && route is ["jobs", "batch", "trigger"])
-            {
-                var req = await ctx.Request
-                    .ReadFromJsonAsync<Models.BatchJobRequest>();
-                result = await JobHandlers.BatchTriggerJobs(sched, req, options);
-            }
-            else if (method == "POST" && route is ["jobs", "batch", "delete"])
-            {
-                var req = await ctx.Request
-                    .ReadFromJsonAsync<Models.BatchJobRequest>();
-                result = await JobHandlers.BatchDeleteJobs(sched, req, options);
-            }
-
-            // -- Triggers --
-            else if (method == "GET" && route is ["triggers"])
-                result = await TriggerHandlers.GetAllTriggers(sched, ctx);
-            else if (method == "GET" && route is ["triggers", _, _, "next-fires"])
-            {
-                var count = int.TryParse(ctx.Request.Query["count"], out var parsedCount) ? parsedCount : 10;
-                result = await TriggerHandlers.GetNextFires(sched, route[1], route[2], count);
-            }
-            else if (method == "GET" && route is ["triggers", _, _])
-                result = await TriggerHandlers.GetTriggerDetail(sched, route[1], route[2]);
-            else if (method == "POST" && route is ["triggers", _, _, "pause"])
-                result = await TriggerHandlers.PauseTrigger(sched, route[1], route[2], options);
-            else if (method == "POST" && route is ["triggers", _, _, "resume"])
-                result = await TriggerHandlers.ResumeTrigger(sched, route[1], route[2], options);
-            else if (method == "POST" && route is ["triggers"])
-            {
-                var req = await ctx.Request
-                    .ReadFromJsonAsync<Models.CreateTriggerRequest>();
-                result = await TriggerHandlers.CreateTrigger(sched, req, options);
-            }
-            else if (method == "PUT" && route is ["triggers", _, _])
-            {
-                var req = await ctx.Request
-                    .ReadFromJsonAsync<Models.UpdateTriggerRequest>();
-                result = await TriggerHandlers.UpdateTrigger(sched, route[1], route[2], req, options);
-            }
-            else if (method == "DELETE" && route is ["triggers", _, _])
-                result = await TriggerHandlers.DeleteTrigger(sched, route[1], route[2], options);
-            else if (method == "POST" && route is ["triggers", "group", _, "pause"])
-            {
-                if (options.ReadOnly) { result = DashboardResults.ReadOnly(); }
-                else { await sched.PauseTriggers(Quartz.Impl.Matchers.GroupMatcher<Quartz.TriggerKey>.GroupEquals(route[2])); result = Results.Ok(new { Status = "paused", Group = route[2] }); }
-            }
-            else if (method == "POST" && route is ["triggers", "group", _, "resume"])
-            {
-                if (options.ReadOnly) { result = DashboardResults.ReadOnly(); }
-                else { await sched.ResumeTriggers(Quartz.Impl.Matchers.GroupMatcher<Quartz.TriggerKey>.GroupEquals(route[2])); result = Results.Ok(new { Status = "resumed", Group = route[2] }); }
-            }
-
-            // -- Executing --
-            else if (method == "GET" && route is ["executing"])
-                result = await GetExecutingJobs(sched);
-
-            // -- History --
-            else if (method == "GET" && route is ["history"])
-                result = HistoryHandlers.GetFireHistory(ctx);
-
-            // -- Stats --
-            else if (method == "GET" && route is ["stats"])
-            {
-                var bucketService = ctx.RequestServices
-                    .GetRequiredService<ExecutionBucketService>();
-                var historyStore = ctx.RequestServices
-                    .GetRequiredService<IFireHistoryStore>();
-                result = await HistoryHandlers.GetStats(sched, bucketService, historyStore);
-            }
-            else if (method == "GET" && route is ["stats", "history"])
-                result = HistoryHandlers.GetHistoryBuckets(ctx);
-
-            // -- Timeline --
-            else if (method == "GET" && route is ["timeline"])
-                result = HistoryHandlers.GetTimeline(ctx);
-            else if (method == "GET" && route is ["heatmap"])
-                result = HistoryHandlers.GetHeatmap(ctx);
-
-            // -- Calendars --
-            else if (method == "GET" && route is ["calendars"])
-                result = await CalendarHandlers.GetAllCalendars(sched);
-            else if (method == "POST" && route is ["calendars"])
-            {
-                var req = await ctx.Request
-                    .ReadFromJsonAsync<Models.CreateCalendarRequest>();
-                result = await CalendarHandlers.CreateCalendar(sched, req, options);
-            }
-            else if (method == "DELETE" && route is ["calendars", _])
-                result = await CalendarHandlers.DeleteCalendar(sched, route[1], options);
-
-            // -- Cron Describe --
-            else if (method == "POST" && route is ["cron", "describe"])
-            {
-                var body = await ctx.Request.ReadFromJsonAsync<Dictionary<string, string>>();
-                var expression = body?.GetValueOrDefault("expression") ?? "";
-                try
-                {
-                    var cron = new Quartz.CronExpression(expression);
-                    var nextFires = new List<string>();
-                    DateTimeOffset? next = DateTimeOffset.UtcNow;
-                    for (int i = 0; i < 5 && next.HasValue; i++)
-                    {
-                        next = cron.GetNextValidTimeAfter(next.Value);
-                        if (next.HasValue) nextFires.Add(next.Value.ToString("o"));
-                    }
-                    result = Results.Ok(new
-                    {
-                        valid = true,
-                        description = cron.CronExpressionString,
-                        nextFireTimes = nextFires
-                    });
-                }
-                catch (Exception ex)
-                {
-                    result = Results.Ok(new { valid = false, error = ex.Message, nextFireTimes = Array.Empty<string>() });
-                }
-            }
-
-            // -- Export --
-            else if (method == "GET" && route is ["export"])
-            {
-                result = await ExportJobs(sched);
-            }
-
-            // -- Import --
-            else if (method == "POST" && route is ["import"])
-            {
-                if (options.ReadOnly)
-                {
-                    result = DashboardResults.ReadOnly();
-                }
-                else
-                {
-                    var body = await ctx.Request.ReadFromJsonAsync<ExportPayload>();
-                    result = await ImportJobs(sched, body);
-                }
-            }
-
-            else
-                result = Results.NotFound(new
-                {
-                    Error = "Unknown endpoint",
-                    Path = string.Join("/", route)
-                });
+            var rc = new ApiRouteContext(ctx, sched, schedFactory, options, route);
+            var result = await ApiRouter.Dispatch(rc);
 
             if (result is IResult ires)
                 await ires.ExecuteAsync(ctx);
         }
         catch (Exception ex)
         {
-            ctx.Response.StatusCode = 500;
-            ctx.Response.ContentType = "application/json";
-            await ctx.Response.WriteAsync(
-                System.Text.Json.JsonSerializer.Serialize(new { Error = ex.Message }));
+            // Generate a correlation id so operators can match a client-visible 500 to a log entry.
+            // Never echo ex.Message — it commonly contains internal details (file paths, SQL, etc.).
+            var correlationId = Guid.NewGuid().ToString("N")[..12];
+            var logger = ctx.RequestServices
+                .GetRequiredService<ILoggerFactory>()
+                .CreateLogger("QuartzDashboard.Api");
+            logger.LogError(ex, "Unhandled error in {Method} {Path} (correlationId={CorrelationId})",
+                ctx.Request.Method, ctx.Request.Path.Value, correlationId);
+
+            if (!ctx.Response.HasStarted)
+            {
+                ctx.Response.StatusCode = 500;
+                ctx.Response.ContentType = "application/json";
+                await ctx.Response.WriteAsync(
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        error = "Internal server error",
+                        correlationId,
+                    }));
+            }
         }
     }
 
-    // ============= Executing Jobs =============
-
-    private static async Task<IResult> GetExecutingJobs(IScheduler sched)
+    private static Task WriteJsonError(HttpContext ctx, int statusCode, string message)
     {
-        var jobs = await sched.GetCurrentlyExecutingJobs();
-        return Results.Ok(jobs
-            .OrderBy(j => j.JobDetail.Key.Group, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(j => j.JobDetail.Key.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(j => new
-            {
-                JobName = j.JobDetail.Key.Name,
-                JobGroup = j.JobDetail.Key.Group,
-                JobType = j.JobDetail.JobType.FullName,
-                TriggerName = j.Trigger.Key.Name,
-                TriggerGroup = j.Trigger.Key.Group,
-                FireTime = j.FireTimeUtc,
-                ScheduledFireTime = j.ScheduledFireTimeUtc,
-                PreviousFireTime = j.PreviousFireTimeUtc,
-                NextFireTime = j.NextFireTimeUtc,
-                RefireCount = j.RefireCount,
-                Recovering = j.Recovering,
-                Duration = DateTimeOffset.UtcNow - j.FireTimeUtc,
-            }));
+        ctx.Response.StatusCode = statusCode;
+        ctx.Response.ContentType = "application/json";
+        return ctx.Response.WriteAsync(
+            System.Text.Json.JsonSerializer.Serialize(new { error = message }));
     }
 
-    // ============= Execution Recording =============
-
-    internal static void RecordExecution(string jobKey, string triggerKey,
-        TimeSpan duration, bool success)
-    {
-        // This is called from DashboardJobListener. The bucket service is a singleton,
-        // but we use the static ExecutionBucketService accessor registered in DI.
-    }
+    private static readonly string AssemblyVersion =
+        ThisAssembly.GetName().Version?.ToString(3) ?? "0";
 
     // ============= Static File Serving =============
 
@@ -532,9 +298,6 @@ public static class QuartzDashboardApplicationBuilderExtensions
         }
     }
 
-    private static readonly string AssemblyVersion =
-        ThisAssembly.GetName().Version?.ToString(3) ?? "0";
-
     private static async Task ServeIndexHtml(HttpContext ctx, string basePath, QuartzDashboardOptions options)
     {
         var fileInfo = EmbeddedFiles.GetFileInfo("index.html");
@@ -549,156 +312,5 @@ public static class QuartzDashboardApplicationBuilderExtensions
         ctx.Response.ContentType = "text/html; charset=utf-8";
         await ctx.Response.WriteAsync(html);
     }
-
-    // ============= Export / Import =============
-
-    internal sealed record ExportPayload
-    {
-        public List<ExportedJob>? Jobs { get; set; }
-    }
-
-    internal sealed record ExportedJob
-    {
-        public string Group { get; set; } = "DEFAULT";
-        public string Name { get; set; } = "";
-        public string? Description { get; set; }
-        public string JobType { get; set; } = "";
-        public bool Durable { get; set; }
-        public bool RequestsRecovery { get; set; }
-        public Dictionary<string, string>? JobDataMap { get; set; }
-        public List<ExportedTrigger>? Triggers { get; set; }
-    }
-
-    internal sealed record ExportedTrigger
-    {
-        public string Group { get; set; } = "DEFAULT";
-        public string Name { get; set; } = "";
-        public string? Description { get; set; }
-        public string? CronExpression { get; set; }
-        public int? IntervalSeconds { get; set; }
-        public int? RepeatCount { get; set; }
-        public int Priority { get; set; } = 5;
-    }
-
-    private static async Task<IResult> ExportJobs(IScheduler sched)
-    {
-        var jobGroupNames = await sched.GetJobGroupNames();
-        var exported = new List<ExportedJob>();
-
-        foreach (var group in jobGroupNames)
-        {
-            var jobKeys = await sched.GetJobKeys(Quartz.Impl.Matchers.GroupMatcher<JobKey>.GroupEquals(group));
-            foreach (var jobKey in jobKeys)
-            {
-                var job = await sched.GetJobDetail(jobKey);
-                if (job == null) continue;
-
-                var triggers = await sched.GetTriggersOfJob(jobKey);
-                var exportedTriggers = triggers.Select(t =>
-                {
-                    var et = new ExportedTrigger
-                    {
-                        Group = t.Key.Group,
-                        Name = t.Key.Name,
-                        Description = t.Description,
-                        Priority = t.Priority
-                    };
-                    if (t is Quartz.ICronTrigger ct) et.CronExpression = ct.CronExpressionString;
-                    if (t is Quartz.ISimpleTrigger st)
-                    {
-                        et.IntervalSeconds = (int)st.RepeatInterval.TotalSeconds;
-                        et.RepeatCount = st.RepeatCount;
-                    }
-                    return et;
-                }).ToList();
-
-                exported.Add(new ExportedJob
-                {
-                    Group = job.Key.Group,
-                    Name = job.Key.Name,
-                    Description = job.Description,
-                    JobType = job.JobType.FullName ?? job.JobType.Name,
-                    Durable = job.Durable,
-                    RequestsRecovery = job.RequestsRecovery,
-                    JobDataMap = job.JobDataMap?.Count > 0
-                        ? job.JobDataMap.ToDictionary(kv => kv.Key, kv => kv.Value?.ToString() ?? "")
-                        : null,
-                    Triggers = exportedTriggers
-                });
-            }
-        }
-
-        return Results.Ok(new { jobs = exported, exportedAt = DateTimeOffset.UtcNow });
-    }
-
-    private static async Task<IResult> ImportJobs(IScheduler sched, ExportPayload? payload)
-    {
-        if (payload?.Jobs == null || payload.Jobs.Count == 0)
-            return Results.BadRequest(new { Error = "No jobs to import" });
-
-        int jobsCreated = 0, triggersCreated = 0, errors = 0;
-        var errorMessages = new List<string>();
-
-        foreach (var ej in payload.Jobs)
-        {
-            try
-            {
-                // Try to resolve the job type
-                var jobType = AppDomain.CurrentDomain.GetAssemblies()
-                    .SelectMany(a => { try { return a.GetTypes(); } catch { return []; } })
-                    .FirstOrDefault(t => t.FullName == ej.JobType || t.Name == ej.JobType);
-
-                if (jobType == null)
-                {
-                    // Use PlaceholderJob if type not found
-                    jobType = typeof(PlaceholderJob);
-                }
-
-                var jobBuilder = JobBuilder.Create(jobType)
-                    .WithIdentity(ej.Name, ej.Group)
-                    .WithDescription(ej.Description)
-                    .StoreDurably(ej.Durable)
-                    .RequestRecovery(ej.RequestsRecovery);
-
-                if (ej.JobDataMap != null)
-                {
-                    foreach (var kv in ej.JobDataMap)
-                        jobBuilder.UsingJobData(kv.Key, kv.Value);
-                }
-
-                var jobDetail = jobBuilder.Build();
-                await sched.AddJob(jobDetail, true);
-                jobsCreated++;
-
-                if (ej.Triggers != null)
-                {
-                    foreach (var et in ej.Triggers)
-                    {
-                        TriggerBuilder tb = TriggerBuilder.Create()
-                            .WithIdentity(et.Name, et.Group)
-                            .WithDescription(et.Description)
-                            .WithPriority(et.Priority)
-                            .ForJob(jobDetail);
-
-                        if (!string.IsNullOrWhiteSpace(et.CronExpression))
-                            tb.WithCronSchedule(et.CronExpression);
-                        else if (et.IntervalSeconds.HasValue)
-                            tb.WithSimpleSchedule(s => s
-                                .WithIntervalInSeconds(et.IntervalSeconds.Value)
-                                .WithRepeatCount(et.RepeatCount ?? -1));
-
-                        await sched.ScheduleJob(tb.Build());
-                        triggersCreated++;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                errors++;
-                errorMessages.Add($"{ej.Group}.{ej.Name}: {ex.Message}");
-            }
-        }
-
-        return Results.Ok(new { jobsCreated, triggersCreated, errors, errorMessages });
-    }
 }
+

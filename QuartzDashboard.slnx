@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="QuartzDashboard.Abstractions/QuartzDashboard.Abstractions.csproj" />
     <Project Path="QuartzDashboard/QuartzDashboard.csproj" />
+    <Project Path="QuartzDashboard.Sqlite/QuartzDashboard.Sqlite.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="QuartzDashboard.Tests/QuartzDashboard.Tests.csproj" />

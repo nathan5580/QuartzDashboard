@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using QuartzDashboard;
+using QuartzDashboard.Abstractions;
+using QuartzDashboard.Internal;
 
 namespace QuartzDashboard.Handlers;
 
@@ -43,9 +45,16 @@ internal static class ConfigHandlers
             maxFireHistory = options.MaxFireHistory,
             title = options.Title,
             historyRetentionHours = options.HistoryRetentionHours,
-            hasPersistentHistory = !string.IsNullOrWhiteSpace(options.PersistHistoryToSqlite) ||
-                                   !string.IsNullOrWhiteSpace(options.PersistHistoryPath),
+            hasPersistentHistory = IsPersistentStore(ctx),
             hasWebhookConfigured = !string.IsNullOrWhiteSpace(options.WebhookUrl),
         });
+    }
+
+    // A persistent store is any IFireHistoryStore implementation other than the default in-memory one.
+    // This avoids the main package having to know about specific store packages (Sqlite, custom, etc.).
+    private static bool IsPersistentStore(HttpContext ctx)
+    {
+        var store = ctx.RequestServices.GetService<IFireHistoryStore>();
+        return store is not null && store is not InMemoryFireHistoryStore;
     }
 }

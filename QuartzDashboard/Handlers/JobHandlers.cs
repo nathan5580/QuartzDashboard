@@ -178,7 +178,7 @@ internal static class JobHandlers
                 await sched.TriggerJob(key);
             }
 
-            return Results.Ok(new { Status = "triggered" });
+            return Results.Ok(new StatusResponse("triggered"));
         }
         return Results.NotFound(new { Error = $"Job '{group}.{name}' not found" });
     }
@@ -191,7 +191,7 @@ internal static class JobHandlers
         if (await sched.CheckExists(key))
         {
             await sched.PauseJob(key);
-            return Results.Ok(new { Status = "paused" });
+            return Results.Ok(new StatusResponse("paused"));
         }
         return Results.NotFound(new { Error = $"Job '{group}.{name}' not found" });
     }
@@ -204,7 +204,7 @@ internal static class JobHandlers
         if (await sched.CheckExists(key))
         {
             await sched.ResumeJob(key);
-            return Results.Ok(new { Status = "resumed" });
+            return Results.Ok(new StatusResponse("resumed"));
         }
         return Results.NotFound(new { Error = $"Job '{group}.{name}' not found" });
     }
@@ -242,7 +242,7 @@ internal static class JobHandlers
             detail = detail.GetJobBuilder().StoreDurably().Build();
 
         await sched.AddJob(detail, replace: false);
-        return Results.Ok(new { Status = "created", Job = $"{key.Group}.{key.Name}" });
+        return Results.Ok(new StatusResponse("created", Job: $"{key.Group}.{key.Name}"));
     }
 
     public static async Task<IResult> DeleteJob(IScheduler sched, string group, string name,
@@ -253,7 +253,7 @@ internal static class JobHandlers
         if (await sched.CheckExists(key))
         {
             await sched.DeleteJob(key);
-            return Results.Ok(new { Status = "deleted", Job = $"{group}.{name}" });
+            return Results.Ok(new StatusResponse("deleted", Job: $"{group}.{name}"));
         }
         return Results.NotFound(new { Error = $"Job '{group}.{name}' not found" });
     }
@@ -274,7 +274,7 @@ internal static class JobHandlers
                 builder.UsingJobData(k, v ?? "");
             await sched.AddJob(builder.Build(), replace: true);
         }
-        return Results.Ok(new { Status = "updated", Job = $"{group}.{name}" });
+        return Results.Ok(new StatusResponse("updated", Job: $"{group}.{name}"));
     }
 
     public static IResult GetJobLogs(HttpContext ctx, string group, string name)

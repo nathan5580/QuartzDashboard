@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Quartz;
 using QuartzDashboard.Internal;
+using QuartzDashboard.Abstractions;
 using QuartzDashboard.Services;
 
 namespace QuartzDashboard;
@@ -35,17 +36,17 @@ public static class QuartzDashboardServiceCollectionExtensions
     {
         var options = new QuartzDashboardOptions();
         configure?.Invoke(options);
+        ValidateOptions(options);
         services.AddSingleton(options);
+        // Also expose the read-only contract so handlers and custom integrations can opt out
+        // of accidentally mutating the configured options at runtime.
+        services.AddSingleton<IQuartzDashboardOptions>(options);
         services.AddHttpClient();
 
-        // Fire history store — SQLite takes precedence over JSON file persistence, otherwise in-memory
-        if (!string.IsNullOrWhiteSpace(options.PersistHistoryToSqlite))
-            services.AddSingleton<IFireHistoryStore>(sp => new SqliteFireHistoryStore(
-                options.PersistHistoryToSqlite,
-                options.MaxFireHistory,
-                options.HistoryRetentionHours,
-                sp.GetRequiredService<ILogger<SqliteFireHistoryStore>>()));
-        else if (!string.IsNullOrWhiteSpace(options.PersistHistoryPath))
+        // Fire history store — JSON file if PersistHistoryPath is set, otherwise in-memory.
+        // For SQLite persistence, add the Dot.QuartzDashboard.Sqlite package and call
+        // services.AddQuartzDashboardSqliteHistory(...) AFTER AddQuartzDashboard().
+        if (!string.IsNullOrWhiteSpace(options.PersistHistoryPath))
             services.AddSingleton<IFireHistoryStore>(sp => new FileFireHistoryStore(
                 options.PersistHistoryPath,
                 sp.GetRequiredService<ILogger<FileFireHistoryStore>>(),
@@ -84,6 +85,32 @@ public static class QuartzDashboardServiceCollectionExtensions
     /// <returns>The same <see cref="IServiceCollection"/> instance.</returns>
     [Obsolete("History is registered automatically by AddQuartzDashboard(). This call is no longer needed.")]
     public static IServiceCollection AddQuartzDashboardHistory(this IServiceCollection services) => services;
+
+    private static void ValidateOptions(QuartzDashboardOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(options.Path))
+            throw new ArgumentException("QuartzDashboardOptions.Path must be non-empty.", nameof(options));
+
+        if (!options.Path.StartsWith('/'))
+            throw new ArgumentException($"QuartzDashboardOptions.Path must start with '/' (got '{options.Path}').", nameof(options));
+
+        if (options.MaxFireHistory < 0)
+            throw new ArgumentException($"QuartzDashboardOptions.MaxFireHistory must be >= 0 (got {options.MaxFireHistory}).", nameof(options));
+
+        if (options.MaxExecutionLogsPerJob < 0)
+            throw new ArgumentException($"QuartzDashboardOptions.MaxExecutionLogsPerJob must be >= 0 (got {options.MaxExecutionLogsPerJob}).", nameof(options));
+
+        if (options.HistoryRetentionHours < 0)
+            throw new ArgumentException($"QuartzDashboardOptions.HistoryRetentionHours must be >= 0 (got {options.HistoryRetentionHours}).", nameof(options));
+
+        if (!string.IsNullOrWhiteSpace(options.WebhookUrl))
+        {
+            if (!Uri.TryCreate(options.WebhookUrl, UriKind.Absolute, out var webhookUri))
+                throw new ArgumentException($"QuartzDashboardOptions.WebhookUrl must be an absolute URI (got '{options.WebhookUrl}').", nameof(options));
+            if (webhookUri.Scheme != Uri.UriSchemeHttp && webhookUri.Scheme != Uri.UriSchemeHttps)
+                throw new ArgumentException($"QuartzDashboardOptions.WebhookUrl must use http or https (got scheme '{webhookUri.Scheme}').", nameof(options));
+        }
+    }
 }
 
 internal sealed class DashboardListenerAttacher(
@@ -134,6 +161,11 @@ internal sealed class DashboardJobListener(
 {
     private readonly ILogger<DashboardJobListener> _logger = logger;
 
+    private static readonly System.Text.Json.JsonSerializerOptions WebhookJsonOptions = new()
+    {
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+    };
+
     public string Name => "QuartzDashboardListener";
 
     public Task JobToBeExecuted(IJobExecutionContext context, CancellationToken ct)
@@ -173,7 +205,10 @@ internal sealed class DashboardJobListener(
         // Update in-memory execution stats (buckets)
         bucketService?.Record(duration, success);
 
-        // Log execution
+        // Log execution. The single-line summary is kept short so the History UI snippet
+        // reads cleanly; the inner-message line and the stack trace are stored in full so
+        // the detail modal has the diagnostic frames it needs. Each entry is one ring-buffer
+        // slot bounded by MaxExecutionLogsPerJob, so total memory stays bounded.
         logBuffer?.Append(jobKey, success
             ? $"✓ Completed in {duration.TotalMilliseconds:F0}ms"
             : $"✗ Failed: {jobException?.Message?.Truncate(200) ?? "Unknown error"}");
@@ -182,8 +217,8 @@ internal sealed class DashboardJobListener(
         {
             var inner = jobException.InnerException;
             if (inner != null)
-                logBuffer?.Append(jobKey, $"  └─ {inner.GetType().Name}: {inner.Message?.Truncate(300)}");
-            var stackTrace = (inner?.StackTrace ?? jobException.StackTrace)?.Truncate(800);
+                logBuffer?.Append(jobKey, $"  └─ {inner.GetType().Name}: {inner.Message}");
+            var stackTrace = inner?.StackTrace ?? jobException.StackTrace;
             if (!string.IsNullOrEmpty(stackTrace))
                 logBuffer?.Append(jobKey, stackTrace);
         }
@@ -224,7 +259,7 @@ internal sealed class DashboardJobListener(
                             fireTime = context.FireTimeUtc,
                             durationMs = Math.Round(duration.TotalMilliseconds),
                             refireCount = context.RefireCount,
-                        });
+                        }, WebhookJsonOptions);
 
                         using var client = httpClientFactory.CreateClient();
                         using var content = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
@@ -240,13 +275,4 @@ internal sealed class DashboardJobListener(
 
         return Task.CompletedTask;
     }
-}
-
-/// <summary>
-/// Extension helper to truncate strings safely
-/// </summary>
-internal static class StringExtensions
-{
-    public static string Truncate(this string? value, int maxLength) =>
-        string.IsNullOrEmpty(value) ? "" : (value.Length <= maxLength ? value : value[..maxLength] + "...");
 }
