@@ -35,7 +35,7 @@ internal static class SchedulerHandlers
 
     public static async Task<IResult> StandbyScheduler(IScheduler sched, QuartzDashboardOptions options)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         if (!sched.InStandbyMode)
         {
             await sched.Standby();
@@ -53,7 +53,7 @@ internal static class SchedulerHandlers
 
     public static async Task<IResult> StartScheduler(IScheduler sched, QuartzDashboardOptions options)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         if (!sched.IsStarted || sched.InStandbyMode)
         {
             await sched.Start();

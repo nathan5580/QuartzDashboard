@@ -134,7 +134,7 @@ internal static class TriggerHandlers
     public static async Task<IResult> PauseTrigger(IScheduler sched, string group, string name,
         QuartzDashboardOptions options)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         var key = new TriggerKey(name, group);
         if (await sched.CheckExists(key))
         {
@@ -147,7 +147,7 @@ internal static class TriggerHandlers
     public static async Task<IResult> ResumeTrigger(IScheduler sched, string group, string name,
         QuartzDashboardOptions options)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         var key = new TriggerKey(name, group);
         if (await sched.CheckExists(key))
         {
@@ -160,7 +160,7 @@ internal static class TriggerHandlers
     public static async Task<IResult> CreateTrigger(IScheduler sched, CreateTriggerRequest? req,
         QuartzDashboardOptions options)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         if (req == null || string.IsNullOrWhiteSpace(req.Name))
             return Results.BadRequest(new { Error = "Trigger name is required" });
 
@@ -231,7 +231,7 @@ internal static class TriggerHandlers
     public static async Task<IResult> UpdateTrigger(IScheduler sched, string group, string name,
         UpdateTriggerRequest? req, QuartzDashboardOptions options)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         if (req == null)
             return Results.BadRequest(new { Error = "Trigger update payload is required" });
 
@@ -294,7 +294,7 @@ internal static class TriggerHandlers
     public static async Task<IResult> DeleteTrigger(IScheduler sched, string group, string name,
         QuartzDashboardOptions options)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         var key = new TriggerKey(name, group);
         if (await sched.CheckExists(key))
         {

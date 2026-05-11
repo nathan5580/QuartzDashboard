@@ -65,10 +65,18 @@ export function createOverviewSection() {
         },
 
         get healthAlertCount() {
-          if (!this.healthData) return 0;
-          const sr = this.healthData.successRate;
-          if (typeof sr === 'number' && sr < 95) return 1;
-          return 0;
+          return this.effectiveHealthStatus && this.effectiveHealthStatus !== 'healthy' ? 1 : 0;
+        },
+
+        get effectiveHealthStatus() {
+          if (!this.scheduler.isStarted || this.scheduler.isStandbyMode) return 'degraded';
+          if (this.successRate < 80) return 'failing';
+          if (this.successRate < 95 || this.failedCount > 0) return 'degraded';
+          return this.healthData?.status || 'healthy';
+        },
+
+        get effectiveHealthLabel() {
+          return { healthy: 'Healthy', degraded: 'Degraded', failing: 'Failing' }[this.effectiveHealthStatus] || this.schedulerStatusLabel();
         },
 
         schedulerStatusLabel() {
@@ -196,6 +204,10 @@ export function createOverviewSection() {
         },
 
         async startScheduler() {
+          if (this.config.readOnly) {
+            this.showToast('Dashboard is in read-only mode.', 'warning');
+            return;
+          }
           this.loading.global = true;
           try {
             await this.postApi('/scheduler/start');
@@ -206,6 +218,10 @@ export function createOverviewSection() {
         },
 
         async standbyScheduler() {
+          if (this.config.readOnly) {
+            this.showToast('Dashboard is in read-only mode.', 'warning');
+            return;
+          }
           this.loading.global = true;
           try {
             await this.postApi('/scheduler/standby');
@@ -419,6 +435,10 @@ export function createOverviewSection() {
           }).sort((a, b) => new Date(a.fireTime) - new Date(b.fireTime));
 
           const barEl = event.target && event.target.closest ? event.target.closest('.tl-bar') : null;
+          if (!barEl && !nearEvents.length) {
+            this.timelineCursor.show = false;
+            return;
+          }
 
           this.timelineCursor = {
             show: true,

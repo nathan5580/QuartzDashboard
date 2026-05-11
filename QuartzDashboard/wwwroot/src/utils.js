@@ -240,6 +240,13 @@ export function createUtilsSection() {
 
         formatDuration(d) {
           if (!d) return '';
+          if (typeof d === 'number') {
+            if (d < 1000) return d.toFixed(d < 100 ? 1 : 0) + 'ms';
+            if (d < 60000) return (d / 1000).toFixed(d < 10000 ? 2 : 1) + 's';
+            const mins = Math.floor(d / 60000);
+            const secs = Math.round((d % 60000) / 1000);
+            return mins + 'm ' + secs + 's';
+          }
           if (typeof d === 'string') {
             return d.replace('PT', '').replace('H', 'h ').replace('M', 'm ').replace('S', 's');
           }

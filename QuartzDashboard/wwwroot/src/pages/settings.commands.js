@@ -3,14 +3,16 @@ export function createSettingsCommandsSection() {
     get commandPaletteCommands() {
       const cmds = [];
       for (const item of this.navItems) {
-        cmds.push({ id: 'nav-' + item.id, label: 'Go to ' + item.label, icon: item.icon, action: 'navigate', page: item.id, shortcut: this.navItems.indexOf(item) + 1 });
+        cmds.push({ id: 'nav-' + item.id, category: 'Pages', label: 'Go to ' + item.label, icon: item.icon, action: 'navigate', page: item.id, shortcut: this.navItems.indexOf(item) + 1 });
       }
-      for (const job of this.jobs) {
-        cmds.push({ id: 'trigger-' + job.group + '.' + job.name, label: 'Trigger job ' + job.group + '.' + job.name, icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 5v14l11-7z"/></svg>', action: 'triggerJob', group: job.group, name: job.name });
+      if (!this.config.readOnly) {
+        for (const job of this.jobs) {
+          cmds.push({ id: 'trigger-' + job.group + '.' + job.name, category: 'Jobs', label: 'Trigger job ' + job.group + '.' + job.name, icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 5v14l11-7z"/></svg>', action: 'triggerJob', group: job.group, name: job.name });
+        }
       }
       // Add trigger names for quick navigation
       for (const t of this.triggers) {
-        cmds.push({ id: 'view-trigger-' + t.key, label: 'View trigger ' + (t.key || t.name), icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', action: 'navigate', page: 'triggers' });
+        cmds.push({ id: 'view-trigger-' + t.key, category: 'Triggers', label: 'View trigger ' + (t.key || t.name), icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', action: 'navigate', page: 'triggers' });
       }
       return cmds;
     },
@@ -23,7 +25,7 @@ export function createSettingsCommandsSection() {
       if (cmds.length < 8) {
         const historyHits = (this.history || []).filter(h => h.jobKey && h.jobKey.toLowerCase().includes(q)).slice(0, 5);
         for (const h of historyHits) {
-          cmds.push({ id: 'history-' + h.jobKey + '-' + h.fireTime, label: 'History: ' + h.jobKey, icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', action: 'navigate', page: 'history' });
+          cmds.push({ id: 'history-' + h.jobKey + '-' + h.fireTime, category: 'History', label: 'History: ' + h.jobKey, icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', action: 'navigate', page: 'history' });
         }
       }
       return cmds;

@@ -16,6 +16,10 @@ export function createCalendarsSection() {
         },
 
         async createCalendar() {
+          if (this.config.readOnly) {
+            this.showToast('Dashboard is in read-only mode.', 'warning');
+            return;
+          }
           try {
             const body = {
               name: this.newCalendar.name,
@@ -32,6 +36,10 @@ export function createCalendarsSection() {
         },
 
         async deleteCalendar(name) {
+          if (this.config.readOnly) {
+            this.showToast('Dashboard is in read-only mode.', 'warning');
+            return;
+          }
           try {
             const res = await fetch(this._api('/calendars/' + encodeURIComponent(name)), { method: 'DELETE' });
             if (!res.ok) throw new Error(await this.apiErrorMessage(res));
