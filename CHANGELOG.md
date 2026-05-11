@@ -2,6 +2,28 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [3.0.4] — 2026-05-11
+
+### CI/CD
+- Added **CodeQL Analysis** — security-and-quality scanning on every push and PR
+- Added **Release Drafter** — auto-generates release notes from PR labels
+- Added **Stale bot** — marks inactive issues/PRs after 60 days
+- Added **NuGet cache + npm cache** to all CI jobs (faster builds)
+- Fixed CodeQL autobuild — replaced with manual `npm ci` + `dotnet build` (esbuild dependency)
+
+### Community
+- Added **MIT LICENSE** file
+- Added **Contributor Covenant CODE_OF_CONDUCT**
+- Added **FUNDING.yml** (GitHub Sponsors, Ko-fi)
+- Added **Issue templates** (Bug Report, Feature Request)
+- Added **Discussion templates** (Q&A, Ideas, Show-and-Tell)
+- Set NuGet.org homepage and protected `main` branch with required reviews + status checks
+
+### Housekeeping
+- Purged `.hermes/` directory from git history via `git-filter-repo`
+- Squashed duplicate commits after history rewrite
+- Added `.hermes/` to `.gitignore`
+
 ## [3.0.3] — 2026-05-10
 
 ### CI/CD
