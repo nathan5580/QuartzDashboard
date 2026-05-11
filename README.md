@@ -346,36 +346,66 @@ All endpoints under `{basePath}/api/` (default: `/quartz/api/`).
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/jobs` | All jobs with triggers + schedule descriptions (`?offset=0&limit=50`) |
+| POST | `/jobs` | Create a new job |
 | GET | `/jobs/{group}/{name}` | Single job detail with JobDataMap |
+| PUT | `/jobs/{group}/{name}` | Update job description / data map |
+| DELETE | `/jobs/{group}/{name}` | Delete job |
+| GET | `/jobs/{group}/{name}/logs` | Recent execution log lines for a job |
 | POST | `/jobs/{group}/{name}/trigger` | Fire job immediately |
 | POST | `/jobs/{group}/{name}/pause` | Pause job |
 | POST | `/jobs/{group}/{name}/resume` | Resume job |
 | POST | `/jobs/{group}/{name}/interrupt` | Interrupt executing job |
-| DELETE | `/jobs/{group}/{name}` | Delete job |
+| POST | `/jobs/group/{group}/pause` | Pause all jobs in a group |
+| POST | `/jobs/group/{group}/resume` | Resume all jobs in a group |
+| POST | `/jobs/batch/pause` | Pause a set of jobs by key list |
+| POST | `/jobs/batch/resume` | Resume a set of jobs by key list |
+| POST | `/jobs/batch/trigger` | Fire a set of jobs immediately |
+| POST | `/jobs/batch/delete` | Delete a set of jobs |
 
 ### Triggers
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/triggers` | All triggers with schedule descriptions (`?offset=0&limit=50`) |
+| POST | `/triggers` | Create a new trigger (cron or simple) |
 | GET | `/triggers/{group}/{name}` | Single trigger detail |
+| PUT | `/triggers/{group}/{name}` | Update trigger schedule / expression |
+| DELETE | `/triggers/{group}/{name}` | Unschedule (delete) trigger |
+| GET | `/triggers/{group}/{name}/next-fires` | Next N fire times (`?count=10`, max 100) |
 | POST | `/triggers/{group}/{name}/pause` | Pause trigger |
 | POST | `/triggers/{group}/{name}/resume` | Resume trigger |
+| POST | `/triggers/group/{group}/pause` | Pause all triggers in a group |
+| POST | `/triggers/group/{group}/resume` | Resume all triggers in a group |
 
-### Runtime
+### Calendars
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/calendars` | All Quartz calendars |
+| POST | `/calendars` | Create a calendar |
+| DELETE | `/calendars/{name}` | Delete a calendar |
+
+### Runtime & Diagnostics
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/executing` | Currently executing jobs with duration |
-| GET | `/history` | Paginated fire events (`?offset=0&limit=50&job=key`) |
+| GET | `/history` | Paginated fire events (`?offset=0&limit=50&job=group.name`) |
 | GET | `/stats` | Per-minute execution buckets, rate, avg duration, P50/P95/P99 |
 | GET | `/stats/history` | Rolling history for the graph |
 | GET | `/health` | Success rate, thread pool utilization, failure list |
 | GET | `/timeline` | Execution timeline data (up to 500 records) |
 | GET | `/heatmap` | Execution density grid (day-of-week × hour-of-day with success rates) |
-| GET | `/calendars` | Quartz calendars list |
 | GET | `/schedulers` | All registered schedulers (name, instance ID, status) |
-| GET | `/config` | Dashboard config snapshot |
+| GET | `/config` | Dashboard config snapshot (readonly flag, features, etc.) |
+
+### Utilities
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/cron/describe` | Validate a CRON expression and return next 5 fire times |
+| GET | `/export` | Export all jobs + triggers as JSON |
+| POST | `/import` | Import jobs + triggers from export payload |
 
 ## SignalR Real-Time Updates
 
@@ -446,14 +476,15 @@ Request → app.Use() (inline middleware, path-matched to basePath)
 ```
 
 - **Backend**: Raw ASP.NET Core `app.Use()` middleware — zero routing conflicts with controllers
+- **Router**: Declarative `(Method, Pattern, Handler)[]` route table in `ApiRouter` — `{}` wildcard segments, O(routes) dispatch
 - **Handlers**: API logic split by feature into `Handlers/`
-- **Models**: Request/response contracts in `Models/`
+- **Models**: Typed request/response records in `Models/` (`PagedResponse<T>`, `StatusResponse`, `FireRecordDto`, `ErrorResponse`)
 - **Services**: History persistence and execution buckets in `Services/`
 - **Frontend**: ES modules bundled/minified with esbuild, embedded into the DLL at build time
 - **Assets**: Fully self-contained — no external CDN or CSP allowlist required
+- **Packages**: `Dot.QuartzDashboard` (main) · `Dot.QuartzDashboard.Abstractions` (interfaces, no ASP.NET dep) · `Dot.QuartzDashboard.Sqlite` (SQLite store)
 - **Target frameworks**: `net8.0`, `net9.0`, `net10.0`
-- **Dependencies**: `Quartz` 3.18.0, `Quartz.Extensions.DependencyInjection` 3.18.0
-- **Strong-named**: Assembly is signed for GAC / enterprise scenarios
+- **Dependencies**: `Quartz` ≥ 3.18.0 < 4.0.0, `Quartz.Extensions.DependencyInjection`
 
 ## Demo
 
@@ -464,6 +495,7 @@ dotnet run                         # default port 5190
 dotnet run -- -p 8080              # custom port
 dotnet run -- --auth               # enable cookie auth (test access control)
 dotnet run -- --readonly           # disable write actions
+dotnet run -- --sqlite             # SQLite history (writes to demo-history.db)
 dotnet run -- -p 5000 --auth --readonly
 ```
 
@@ -567,27 +599,50 @@ builder.Services.AddQuartzDashboard(options =>
 - The NuGet handles /quartz → /quartz/ redirect automatically
 
 --- API ENDPOINTS (all under {Path}/api/) ---
-GET  /scheduler           - scheduler metadata, status, uptime
-POST /scheduler/start     - start or resume from standby
-POST /scheduler/standby   - put scheduler in standby
-GET  /jobs                - all jobs with triggers (?offset=0&limit=50)
-GET  /jobs/{group}/{name} - single job detail with JobDataMap
-POST /jobs/{group}/{name}/trigger  - fire job immediately
-POST /jobs/{group}/{name}/pause    - pause job
-POST /jobs/{group}/{name}/resume   - resume job
-POST /jobs/{group}/{name}/interrupt - interrupt executing job
-DELETE /jobs/{group}/{name}        - delete job
-GET  /triggers            - all triggers (?offset=0&limit=50)
-POST /triggers/{group}/{name}/pause   - pause trigger
-POST /triggers/{group}/{name}/resume  - resume trigger
-GET  /executing           - currently running jobs with duration
-GET  /history             - paginated fire events (?offset=0&limit=50)
-GET  /stats               - per-minute execution buckets + rates + P50/P95/P99
-GET  /stats/history       - rolling history for the graph
-GET  /health              - scheduler health, success rate, thread pool, failure list
-GET  /timeline            - execution timeline data (up to 500 records)
-GET  /calendars           - calendar list
-GET  /config              - dashboard config (readonly flag etc.)
+GET    /scheduler                        - scheduler metadata, status, uptime
+POST   /scheduler/start                  - start or resume from standby
+POST   /scheduler/standby                - put scheduler in standby
+GET    /schedulers                       - all registered schedulers
+GET    /jobs                             - all jobs with triggers (?offset=0&limit=50)
+POST   /jobs                             - create a job
+GET    /jobs/{group}/{name}              - single job detail with JobDataMap
+PUT    /jobs/{group}/{name}              - update job description/data map
+DELETE /jobs/{group}/{name}              - delete job
+GET    /jobs/{group}/{name}/logs         - recent execution log lines
+POST   /jobs/{group}/{name}/trigger      - fire immediately
+POST   /jobs/{group}/{name}/pause        - pause job
+POST   /jobs/{group}/{name}/resume       - resume job
+POST   /jobs/{group}/{name}/interrupt    - interrupt executing job
+POST   /jobs/group/{group}/pause         - pause all jobs in group
+POST   /jobs/group/{group}/resume        - resume all jobs in group
+POST   /jobs/batch/pause                 - pause a set of jobs
+POST   /jobs/batch/resume                - resume a set of jobs
+POST   /jobs/batch/trigger               - fire a set of jobs
+POST   /jobs/batch/delete                - delete a set of jobs
+GET    /triggers                         - all triggers (?offset=0&limit=50)
+POST   /triggers                         - create a trigger (cron or simple)
+GET    /triggers/{group}/{name}          - single trigger detail
+PUT    /triggers/{group}/{name}          - update trigger schedule
+DELETE /triggers/{group}/{name}          - unschedule trigger
+GET    /triggers/{group}/{name}/next-fires - next N fire times (?count=10)
+POST   /triggers/{group}/{name}/pause    - pause trigger
+POST   /triggers/{group}/{name}/resume   - resume trigger
+POST   /triggers/group/{group}/pause     - pause all triggers in group
+POST   /triggers/group/{group}/resume    - resume all triggers in group
+GET    /calendars                        - all calendars
+POST   /calendars                        - create a calendar
+DELETE /calendars/{name}                 - delete a calendar
+GET    /executing                        - currently running jobs with duration
+GET    /history                          - paginated fire events (?offset=0&limit=50&job=group.name)
+GET    /stats                            - per-minute buckets + rates + P50/P95/P99
+GET    /stats/history                    - rolling history for the graph
+GET    /health                           - success rate, thread pool, failure list
+GET    /timeline                         - execution timeline (up to 500 records)
+GET    /heatmap                          - execution density grid (day × hour)
+GET    /config                           - dashboard config snapshot
+POST   /cron/describe                    - validate CRON + return next 5 fire times
+GET    /export                           - export all jobs+triggers as JSON
+POST   /import                           - import jobs+triggers from export payload
 
 --- SIGNALR HUB ---
 Hub class: QuartzDashboard.QuartzDashboardHub
@@ -618,26 +673,20 @@ POST {Path}/hub/negotiate?negotiateVersion=1  → 200 when working
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### v3.0.6 (2026-05-11)
-- History: inline error snippets on failed rows; CSV export button dark-theme fix; filter resets on navigation
-- Health: success rate shows record-count context
-- Triggers: removed redundant countdown parenthetical; action buttons wrap on narrow screens
-- Executing: richer empty state with live-connection indicator
-- Overview: pin affordance hint; "Manage in Jobs →" link in pinned jobs section
-- Jobs: mobile search toggle (🔍 button); `jobSearchOpen` state
-- `navigateTo`: clears history search + date filter when leaving the History page
+### v4.0.0 (2026-05-11)
+- **Breaking**: `IFireHistoryStore` / `FireRecord` moved to `QuartzDashboard.Abstractions` namespace (`Dot.QuartzDashboard.Abstractions` package)
+- **Breaking**: `QuartzDashboardOptions.PersistHistoryToSqlite` removed — use `AddQuartzDashboardSqliteHistory()` from `Dot.QuartzDashboard.Sqlite`
+- New `Dot.QuartzDashboard.Abstractions` and `Dot.QuartzDashboard.Sqlite` packages; main package no longer depends on `Microsoft.Data.Sqlite`
+- Declarative `ApiRouter` replaces 250-line if/else dispatcher
+- Typed `PagedResponse<T>`, `StatusResponse`, `FireRecordDto`, `ErrorResponse` records (wire format unchanged)
+- `IQuartzDashboardOptions` read-only interface registered in DI
+- Fixed `ExecutionBucketService` prune arithmetic (unix-epoch minutes)
+- SQLite: WAL mode, throttled TTL prune, `job_key` index
+- `FileFireHistoryStore`: debounced writes (1s), synchronous flush on `Dispose`
+- Options validated at `AddQuartzDashboard()` registration time
 
-### v3.0.5 (2026-05-11)
-- Fixed ghost card CSS bug — group header rows rendered as cards on mobile
-- Clickable stat cards on Overview (Jobs → /jobs, Triggers → /triggers, etc.)
-- 2-column stat grid on mobile
-- Jobs Last Run shows relative time ("3m ago") with absolute date on hover
-- Jobs Actions: new "View history" option — navigates to History filtered for that job
-- Health Recent Failures: shows error message inline; removed redundant "Failed" badge
-- History: 1h / 6h / 24h / All date-range quick filters
-- Command palette: "Run now: X" label; keyword aliases; deduplicated history results
-- `formatDuration`: parses .NET `TimeSpan` strings for uptime display
-- Mobile bottom nav: added Triggers and Executing (7 items, horizontally scrollable)
+### v3.0.6 / v3.0.5 (2026-05-11)
+See [CHANGELOG.md](CHANGELOG.md) for the full UI/UX overhaul details.
 
 ### v3.0.0 – v3.0.4
 See [CHANGELOG.md](CHANGELOG.md).
