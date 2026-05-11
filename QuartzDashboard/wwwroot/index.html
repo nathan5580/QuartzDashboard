@@ -895,8 +895,8 @@
             </div>
 
             <!-- Stat cards -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div class="stat-card">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="stat-card cursor-pointer" @click="navigateTo('jobs')" title="Go to Jobs" role="button" tabindex="0" @keydown.enter="navigateTo('jobs')">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Jobs</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100 stat-value">
                   <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
@@ -912,7 +912,7 @@
                   </svg>
                 </div>
               </div>
-              <div class="stat-card">
+              <div class="stat-card cursor-pointer" @click="navigateTo('triggers')" title="Go to Triggers" role="button" tabindex="0" @keydown.enter="navigateTo('triggers')">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Triggers</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100 stat-value">
                   <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
@@ -928,7 +928,7 @@
                   </svg>
                 </div>
               </div>
-              <div class="stat-card">
+              <div class="stat-card cursor-pointer" @click="navigateTo('executing')" title="Go to Executing Jobs" role="button" tabindex="0" @keydown.enter="navigateTo('executing')">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Executing Now</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight stat-value">
                   <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
@@ -944,7 +944,7 @@
                   </svg>
                 </div>
               </div>
-              <div class="stat-card">
+              <div class="stat-card cursor-pointer" @click="navigateTo('history')" title="Go to History" role="button" tabindex="0" @keydown.enter="navigateTo('history')">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Total Executions</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100 stat-value">
                   <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
@@ -1334,12 +1334,12 @@
                 <h2 class="text-sm font-semibold text-gray-200 mb-3">Recent Failures</h2>
                 <div class="space-y-2 max-h-64 overflow-y-auto scrollbar-thin">
                   <template x-for="(h, hIdx) in failedHistory.slice(0, 20)" :key="h.fireInstanceId || hIdx">
-                    <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-red-500/5 border border-red-500/10">
+                    <div class="flex items-start justify-between py-2 px-3 rounded-lg bg-red-500/5 border border-red-500/10 gap-2">
                       <div class="flex-1 min-w-0">
                         <p class="text-sm text-gray-200 truncate" x-text="h.jobKey || 'Unknown'"></p>
                         <p class="text-xs text-gray-500" x-text="formatDate(h.fireTime)"></p>
+                        <p x-show="h.errorMessage || h.exceptionMessage" class="text-[11px] text-red-400/80 truncate mt-0.5" x-text="h.errorMessage || h.exceptionMessage"></p>
                       </div>
-                      <span class="badge badge-error text-[10px]">Failed</span>
                     </div>
                   </template>
                 </div>
@@ -1534,7 +1534,7 @@
                               <span class="text-xs mono"
                                     :class="item.job && getJobLastExecution(item.job.group, item.job.name) ? 'text-gray-300' : 'text-gray-600'"
                                     :title="item.job && getJobLastExecution(item.job.group, item.job.name) ? formatDate(getJobLastExecution(item.job.group, item.job.name).fireTime) : ''"
-                                    x-text="item.job && getJobLastExecution(item.job.group, item.job.name) ? formatDate(getJobLastExecution(item.job.group, item.job.name).fireTime) : '—'"></span>
+                                    x-text="item.job && getJobLastExecution(item.job.group, item.job.name) ? relativeTimePhrase(getJobLastExecution(item.job.group, item.job.name).fireTime) : '—'"></span>
                             </td>
                             <td x-show="!item.isHeader" class="py-3.5 px-4 text-right" data-label="Actions">
                               <div x-show="item.job" class="relative inline-flex justify-end" @click.stop>
@@ -1550,6 +1550,10 @@
                                      @click.outside="closeRowActionsMenu()"
                                      class="row-actions-menu"
                                      style="display:none">
+                                  <button @click="item.job && (historyFilterObj.search = item.job.group + '.' + item.job.name, navigateTo('history'), closeRowActionsMenu())" class="row-actions-item"
+                                          :aria-label="item.job ? 'View history for ' + item.job.name : 'View history'">
+                                    <span>View history</span>
+                                  </button>
                                   <button @click="item.job && (togglePinJob(item.job.group, item.job.name), closeRowActionsMenu())" class="row-actions-item"
                                           :aria-label="item.job ? (isJobPinned(item.job.group, item.job.name) ? 'Unpin ' + item.job.name : 'Pin ' + item.job.name) : 'Pin job'">
                                     <span x-text="item.job && isJobPinned(item.job.group, item.job.name) ? 'Unpin from overview' : 'Pin to overview'"></span>
@@ -2306,6 +2310,14 @@
                 <option value="success">✓ Success</option>
                 <option value="error">✗ Failed</option>
               </select>
+              <div class="flex items-center gap-1">
+                <template x-for="range in [{v:'1h',l:'1h'},{v:'6h',l:'6h'},{v:'24h',l:'24h'},{v:'all',l:'All'}]" :key="range.v">
+                  <button @click="historyFilterObj.dateRange = range.v"
+                          class="text-[10px] px-2 py-1 rounded border transition-colors"
+                          :class="(historyFilterObj.dateRange || 'all') === range.v ? 'bg-quartz-500/20 border-quartz-500/40 text-quartz-300' : 'bg-white/[0.03] border-white/[0.06] text-gray-500 hover:text-gray-300'"
+                          x-text="range.l"></button>
+                </template>
+              </div>
               <span class="text-[10px] text-gray-600 ml-auto tabular-nums" x-text="filteredHistory.length + ' of ' + history.length + ' records'"></span>
             </div>
 
@@ -3184,8 +3196,16 @@
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       <span>Jobs</span>
     </button>
-    <button @click="navigateTo('history')" class="mobile-nav-item" :class="currentPage === 'history' ? 'active' : ''" aria-label="Go to history">
+    <button @click="navigateTo('triggers')" class="mobile-nav-item" :class="currentPage === 'triggers' ? 'active' : ''" aria-label="Go to triggers">
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span>Triggers</span>
+    </button>
+    <button @click="navigateTo('executing')" class="mobile-nav-item" :class="currentPage === 'executing' ? 'active' : ''" aria-label="Go to executing jobs">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      <span>Running</span>
+    </button>
+    <button @click="navigateTo('history')" class="mobile-nav-item" :class="currentPage === 'history' ? 'active' : ''" aria-label="Go to history">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/></svg>
       <span>History</span>
     </button>
     <button @click="navigateTo('health')" class="mobile-nav-item" :class="currentPage === 'health' ? 'active' : ''" style="position:relative" aria-label="Go to health">

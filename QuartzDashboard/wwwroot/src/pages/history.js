@@ -13,6 +13,13 @@ export function createHistorySection() {
           }
           if (f.status === 'success') arr = arr.filter(h => h.success);
           if (f.status === 'error') arr = arr.filter(h => !h.success);
+          if (f.dateRange && f.dateRange !== 'all') {
+            const rangeMs = { '1h': 3600000, '6h': 21600000, '24h': 86400000 }[f.dateRange];
+            if (rangeMs) {
+              const cutoff = Date.now() - rangeMs;
+              arr = arr.filter(h => h.fireTime && new Date(h.fireTime).getTime() >= cutoff);
+            }
+          }
           return arr;
         },
 

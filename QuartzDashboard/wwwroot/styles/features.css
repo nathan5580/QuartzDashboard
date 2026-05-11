@@ -53,8 +53,9 @@
   main, .main-content { margin-left: 0 !important; padding-bottom: 5rem !important; }
   .mobile-bottom-nav { display: flex !important; }
 }
-.mobile-bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: #1e1e2e; border-top: 1px solid rgba(255,255,255,0.08); z-index: 80; padding: 4px 0; justify-content: space-around; }
-.mobile-nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 8px; color: #64748b; font-size: 10px; cursor: pointer; border: none; background: none; }
+.mobile-bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: #1e1e2e; border-top: 1px solid rgba(255,255,255,0.08); z-index: 80; padding: 4px 0; align-items: stretch; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+.mobile-bottom-nav::-webkit-scrollbar { display: none; }
+.mobile-nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 10px; color: #64748b; font-size: 10px; cursor: pointer; border: none; background: none; white-space: nowrap; flex-shrink: 0; min-width: 56px; }
 .mobile-nav-item.active { color: #818cf8; }
 .light .mobile-bottom-nav { background: #ffffff; border-color: #e2e8f0; }
 

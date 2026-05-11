@@ -7,7 +7,7 @@ export function createSettingsCommandsSection() {
       }
       if (!this.config.readOnly) {
         for (const job of this.jobs) {
-          cmds.push({ id: 'trigger-' + job.group + '.' + job.name, category: 'Jobs', label: 'Trigger job ' + job.group + '.' + job.name, icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 5v14l11-7z"/></svg>', action: 'triggerJob', group: job.group, name: job.name });
+          cmds.push({ id: 'trigger-' + job.group + '.' + job.name, category: 'Jobs', label: 'Run now: ' + job.group + '.' + job.name, keywords: ['trigger', 'fire', 'execute', 'start', 'run'], icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 5v14l11-7z"/></svg>', action: 'triggerJob', group: job.group, name: job.name });
         }
       }
       // Add trigger names for quick navigation
@@ -20,12 +20,20 @@ export function createSettingsCommandsSection() {
     get filteredCommands() {
       const q = this.commandPaletteQuery.toLowerCase().trim();
       if (!q) return this.commandPaletteCommands.slice(0, 15);
-      const cmds = this.commandPaletteCommands.filter(c => c.label.toLowerCase().includes(q));
-      // Also search recent history by job key
+      const cmds = this.commandPaletteCommands.filter(c =>
+        c.label.toLowerCase().includes(q) ||
+        (c.keywords || []).some(k => k.includes(q))
+      );
+      // Also search recent history by job key — deduplicated by jobKey
       if (cmds.length < 8) {
-        const historyHits = (this.history || []).filter(h => h.jobKey && h.jobKey.toLowerCase().includes(q)).slice(0, 5);
-        for (const h of historyHits) {
-          cmds.push({ id: 'history-' + h.jobKey + '-' + h.fireTime, category: 'History', label: 'History: ' + h.jobKey, icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', action: 'navigate', page: 'history' });
+        const seenKeys = new Set();
+        const historyIcon = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+        for (const h of (this.history || [])) {
+          if (!h.jobKey || !h.jobKey.toLowerCase().includes(q)) continue;
+          if (seenKeys.has(h.jobKey)) continue;
+          seenKeys.add(h.jobKey);
+          cmds.push({ id: 'history-' + h.jobKey, category: 'History', label: 'History: ' + h.jobKey, icon: historyIcon, action: 'navigate', page: 'history' });
+          if (seenKeys.size >= 5) break;
         }
       }
       return cmds;

@@ -9,7 +9,7 @@
       .mobile-card-table thead { display: none; }
       .mobile-card-table tbody tr { display: flex; flex-direction: column; border: 1px solid var(--color-border); border-radius: 8px; padding: 12px; margin-bottom: 8px; background: var(--color-surface); }
       .mobile-card-table tbody tr.job-group-row { padding: 0; border: 0; background: transparent; }
-      .mobile-card-table tbody tr.job-group-row td { display: block !important; padding: 8px 4px !important; }
+      .mobile-card-table tbody tr.job-group-row td { display: block; padding: 8px 4px !important; }
       .mobile-card-table tbody td { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 5px 0; border: none !important; font-size: 12px; }
       .mobile-card-table tbody td::before { content: attr(data-label); font-weight: 500; color: rgba(156,163,175,1); min-width: 76px; flex-shrink: 0; }
       .mobile-card-table tbody td[data-label=""]::before { display: none; }
