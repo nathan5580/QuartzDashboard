@@ -2,6 +2,44 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [3.0.6] — 2026-05-11
+
+### Changed
+- **History**: inline error snippet shown on failed rows without needing to open the modal
+- **History**: CSV export button now uses dark-theme styling (`btn-ghost`) instead of hardcoded light colours
+- **History**: search filter and date-range filter auto-reset when navigating away from the History page
+- **Health**: success rate stat card shows "based on N loaded records" context subtitle
+- **Triggers**: removed redundant `(4s)` countdown parenthetical in the Next Fire column — `formatCountdown` already shows "in 4s"
+- **Triggers**: action buttons (`Pause`, `Resume`, `Delete`) now `flex-wrap` instead of clipping on narrow viewports
+- **Executing**: richer empty state — explains live-connection behaviour and shows an animated green dot
+- **Overview**: pin affordance hint shown when no jobs are pinned, guiding users to the Jobs page
+- **Overview**: "Manage in Jobs →" link added to the Pinned Jobs section header
+- **Jobs**: mobile search toggle button (🔍) in the toolbar reveals/hides the search input on small screens
+- **Jobs**: `jobSearchOpen` state flag and `x-ref="jobSearchInput"` for focus management
+- **navigateTo**: clears `historyFilterObj.search` and `historyFilterObj.dateRange` when navigating away from the History page
+
+### Fixed
+- Removed unused `--dot-size` inline style from the Executing empty state status dot
+
+## [3.0.5] — 2026-05-11
+
+### Fixed
+- **Mobile ghost card bug**: group header rows were rendered as full cards on mobile due to `display: block !important` in `.job-group-row td` overriding Alpine's `style="display: none;"` — removed the `!important` flag
+
+### Changed
+- **Overview stat cards**: each card is now clickable and navigates to its target page (Jobs, Triggers, Executing, History); added `cursor-pointer`, `role="button"`, and keyboard (`@keydown.enter`) support
+- **Overview grid**: changed from `grid-cols-1 sm:grid-cols-2` to `grid-cols-2` — always 2-column on mobile
+- **Jobs Last Run**: column now shows relative time (e.g. "3m ago") with the absolute date on hover via `:title`
+- **Jobs Actions dropdown**: added "View history" as the first action — navigates to History pre-filtered for that job by setting `historyFilterObj.search`
+- **Health Recent Failures**: replaced the redundant "Failed" badge with an inline error message (`h.errorMessage || h.exceptionMessage`); changed from `flex items-center` to `flex items-start` to handle multi-line errors
+- **History date-range filters**: added 1h / 6h / 24h / All quick-filter toggle buttons beside the status filter
+- **History filter logic**: `filteredHistory` getter applies `historyFilterObj.dateRange` to cut off records older than the selected window
+- **Command palette**: job actions renamed from "Trigger job X.Y" → "Run now: X.Y"; added `keywords: ['trigger', 'fire', 'execute', 'start', 'run']` for alias matching; `filteredCommands` now searches against keywords; history results deduplicated by `jobKey` (was one entry per record)
+- **`formatDuration`**: added .NET `TimeSpan` string parsing (`[d.]hh:mm:ss[.fffffff]`) — fixes uptime displaying as raw string
+- **Mobile bottom nav**: added Triggers and Executing buttons (7 items total); nav is now `overflow-x: auto` with hidden scrollbar and `flex-shrink: 0` items so all pages are reachable
+- **`historyFilterObj`**: added `dateRange: 'all'` to initial state
+- **`state.js`**: added `dateRange: 'all'` to `historyFilterObj` initial value
+
 ## [3.0.4] — 2026-05-11
 
 ### CI/CD
