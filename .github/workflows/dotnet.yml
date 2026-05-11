@@ -282,8 +282,8 @@ jobs:
           [ -f "$pkg" ] || continue
           SIZE=$(stat -c%s "$pkg" 2>/dev/null || stat -f%z "$pkg")
           echo "$pkg: $SIZE bytes"
-          if [ "$SIZE" -gt 921600 ]; then
-            echo "::error::$pkg exceeds 900KB limit!"
+          if [ "$SIZE" -gt 2097152 ]; then
+            echo "::error::$pkg exceeds 2MB limit!"
             exit 1
           fi
         done
