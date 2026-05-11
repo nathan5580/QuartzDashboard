@@ -16,7 +16,7 @@ A beautiful, self-contained **Quartz.NET scheduler dashboard** — drop it into 
 
 ## Contents
 
-- [What's New in v3.0.5 / 3.0.6](#whats-new-in-v305--v306)
+- [What's New in v4.0.0](#whats-new-in-v400)
 - [What it does](#what-it-does)
 - [Quick Start](#quick-start)
 - [Dashboard Pages](#dashboard-pages)
@@ -26,7 +26,7 @@ A beautiful, self-contained **Quartz.NET scheduler dashboard** — drop it into 
   - [Bind from appsettings.json](#bind-from-appsettingsjson)
   - [Environment gating](#environment-gating)
   - [Authentication & Authorization](#authentication--authorization)
-- [Migrating from v2.x to v3.0.0](#migrating-from-v2x-to-v300)
+- [Migrating from v3.x to v4.0](#migrating-from-v3x-to-v40)
 - [Middleware Placement](#middleware-placement)
 - [API Endpoints](#api-endpoints)
 - [SignalR Real-Time Updates](#signalr-real-time-updates)
@@ -38,6 +38,27 @@ A beautiful, self-contained **Quartz.NET scheduler dashboard** — drop it into 
 - [🤖 AI Prompt](#-ai-prompt)
 - [Changelog](#changelog)
 - [License](#license)
+
+---
+
+## What's New in v4.0.0
+
+The package now ships as three NuGets, each with a focused dependency footprint:
+
+| Package | Contents | Depends on |
+|--------|---------|-----------|
+| `Dot.QuartzDashboard` | Middleware, handlers, SPA, in-memory + JSON history stores | ASP.NET Core, Quartz |
+| `Dot.QuartzDashboard.Abstractions` | `IFireHistoryStore` + `FireRecord` only | — |
+| `Dot.QuartzDashboard.Sqlite` | SQLite-backed `IFireHistoryStore` + DI extension | Abstractions, `Microsoft.Data.Sqlite` |
+
+**Breaking changes**
+- `IFireHistoryStore` / `FireRecord` moved namespace: `QuartzDashboard.Internal` → `QuartzDashboard.Abstractions`. Update `using` statements in any custom store.
+- `QuartzDashboardOptions.PersistHistoryToSqlite` removed. Use the new `services.AddQuartzDashboardSqliteHistory(...)` extension method from `Dot.QuartzDashboard.Sqlite`.
+
+**Internal improvements**
+- API routing replaced with a declarative route table (`ApiRouter`) — adding endpoints is a one-line entry instead of an if/else branch.
+- `IQuartzDashboardOptions` read-only interface exposed so handlers can opt out of mutating options at runtime.
+- Common response shapes (`PagedResponse<T>`, `StatusResponse`, `ErrorResponse`, `FireRecordDto`) now have typed records in `QuartzDashboard.Models`. Wire format unchanged.
 
 ---
 
@@ -170,7 +191,7 @@ builder.Services.AddQuartzDashboard(options =>
     options.MaxFireHistory = 500;
     options.MaxExecutionLogsPerJob = 50;
     options.HistoryRetentionHours = 24;
-    options.PersistHistoryToSqlite = "quartz-history.db";
+    options.PersistHistoryPath = "quartz-history.json";  // optional JSON persistence
     options.Title = "My App Dashboard";
 
     // Alerts
@@ -181,14 +202,22 @@ builder.Services.AddQuartzDashboard(options =>
 
 ### SQLite persistent history
 
-```csharp
-builder.Services.AddQuartzDashboard(options =>
-{
-    options.PersistHistoryToSqlite = "quartz-history.db";
-});
+SQLite persistence ships in a separate package so the main dashboard NuGet doesn't drag `Microsoft.Data.Sqlite` into apps that don't need it.
+
+```bash
+dotnet add package Dot.QuartzDashboard.Sqlite
 ```
 
-Use SQLite when you want fire history to survive restarts. Omit it for in-memory (default), or set `PersistHistoryPath` for JSON file persistence.
+```csharp
+using QuartzDashboard.Sqlite;
+
+builder.Services.AddQuartzDashboard();
+builder.Services.AddQuartzDashboardSqliteHistory("quartz-history.db");
+// Order: call AddQuartzDashboardSqliteHistory AFTER AddQuartzDashboard so it
+// replaces the default in-memory store registration.
+```
+
+Use SQLite when you want fire history to survive restarts. Omit it for in-memory (default), or set `options.PersistHistoryPath` for JSON file persistence.
 
 ### Dark mode
 
@@ -209,7 +238,7 @@ The UI automatically follows the system light/dark preference. No option require
     "MaxFireHistory": 500,
     "MaxExecutionLogsPerJob": 50,
     "HistoryRetentionHours": 24,
-    "PersistHistoryToSqlite": "quartz-history.db",
+    "PersistHistoryPath": "quartz-history.json",
     "Title": "QuartzDash"
   }
 }
@@ -256,7 +285,31 @@ builder.Services.AddQuartzDashboard(options =>
 });
 ```
 
-## Migrating from v2.x to v3.0.0
+## Migrating from v3.x to v4.0
+
+1. **Update `using` statements for custom history stores.** `IFireHistoryStore` and `FireRecord` moved namespace:
+   ```diff
+   - using QuartzDashboard.Internal;
+   + using QuartzDashboard.Abstractions;
+   ```
+   Or add `<PackageReference Include="Dot.QuartzDashboard.Abstractions" />` if you only need the interface.
+
+2. **Replace `options.PersistHistoryToSqlite` with the new package + extension method.**
+   ```diff
+   - builder.Services.AddQuartzDashboard(o =>
+   - {
+   -     o.PersistHistoryToSqlite = "quartz-history.db";
+   - });
+   + using QuartzDashboard.Sqlite;
+   +
+   + builder.Services.AddQuartzDashboard();
+   + builder.Services.AddQuartzDashboardSqliteHistory("quartz-history.db");
+   ```
+   Add `<PackageReference Include="Dot.QuartzDashboard.Sqlite" />`. The main `Dot.QuartzDashboard` package no longer ships `Microsoft.Data.Sqlite`.
+
+3. **Nothing else changes.** The middleware registration, options surface, dashboard URL, API routes, and JSON wire formats are unchanged.
+
+### Migrating from v2.x to v3.0.0
 
 1. Remove `builder.Services.AddQuartzDashboardHistory();` — `AddQuartzDashboard()` now registers history automatically.
 2. Remove any `UseSystemFonts` option usage — system fonts are now the default.
@@ -345,7 +398,7 @@ curl -X POST http://localhost:5000/quartz/hub/negotiate?negotiateVersion=1
 `AddQuartzDashboard()` automatically registers an `IJobListener` that:
 
 - Records the last **N fire events** (configurable via `MaxFireHistory`, default 500)
-- Persists history to SQLite (`PersistHistoryToSqlite`) or JSON (`PersistHistoryPath`) if configured
+- Persists history to JSON (`PersistHistoryPath`) if configured, or to SQLite via `AddQuartzDashboardSqliteHistory` (from `Dot.QuartzDashboard.Sqlite`)
 - Auto-prunes records older than `HistoryRetentionHours` (default 24h)
 - Buckets executions **per-minute** into 120 rolling `ExecutionBucket` entries
 - Powers `/api/stats`, `/api/stats/history`, the timeline chart, and CSV/JSON export
@@ -374,7 +427,7 @@ Integration tests cover endpoint responses, auth flows, config options, SignalR 
 | `/quartz` returns Blazor `index.html` | `UseQuartzDashboard()` placed after `MapFallbackToFile` | Move it before |
 | SignalR shows amber / disconnected | Hub not registered | Set `UseSignalR = true` (default); do **not** call `MapHub` manually |
 | 401 on all dashboard requests | `RequireAuthentication = true` but no auth middleware | Add `UseAuthentication()` / `UseAuthorization()` before `UseQuartzDashboard()` |
-| SQLite history does not persist | App cannot write to the configured path | Use a writable relative or absolute path for `PersistHistoryToSqlite` |
+| SQLite history does not persist | App cannot write to the configured path | Use a writable relative or absolute path in `AddQuartzDashboardSqliteHistory(...)` |
 | History/stats stay empty after upgrade | Stale history wiring | Keep `AddQuartzDashboard()` and remove any old `AddQuartzDashboardHistory()` call |
 | Uptime shows raw string like "00:01:23.456" | Using an older build | Upgrade to 3.0.5+ — .NET TimeSpan strings are now parsed correctly |
 | Stale UI after upgrading | Cached browser assets | Hard-refresh once (Ctrl+Shift+R) after upgrading |
@@ -425,10 +478,17 @@ dotnet run -- -p 5000 --auth --readonly
 ```
 You are integrating Dot.QuartzDashboard (NuGet) into an ASP.NET Core app.
 
-PACKAGE: Dot.QuartzDashboard
-CURRENT VERSION: 3.0.6
+PACKAGES (v4 — split into three):
+  Dot.QuartzDashboard               — middleware + handlers + SPA + in-memory/JSON history
+  Dot.QuartzDashboard.Abstractions  — IFireHistoryStore + FireRecord (no ASP.NET deps)
+  Dot.QuartzDashboard.Sqlite        — SqliteFireHistoryStore + AddQuartzDashboardSqliteHistory()
+CURRENT VERSION: 4.0.0
 TARGETS: net8.0, net9.0, net10.0
-NAMESPACE: QuartzDashboard
+NAMESPACES:
+  QuartzDashboard                  — middleware, options, hub
+  QuartzDashboard.Abstractions     — interfaces + records
+  QuartzDashboard.Sqlite           — SQLite store + DI extension
+  QuartzDashboard.Models           — request + response DTOs
 DASHBOARD URL: /quartz (or options.Path)
 
 --- MINIMUM SETUP (2 lines) ---
@@ -462,7 +522,9 @@ builder.Services.AddQuartzDashboard(options =>
     options.Title = "My App Dashboard";      // custom title in sidebar + browser tab
 
     // Persistence (survive restarts)
-    options.PersistHistoryToSqlite = "quartz-history.db"; // persist history to SQLite
+    // NOTE: For SQLite persistence, do NOT set options.PersistHistoryToSqlite (removed in v4).
+    // Instead, reference Dot.QuartzDashboard.Sqlite and call:
+    //   builder.Services.AddQuartzDashboardSqliteHistory("quartz-history.db");
     options.PersistHistoryPath = "quartz-history.json";   // optional JSON fallback when SQLite is not used
 
     // Callbacks

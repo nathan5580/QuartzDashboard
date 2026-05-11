@@ -56,7 +56,7 @@ internal static class CalendarHandlers
             calendar.Description = req.Description;
 
         await sched.AddCalendar(req.Name, calendar, replace: false, updateTriggers: false);
-        return Results.Ok(new { Status = "created", Calendar = req.Name });
+        return Results.Ok(new StatusResponse("created", Calendar: req.Name));
     }
 
     public static async Task<IResult> DeleteCalendar(IScheduler sched, string name,
@@ -68,6 +68,6 @@ internal static class CalendarHandlers
             return Results.NotFound(new { Error = $"Calendar '{name}' not found" });
 
         await sched.DeleteCalendar(name);
-        return Results.Ok(new { Status = "deleted", Calendar = name });
+        return Results.Ok(new StatusResponse("deleted", Calendar: name));
     }
 }

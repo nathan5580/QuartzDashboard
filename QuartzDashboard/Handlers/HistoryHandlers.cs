@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Quartz;
 using QuartzDashboard.Internal;
+using QuartzDashboard.Abstractions;
+using QuartzDashboard.Models;
 using QuartzDashboard.Services;
 
 namespace QuartzDashboard.Handlers;
@@ -13,49 +15,35 @@ internal static class HistoryHandlers
 {
     public static IResult GetFireHistory(HttpContext ctx)
     {
-        var offset = int.TryParse(ctx.Request.Query["offset"], out var o) ? o : 0;
-        var limit = int.TryParse(ctx.Request.Query["limit"], out var l) ? Math.Min(l, 200) : 50;
+        var offset = int.TryParse(ctx.Request.Query["offset"], out var o) ? Math.Max(0, o) : 0;
+        var limit = int.TryParse(ctx.Request.Query["limit"], out var l) ? Math.Clamp(l, 1, 200) : 50;
         var job = ctx.Request.Query["job"].FirstOrDefault();
 
         var store = ctx.RequestServices.GetRequiredService<IFireHistoryStore>();
-        var filtered = store.GetRecent(int.MaxValue, 0);
 
-        if (!string.IsNullOrWhiteSpace(job))
-            filtered = filtered.Where(f => string.Equals(f.JobKey, job, StringComparison.OrdinalIgnoreCase));
+        var total = store.CountFiltered(job);
+        var records = store.GetRecent(limit, offset, job).Select(ToDto).ToList();
 
-        var filteredList = filtered.ToList();
-        var records = filteredList.Skip(offset).Take(limit).Select(f => new
-        {
-            jobKey = f.JobKey,
-            triggerKey = f.TriggerKey,
-            fireTime = f.FireTime,
-            duration = f.Duration.TotalMilliseconds,
-            success = f.Success,
-            refireCount = f.RefireCount,
-            relativeTime = (DateTimeOffset.UtcNow - f.FireTime).TotalSeconds,
-            exceptionMessage = f.ExceptionMessage,
-            exceptionType = f.ExceptionType,
-        }).ToList();
-
-        return Results.Ok(new { data = records, total = filteredList.Count, offset, limit });
+        return Results.Ok(new PagedResponse<FireRecordDto>(records, total, offset, limit));
     }
 
     public static IResult GetTimeline(HttpContext ctx)
     {
         var store = ctx.RequestServices.GetRequiredService<IFireHistoryStore>();
-        var events = store.GetRecent(500).Select(f => new
-        {
-            jobKey = f.JobKey,
-            triggerKey = f.TriggerKey,
-            fireTime = f.FireTime,
-            duration = f.Duration.TotalMilliseconds,
-            success = f.Success,
-            relativeTime = (DateTimeOffset.UtcNow - f.FireTime).TotalSeconds,
-            exceptionMessage = f.ExceptionMessage,
-        }).ToList();
-
+        var events = store.GetRecent(500).Select(ToDto).ToList();
         return Results.Ok(events);
     }
+
+    private static FireRecordDto ToDto(FireRecord f) => new(
+        JobKey: f.JobKey,
+        TriggerKey: f.TriggerKey,
+        FireTime: f.FireTime,
+        Duration: f.Duration.TotalMilliseconds,
+        Success: f.Success,
+        RefireCount: f.RefireCount,
+        RelativeTime: (DateTimeOffset.UtcNow - f.FireTime).TotalSeconds,
+        ExceptionMessage: f.ExceptionMessage,
+        ExceptionType: f.ExceptionType);
 
     public static IResult GetHeatmap(HttpContext ctx)
     {

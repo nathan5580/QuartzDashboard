@@ -19,35 +19,17 @@ internal sealed class ExecutionBucketService
         public int ErrorCount;
     }
 
-    /// <summary>
-    /// Encodes a DateTimeOffset into a compact long (YYYYMMDDHHMM).
-    /// Example: 2026-05-03T10:30:00 -> 202605031030
-    /// </summary>
-    private static long EncodeMinute(DateTimeOffset dt) =>
-        dt.Year * 100000000L
-        + dt.Month * 1000000L
-        + dt.Day * 10000L
-        + dt.Hour * 100L
-        + dt.Minute;
+    // Unix-epoch minutes are contiguous, so cutoff arithmetic (currentMinute - MaxBuckets)
+    // works correctly across hour/day/month/year rollovers.
+    private static long ToUnixMinute(DateTimeOffset dt) =>
+        dt.ToUnixTimeSeconds() / 60;
 
-    /// <summary>
-    /// Decodes a compact long back to DateTimeOffset.
-    /// </summary>
-    private static DateTimeOffset DecodeMinute(long encoded) =>
-        new(
-            year: (int)(encoded / 100000000),
-            month: (int)(encoded / 1000000 % 100),
-            day: (int)(encoded / 10000 % 100),
-            hour: (int)(encoded / 100 % 100),
-            minute: (int)(encoded % 100),
-            second: 0,
-            offset: TimeSpan.Zero
-        );
+    private static DateTimeOffset FromUnixMinute(long minute) =>
+        DateTimeOffset.FromUnixTimeSeconds(minute * 60);
 
     public void Record(TimeSpan duration, bool success)
     {
-        var now = DateTimeOffset.UtcNow;
-        var minute = EncodeMinute(now);
+        var minute = ToUnixMinute(DateTimeOffset.UtcNow);
 
         var bucket = _buckets.GetOrAdd(minute, _ => new Bucket());
         Interlocked.Increment(ref bucket.ExecutionCount);
@@ -56,15 +38,13 @@ internal sealed class ExecutionBucketService
         if (!success)
             Interlocked.Increment(ref bucket.ErrorCount);
 
-        // Prune old buckets (best-effort, not every call)
-        if (_buckets.Count > MaxBuckets)
+        // Time-based prune: drop anything older than MaxBuckets minutes.
+        // Runs every call but the dictionary stays small, so the scan is cheap.
+        var cutoff = minute - MaxBuckets;
+        foreach (var key in _buckets.Keys)
         {
-            var cutoff = minute - MaxBuckets;
-            foreach (var key in _buckets.Keys)
-            {
-                if (key < cutoff)
-                    _buckets.TryRemove(key, out _);
-            }
+            if (key < cutoff)
+                _buckets.TryRemove(key, out _);
         }
     }
 
@@ -77,7 +57,7 @@ internal sealed class ExecutionBucketService
                 ExecutionCount = kvp.Value.ExecutionCount,
                 TotalDurationMs = kvp.Value.TotalDurationMs,
                 ErrorCount = kvp.Value.ErrorCount,
-                Timestamp = DecodeMinute(kvp.Key),
+                Timestamp = FromUnixMinute(kvp.Key),
             });
     }
 

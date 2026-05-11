@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Quartz;
 using QuartzDashboard.Internal;
+using QuartzDashboard.Abstractions;
 
 namespace QuartzDashboard.Handlers;
 

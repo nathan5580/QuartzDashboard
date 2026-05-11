@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <PackageId>Dot.QuartzDashboard.Abstractions</PackageId>
+    <Version>4.0.0</Version>
+    <Authors>n8</Authors>
+    <Description>Abstractions for Dot.QuartzDashboard — interfaces and records for implementing custom fire-history stores without pulling in the full dashboard.</Description>
+    <PackageTags>quartz;dashboard;scheduler;abstractions</PackageTags>
+    <PackageProjectUrl>https://github.com/nathan5580/QuartzDashboard</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/nathan5580/QuartzDashboard</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
