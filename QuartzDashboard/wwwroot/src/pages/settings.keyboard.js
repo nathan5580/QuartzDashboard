@@ -171,6 +171,11 @@ export function createSettingsKeyboardSection() {
     navigateTo(page) {
       if (!page || !this.navItems.some(item => item.id === page)) return;
       this.closeTransientUi();
+      // Clear history search/date filter when navigating away from history (unless going TO history)
+      if (this.currentPage === 'history' && page !== 'history') {
+        this.historyFilterObj.search = '';
+        this.historyFilterObj.dateRange = 'all';
+      }
       this.currentPage = page;
     },
   };

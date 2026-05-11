@@ -39,6 +39,7 @@ export function createState() {
 
         // Jobs page
         jobSearchQuery: '',
+        jobSearchOpen: false,
         jobsPage: 1,
         jobsPageSize: 25,
         jobsTotal: 0,
