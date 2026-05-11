@@ -11,6 +11,9 @@ nupkg/
 .idea/
 *.sln.iml
 
+# Hermes agent working files (plans, logs, state)
+.hermes/
+
 # Node modules (for esbuild tooling)
 node_modules/
 
