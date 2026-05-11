@@ -1,0 +1,65 @@
+_template: |
+  # What's Changed
+
+  $CHANGES
+
+  ## 📦 NuGet
+  [Dot.QuartzDashboard $RESOLVED_VERSION](https://www.nuget.org/packages/Dot.QuartzDashboard/$RESOLVED_VERSION)
+
+categories:
+  - title: 🚀 Features
+    labels:
+      - enhancement
+      - feature
+  - title: 🐛 Bug Fixes
+    labels:
+      - bug
+      - fix
+  - title: 🔧 Maintenance
+    labels:
+      - chore
+      - refactor
+      - dependencies
+  - title: 📖 Documentation
+    labels:
+      - documentation
+      - docs
+
+version-resolver:
+  major:
+    labels:
+      - major
+      - breaking
+  minor:
+    labels:
+      - feature
+      - enhancement
+  patch:
+    labels:
+      - bug
+      - fix
+      - chore
+      - dependencies
+      - refactor
+  default: patch
+
+change-template: '- $TITLE (#$NUMBER) by @$AUTHOR'
+no-changes-template: '- No notable changes'
+change-title-escapes: \<*_&
+autolabeler:
+  - label: documentation
+    files:
+      - '**/*.md'
+  - label: enhancement
+    files:
+      - 'QuartzDashboard/wwwroot/**'
+  - label: chore
+    files:
+      - '.github/**'
+      - '**/*.yml'
+      - '**/*.yaml'
+  - label: dependencies
+    files:
+      - '**/package*.json'
+      - '**/Directory.Packages.props'
+      - '**/*.csproj'
