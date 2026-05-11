@@ -28,6 +28,14 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.slnx') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
     - name: Restore
       run: dotnet restore
 
@@ -42,6 +50,14 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
+
+    - name: Cache npm
+      uses: actions/cache@v4
+      with:
+        path: QuartzDashboard/node_modules
+        key: ${{ runner.os }}-npm-${{ hashFiles('QuartzDashboard/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-npm-
 
     - name: Install frontend dependencies
       run: cd QuartzDashboard && npm ci
@@ -73,6 +89,14 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.slnx') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
     - name: Restore
       run: dotnet restore QuartzDashboard.Demo/QuartzDashboard.Demo.csproj
 
@@ -80,6 +104,14 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
+
+    - name: Cache npm
+      uses: actions/cache@v4
+      with:
+        path: QuartzDashboard/node_modules
+        key: ${{ runner.os }}-npm-${{ hashFiles('QuartzDashboard/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-npm-
 
     - name: Install frontend dependencies
       run: cd QuartzDashboard && npm ci
@@ -99,6 +131,14 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.slnx') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
     - name: Restore
       run: dotnet restore QuartzDashboard.IntegrationTests/QuartzDashboard.IntegrationTests.csproj
 
@@ -106,6 +146,14 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
+
+    - name: Cache npm
+      uses: actions/cache@v4
+      with:
+        path: QuartzDashboard/node_modules
+        key: ${{ runner.os }}-npm-${{ hashFiles('QuartzDashboard/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-npm-
 
     - name: Install frontend dependencies
       run: cd QuartzDashboard && npm ci
@@ -184,6 +232,14 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.slnx') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
     - name: Resolve release version
       id: version
       run: |
@@ -200,6 +256,14 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
+
+    - name: Cache npm
+      uses: actions/cache@v4
+      with:
+        path: QuartzDashboard/node_modules
+        key: ${{ runner.os }}-npm-${{ hashFiles('QuartzDashboard/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-npm-
 
     - name: Install frontend dependencies
       run: cd QuartzDashboard && npm ci
