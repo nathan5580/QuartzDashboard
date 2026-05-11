@@ -64,7 +64,7 @@ QuartzDashboard/
 ## Current Package Properties
 
 - `PackageId`: `Dot.QuartzDashboard`
-- `Version`: `3.0.3`
+- `Version`: `3.0.4`
 - `PackageLicenseExpression`: `MIT`
 - `PackageReadmeFile`: `README.md`
 - `PackageIcon`: `icon.png`
@@ -83,8 +83,7 @@ QuartzDashboard/
 ## Build, Test, Pack
 
 ```bash
-cd /Users/home/RiderProjects/QuartzDashboard
-
+# From the repository root
 dotnet build QuartzDashboard.slnx -c Release
 dotnet test QuartzDashboard.Tests/QuartzDashboard.Tests.csproj -c Release
 dotnet test QuartzDashboard.IntegrationTests/QuartzDashboard.IntegrationTests.csproj -c Release
@@ -99,7 +98,7 @@ npm run audit
 ## Running the Demo
 
 ```bash
-cd /Users/home/RiderProjects/QuartzDashboard/QuartzDashboard.Demo
+cd QuartzDashboard/QuartzDashboard.Demo
 dotnet run                  # default port 5190
 dotnet run -- --auth        # enable auth mode
 dotnet run -- --readonly    # read-only mode
@@ -114,7 +113,6 @@ CI builds, tests, packs, checks package size, publishes to NuGet, and creates a 
 Manual pack:
 
 ```bash
-cd /Users/home/RiderProjects/QuartzDashboard
 dotnet pack QuartzDashboard/QuartzDashboard.csproj -c Release
 ```
 
