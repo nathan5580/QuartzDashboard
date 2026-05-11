@@ -1,0 +1,69 @@
+name: CodeQL Analysis
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths-ignore:
+      - '**.md'
+      - '**/*.yml'
+      - '**/*.yaml'
+      - 'assets/**'
+  pull_request:
+    branches: [ main, master ]
+    paths-ignore:
+      - '**.md'
+      - '**/*.yml'
+      - '**/*.yaml'
+      - 'assets/**'
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - csharp
+          - javascript
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        queries: security-and-quality
+
+    - name: Setup .NET
+      if: matrix.language == 'csharp'
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Setup Node.js
+      if: matrix.language == 'javascript'
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install dependencies (JS)
+      if: matrix.language == 'javascript'
+      run: cd QuartzDashboard && npm ci
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: '/language:${{ matrix.language }}'
