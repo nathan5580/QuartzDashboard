@@ -48,14 +48,26 @@ export function createJobsDrawerSection() {
     },
 
     triggerJobFromDrawer() {
+      if (this.config.readOnly) {
+        this.showToast('Dashboard is in read-only mode.', 'warning');
+        return;
+      }
       if (this.jobDrawerData) this.openTriggerJobModal(this.jobDrawerData.group, this.jobDrawerData.name);
     },
 
     pauseJobFromDrawer() {
+      if (this.config.readOnly) {
+        this.showToast('Dashboard is in read-only mode.', 'warning');
+        return;
+      }
       if (this.jobDrawerData) this.pauseJob(this.jobDrawerData.group, this.jobDrawerData.name);
     },
 
     resumeJobFromDrawer() {
+      if (this.config.readOnly) {
+        this.showToast('Dashboard is in read-only mode.', 'warning');
+        return;
+      }
       if (this.jobDrawerData) this.resumeJob(this.jobDrawerData.group, this.jobDrawerData.name);
     },
 

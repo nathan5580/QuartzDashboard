@@ -39,6 +39,7 @@ export function createState() {
 
         // Jobs page
         jobSearchQuery: '',
+        jobSearchOpen: false,
         jobsPage: 1,
         jobsPageSize: 25,
         jobsTotal: 0,
@@ -65,7 +66,7 @@ export function createState() {
 
         // History page
         historyFilter: '',
-        historyFilterObj: { search: '', status: 'all', dateFrom: '', dateTo: '' },
+        historyFilterObj: { search: '', status: 'all', dateFrom: '', dateTo: '', dateRange: 'all' },
         maxHistoryDuration: 0,
         historyExpandedRows: {},
         historySortCol: 'fireTime',

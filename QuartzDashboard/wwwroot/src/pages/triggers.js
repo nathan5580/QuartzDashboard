@@ -48,6 +48,10 @@ export function createTriggersSection() {
         },
 
         async submitCreateTrigger() {
+          if (this.config.readOnly) {
+            this.showToast('Dashboard is in read-only mode.', 'warning');
+            return;
+          }
           if (!this.newTrigger.name || !this.newTrigger.jobName) return;
           if (this.newTrigger.triggerType === 'cron' && !this.newTrigger.cronExpression) return;
           if (this.newTrigger.triggerType === 'simple' && !this.newTrigger.intervalSeconds) return;
@@ -102,12 +106,20 @@ export function createTriggersSection() {
 
         // ========================= DELETE TRIGGER =========================
         deleteTrigger(group, name) {
+          if (this.config.readOnly) {
+            this.showToast('Dashboard is in read-only mode.', 'warning');
+            return;
+          }
           this.deleteConfirmMessage = 'Are you sure you want to delete trigger ' + group + '.' + name + '?';
           this.deletePending = { type: 'trigger', group: group, name: name };
           this.showDeleteConfirm = true;
         },
 
         async pauseTrigger(group, name) {
+          if (this.config.readOnly) {
+            this.showToast('Dashboard is in read-only mode.', 'warning');
+            return;
+          }
           try {
             await this.postApi('/triggers/' + group + '/' + name + '/pause');
             await this.loadTriggers();
@@ -116,6 +128,10 @@ export function createTriggersSection() {
         },
 
         async resumeTrigger(group, name) {
+          if (this.config.readOnly) {
+            this.showToast('Dashboard is in read-only mode.', 'warning');
+            return;
+          }
           try {
             await this.postApi('/triggers/' + group + '/' + name + '/resume');
             await this.loadTriggers();
@@ -124,6 +140,10 @@ export function createTriggersSection() {
         },
 
         async pauseTriggerGroup(group) {
+          if (this.config.readOnly) {
+            this.showToast('Dashboard is in read-only mode.', 'warning');
+            return;
+          }
           try {
             await this.postApi('/triggers/group/' + encodeURIComponent(group) + '/pause');
             await this.loadTriggers();
@@ -132,6 +152,10 @@ export function createTriggersSection() {
         },
 
         async resumeTriggerGroup(group) {
+          if (this.config.readOnly) {
+            this.showToast('Dashboard is in read-only mode.', 'warning');
+            return;
+          }
           try {
             await this.postApi('/triggers/group/' + encodeURIComponent(group) + '/resume');
             await this.loadTriggers();
@@ -180,6 +204,10 @@ export function createTriggersSection() {
         },
 
         openEditTrigger(trigger) {
+          if (this.config.readOnly) {
+            this.showToast('Dashboard is in read-only mode.', 'warning');
+            return;
+          }
           this.editTriggerData = {
             group: trigger.group,
             name: trigger.name,
@@ -193,6 +221,10 @@ export function createTriggersSection() {
 
         async saveEditTrigger() {
           if (!this.editTriggerData) return;
+          if (this.config.readOnly) {
+            this.showToast('Dashboard is in read-only mode.', 'warning');
+            return;
+          }
           try {
             const body = {
               cronExpression: this.editTriggerData.triggerType === 'cron' ? this.editTriggerData.cronExpression : null,

@@ -161,7 +161,7 @@ internal static class JobHandlers
     public static async Task<IResult> TriggerJob(IScheduler sched, string group, string name,
         TriggerJobRequest? req, QuartzDashboardOptions options)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         var key = new JobKey(name, group);
         if (await sched.CheckExists(key))
         {
@@ -186,7 +186,7 @@ internal static class JobHandlers
     public static async Task<IResult> PauseJob(IScheduler sched, string group, string name,
         QuartzDashboardOptions options)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         var key = new JobKey(name, group);
         if (await sched.CheckExists(key))
         {
@@ -199,7 +199,7 @@ internal static class JobHandlers
     public static async Task<IResult> ResumeJob(IScheduler sched, string group, string name,
         QuartzDashboardOptions options)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         var key = new JobKey(name, group);
         if (await sched.CheckExists(key))
         {
@@ -212,7 +212,7 @@ internal static class JobHandlers
     public static async Task<IResult> CreateJob(IScheduler sched, CreateJobRequest? req,
         QuartzDashboardOptions options)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         if (req == null || string.IsNullOrWhiteSpace(req.Name))
             return Results.BadRequest(new { Error = "Job name is required" });
 
@@ -248,7 +248,7 @@ internal static class JobHandlers
     public static async Task<IResult> DeleteJob(IScheduler sched, string group, string name,
         QuartzDashboardOptions options)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         var key = new JobKey(name, group);
         if (await sched.CheckExists(key))
         {
@@ -261,7 +261,7 @@ internal static class JobHandlers
     public static async Task<IResult> UpdateJob(IScheduler sched, string group, string name,
         UpdateJobRequest? req, QuartzDashboardOptions options)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         var key = new JobKey(name, group);
         var detail = await sched.GetJobDetail(key);
         if (detail == null)
@@ -306,7 +306,7 @@ internal static class JobHandlers
     private static async Task<IResult> BatchOperation(IScheduler sched, BatchJobRequest? req,
         QuartzDashboardOptions options, Func<IScheduler, JobKey, Task> operation, string statusLabel)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         if (req?.Jobs == null || req.Jobs.Length == 0)
             return Results.BadRequest(new { Error = "No jobs specified" });
 
@@ -328,8 +328,10 @@ internal static class JobHandlers
         return Results.Ok(new { results });
     }
 
-    public static async Task<IResult> InterruptJob(IScheduler sched, string group, string name)
+    public static async Task<IResult> InterruptJob(IScheduler sched, string group, string name,
+        QuartzDashboardOptions options)
     {
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         var key = new JobKey(name, group);
         var interrupted = await sched.Interrupt(key);
         return Results.Ok(new { interrupted });

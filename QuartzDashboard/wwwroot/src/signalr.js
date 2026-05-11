@@ -10,6 +10,7 @@ export function createSignalRSection() {
             this.connection.on('jobExecutedBatch', (events) => {
               events.forEach(e => this.handleJobExecuted(e));
               this.lastDataPulse = Date.now();
+              this.lastRefreshed = new Date();
 
               // Show failure toast for failed executions
               for (const e of events) {
@@ -23,11 +24,13 @@ export function createSignalRSection() {
             this.connection.on('jobTriggeredBatch', (events) => {
               events.forEach(e => this.handleJobTriggered(e));
               this.lastDataPulse = Date.now();
+              this.lastRefreshed = new Date();
             });
 
             this.connection.on('schedulerStatus', (data) => {
               this.handleSchedulerStatus(data);
               this.lastDataPulse = Date.now();
+              this.lastRefreshed = new Date();
             });
 
             this.connection.on('jobsUpdated', (data) => {

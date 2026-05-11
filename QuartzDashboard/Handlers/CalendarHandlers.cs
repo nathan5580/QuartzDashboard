@@ -29,7 +29,7 @@ internal static class CalendarHandlers
     public static async Task<IResult> CreateCalendar(IScheduler sched, CreateCalendarRequest? req,
         QuartzDashboardOptions options)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         if (req == null || string.IsNullOrWhiteSpace(req.Name))
             return Results.BadRequest(new { Error = "Calendar name is required" });
 
@@ -62,7 +62,7 @@ internal static class CalendarHandlers
     public static async Task<IResult> DeleteCalendar(IScheduler sched, string name,
         QuartzDashboardOptions options)
     {
-        if (options.ReadOnly) return Results.Forbid();
+        if (options.ReadOnly) return DashboardResults.ReadOnly();
         var names = await sched.GetCalendarNames();
         if (!names.Contains(name))
             return Results.NotFound(new { Error = $"Calendar '{name}' not found" });

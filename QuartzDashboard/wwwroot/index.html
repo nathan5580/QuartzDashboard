@@ -260,7 +260,7 @@
             <h2 id="run-job-title" class="text-base font-semibold text-gray-100">Run Job</h2>
             <p class="text-xs text-gray-500 mt-1" x-text="triggerJobTarget ? (triggerJobTarget.group + '.' + triggerJobTarget.name) : ''"></p>
           </div>
-          <button @click="closeTriggerJobModal()" class="btn-icon" aria-label="Close run job">
+          <button @click="closeTriggerJobModal()" class="btn-icon" aria-label="Close dialog">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -503,7 +503,10 @@
                   @mouseenter="commandPaletteIndex = idx">
               <div class="flex items-center gap-3">
                 <span x-html="cmd.icon" class="w-4 h-4 text-gray-500 flex-shrink-0"></span>
-                <span x-text="cmd.label" class="text-gray-200"></span>
+                <div class="min-w-0">
+                  <div x-text="cmd.label" class="text-gray-200 truncate"></div>
+                  <div x-show="cmd.category" x-text="cmd.category" class="text-[9px] uppercase tracking-wider text-gray-600 mt-0.5"></div>
+                </div>
               </div>
               <span class="text-[10px] text-gray-500 mono" x-text="cmd.shortcut || ''"></span>
             </div>
@@ -587,6 +590,7 @@
         <span x-show="sidebarOpen" class="font-semibold text-sm text-gray-100 whitespace-nowrap overflow-hidden">
           <span x-text="config.title || 'QuartzDash'" class="text-gray-100"></span>
           <span class="ml-1 text-[10px] text-gray-600 font-mono">v__QUARTZ_VERSION__</span>
+          <span x-show="config.readOnly" title="Read-only mode" class="ml-1 text-[9px] text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1 py-0.5 rounded-full align-middle">RO</span>
         </span>
       </div>
 
@@ -828,6 +832,7 @@
         <span>Dashboard</span>
         <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
         <span class="text-gray-300" x-text="breadcrumb"></span>
+        <span x-show="config.readOnly" class="ml-2 inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">Read-only</span>
       </div>
       <div class="flex justify-end mb-4 gap-2">
         <button @click="openCommandPalette()" class="btn btn-ghost text-xs gap-1.5" title="Command palette">
@@ -872,12 +877,12 @@
                 <p class="text-xs text-gray-500 mt-0.5">Real-time status and metrics</p>
               </div>
               <div class="flex gap-2">
-                <button @click="startScheduler()" :disabled="!scheduler.isStandbyMode"
+                <button x-show="!config.readOnly" @click="startScheduler()" :disabled="!scheduler.isStandbyMode"
                         :class="['btn', scheduler.isStandbyMode ? 'btn-success' : 'btn-ghost']">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                   <span>Start</span>
                 </button>
-                <button @click="standbyScheduler()" :disabled="scheduler.isStandbyMode || !scheduler.isStarted"
+                <button x-show="!config.readOnly" @click="standbyScheduler()" :disabled="scheduler.isStandbyMode || !scheduler.isStarted"
                         :class="['btn', !scheduler.isStandbyMode && scheduler.isStarted ? 'btn-warning' : 'btn-ghost']">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
                   Standby
@@ -890,8 +895,8 @@
             </div>
 
             <!-- Stat cards -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div class="stat-card">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="stat-card cursor-pointer" @click="navigateTo('jobs')" title="Go to Jobs" role="button" tabindex="0" @keydown.enter="navigateTo('jobs')">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Jobs</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100 stat-value">
                   <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
@@ -907,7 +912,7 @@
                   </svg>
                 </div>
               </div>
-              <div class="stat-card">
+              <div class="stat-card cursor-pointer" @click="navigateTo('triggers')" title="Go to Triggers" role="button" tabindex="0" @keydown.enter="navigateTo('triggers')">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Triggers</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100 stat-value">
                   <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
@@ -923,7 +928,7 @@
                   </svg>
                 </div>
               </div>
-              <div class="stat-card">
+              <div class="stat-card cursor-pointer" @click="navigateTo('executing')" title="Go to Executing Jobs" role="button" tabindex="0" @keydown.enter="navigateTo('executing')">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Executing Now</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight stat-value">
                   <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
@@ -939,7 +944,7 @@
                   </svg>
                 </div>
               </div>
-              <div class="stat-card">
+              <div class="stat-card cursor-pointer" @click="navigateTo('history')" title="Go to History" role="button" tabindex="0" @keydown.enter="navigateTo('history')">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Total Executions</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100 stat-value">
                   <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
@@ -978,7 +983,10 @@
 
             <!-- Pinned Jobs -->
             <div class="card-gradient mt-4" x-show="pinnedJobDetails.length > 0">
-              <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">📌 Pinned Jobs</h3>
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">📌 Pinned Jobs</h3>
+                <button @click="navigateTo('jobs')" class="text-[10px] text-gray-600 hover:text-indigo-400 transition-colors">Manage in Jobs →</button>
+              </div>
               <div class="space-y-1.5">
                 <template x-for="pj in pinnedJobDetails" :key="pj.group + '.' + pj.name">
                   <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.03] hover:bg-white/[0.05] cursor-pointer transition-colors"
@@ -997,6 +1005,12 @@
                   </div>
                 </template>
               </div>
+            </div>
+
+            <!-- Pin affordance hint — shown only when no jobs are pinned yet and jobs are loaded -->
+            <div class="card-gradient mt-4 flex items-center gap-3 py-4" x-show="jobs.length > 0 && pinnedJobDetails.length === 0">
+              <svg class="w-4 h-4 text-gray-600 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <p class="text-[11px] text-gray-500">Pin your most important jobs to this overview — open the <button @click="navigateTo('jobs')" class="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">Jobs page</button>, then use <span class="mono text-gray-400">⋯ Actions → Pin to overview</span>.</p>
             </div>
 
             <!-- Upcoming Schedule (next 24h) -->
@@ -1142,8 +1156,8 @@
               </div>
               <div class="flex items-center gap-2">
                 <span class="flex items-center gap-1.5 text-xs text-gray-500">
-                  <span :class="['status-dot', healthData?.status === 'healthy' || (!healthData && scheduler.isStarted && !scheduler.isStandbyMode) ? 'status-dot-running' : healthData?.status === 'degraded' || scheduler.isStandbyMode ? 'status-dot-standby' : 'status-dot-stopped']"></span>
-                  <span x-text="healthData?.status || schedulerStatusLabel()" class="capitalize"></span>
+                  <span :class="['status-dot', effectiveHealthStatus === 'healthy' ? 'status-dot-running' : effectiveHealthStatus === 'degraded' ? 'status-dot-standby' : 'status-dot-stopped']"></span>
+                  <span x-text="effectiveHealthLabel"></span>
                 </span>
                 <button @click="loadHealth(); loadStats()" class="btn btn-ghost">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
@@ -1191,6 +1205,7 @@
                      :class="successRate >= 95 ? 'text-emerald-400' : successRate >= 80 ? 'text-amber-400' : 'text-red-400'">
                   <span x-text="successRate"></span><span class="text-lg">%</span>
                 </div>
+                <div class="text-[10px] text-gray-600 mt-1 tabular-nums" x-text="history.length ? 'based on ' + history.length + ' loaded records' : 'no history loaded'"></div>
                 <div class="sparkline-container" x-show="executionBuckets.length">
                   <svg width="80" height="24">
                     <polyline :points="ChartEngine.sparklinePolyline(executionBuckets, 'successRate', 80, 24)"
@@ -1329,12 +1344,12 @@
                 <h2 class="text-sm font-semibold text-gray-200 mb-3">Recent Failures</h2>
                 <div class="space-y-2 max-h-64 overflow-y-auto scrollbar-thin">
                   <template x-for="(h, hIdx) in failedHistory.slice(0, 20)" :key="h.fireInstanceId || hIdx">
-                    <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-red-500/5 border border-red-500/10">
+                    <div class="flex items-start justify-between py-2 px-3 rounded-lg bg-red-500/5 border border-red-500/10 gap-2">
                       <div class="flex-1 min-w-0">
                         <p class="text-sm text-gray-200 truncate" x-text="h.jobKey || 'Unknown'"></p>
                         <p class="text-xs text-gray-500" x-text="formatDate(h.fireTime)"></p>
+                        <p x-show="h.errorMessage || h.exceptionMessage" class="text-[11px] text-red-400/80 truncate mt-0.5" x-text="h.errorMessage || h.exceptionMessage"></p>
                       </div>
-                      <span class="badge badge-error text-[10px]">Failed</span>
                     </div>
                   </template>
                 </div>
@@ -1393,14 +1408,23 @@
                 <button @click="loadJobs()" class="btn btn-ghost" title="Refresh">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
                 </button>
+                <!-- Mobile search toggle -->
+                <button @click="jobSearchOpen = !jobSearchOpen; $nextTick(() => jobSearchOpen && $refs.jobSearchInput?.focus())"
+                        class="btn btn-ghost sm:hidden"
+                        :class="jobSearchQuery ? 'text-indigo-400' : ''"
+                        title="Search jobs" aria-label="Toggle job search">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </button>
               </div>
             </div>
 
             <div class="mb-4 space-y-2">
               <input type="text"
+                     x-ref="jobSearchInput"
                      x-model="jobSearchQuery"
                      placeholder="Search jobs by name or group..."
                      class="glass-input w-full"
+                     :class="isMobile && !jobSearchOpen && !jobSearchQuery ? 'hidden' : ''"
                      @input.debounce.200ms="filterJobs()">
               <div class="flex items-center justify-between gap-2">
                 <span x-show="jobSearchQuery" class="text-sm text-gray-400"
@@ -1498,9 +1522,10 @@
                               </span>
                             </td>
                             <td x-show="!item.isHeader" class="py-3.5 px-4" data-label="Job">
-                              <div class="font-medium text-gray-100 leading-tight" x-text="item.job && item.job.name"></div>
+                              <div class="font-medium text-gray-100 leading-tight" x-text="item.job && item.job.name" :title="item.job && (item.job.group + '.' + item.job.name)"></div>
                               <div class="text-[11px] text-gray-500 mt-0.5 truncate max-w-[200px]"
-                                   x-text="item.job && (item.job.description || item.job.jobType || item.job.group)"></div>
+                                   x-text="item.job && (item.job.description || item.job.jobType || item.job.group)"
+                                   :title="item.job && (item.job.description || item.job.jobType || item.job.group)"></div>
                             </td>
                             <td x-show="!item.isHeader" class="py-3.5 px-4 hidden md:table-cell" data-label="Group">
                               <span class="mono text-[11px] text-gray-500 bg-white/[0.04] px-1.5 py-0.5 rounded"
@@ -1528,7 +1553,7 @@
                               <span class="text-xs mono"
                                     :class="item.job && getJobLastExecution(item.job.group, item.job.name) ? 'text-gray-300' : 'text-gray-600'"
                                     :title="item.job && getJobLastExecution(item.job.group, item.job.name) ? formatDate(getJobLastExecution(item.job.group, item.job.name).fireTime) : ''"
-                                    x-text="item.job && getJobLastExecution(item.job.group, item.job.name) ? formatDate(getJobLastExecution(item.job.group, item.job.name).fireTime) : '—'"></span>
+                                    x-text="item.job && getJobLastExecution(item.job.group, item.job.name) ? relativeTimePhrase(getJobLastExecution(item.job.group, item.job.name).fireTime) : '—'"></span>
                             </td>
                             <td x-show="!item.isHeader" class="py-3.5 px-4 text-right" data-label="Actions">
                               <div x-show="item.job" class="relative inline-flex justify-end" @click.stop>
@@ -1544,21 +1569,25 @@
                                      @click.outside="closeRowActionsMenu()"
                                      class="row-actions-menu"
                                      style="display:none">
+                                  <button @click="item.job && (historyFilterObj.search = item.job.group + '.' + item.job.name, navigateTo('history'), closeRowActionsMenu())" class="row-actions-item"
+                                          :aria-label="item.job ? 'View history for ' + item.job.name : 'View history'">
+                                    <span>View history</span>
+                                  </button>
                                   <button @click="item.job && (togglePinJob(item.job.group, item.job.name), closeRowActionsMenu())" class="row-actions-item"
                                           :aria-label="item.job ? (isJobPinned(item.job.group, item.job.name) ? 'Unpin ' + item.job.name : 'Pin ' + item.job.name) : 'Pin job'">
                                     <span x-text="item.job && isJobPinned(item.job.group, item.job.name) ? 'Unpin from overview' : 'Pin to overview'"></span>
                                   </button>
-                                  <button @click="item.job && openTriggerJobModal(item.job.group, item.job.name)" class="row-actions-item"
+                                  <button x-show="!config.readOnly" @click="item.job && openTriggerJobModal(item.job.group, item.job.name)" class="row-actions-item"
                                           :aria-label="item.job ? 'Run ' + item.job.name + ' now' : 'Run job now'">
                                     <span>Run now</span>
                                   </button>
-                                  <button x-show="item.job && item.job.status !== 'Paused'" @click="item.job && (pauseJob(item.job.group, item.job.name), closeRowActionsMenu())"
+                                  <button x-show="!config.readOnly && item.job && item.job.status !== 'Paused'" @click="item.job && (pauseJob(item.job.group, item.job.name), closeRowActionsMenu())"
                                           class="row-actions-item"
                                           :aria-label="item.job ? 'Pause ' + item.job.name : 'Pause job'"
                                           :disabled="item.job && isActionPending('pause', item.job.group, item.job.name)">
                                     <span x-text="item.job && isActionPending('pause', item.job.group, item.job.name) ? 'Pausing...' : 'Pause'"></span>
                                   </button>
-                                  <button x-show="item.job && item.job.status === 'Paused'" @click="item.job && (resumeJob(item.job.group, item.job.name), closeRowActionsMenu())"
+                                  <button x-show="!config.readOnly && item.job && item.job.status === 'Paused'" @click="item.job && (resumeJob(item.job.group, item.job.name), closeRowActionsMenu())"
                                           class="row-actions-item"
                                           :aria-label="item.job ? 'Resume ' + item.job.name : 'Resume job'"
                                           :disabled="item.job && isActionPending('resume', item.job.group, item.job.name)">
@@ -1670,7 +1699,7 @@
                 </div>
 
                 <!-- Quick action bar -->
-                <div class="flex items-center gap-2 mt-3.5">
+                <div x-show="!config.readOnly" class="flex items-center gap-2 mt-3.5">
                   <button @click="triggerJobFromDrawer()" class="btn btn-primary flex-1 text-xs justify-center gap-1.5">
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                     Run Now
@@ -1899,9 +1928,9 @@
                                 </div>
                               </div>
                               <div class="flex flex-col gap-1.5 flex-shrink-0">
-                                <button x-show="t.state !== 'Paused'" @click="pauseTrigger(t.group, t.name)" class="btn btn-warning text-[10px] px-2.5 py-1">Pause</button>
-                                <button x-show="t.state === 'Paused'" @click="resumeTrigger(t.group, t.name)" class="btn btn-success text-[10px] px-2.5 py-1">Resume</button>
-                                <button @click="deleteJobTrigger(jobDrawerData.group, jobDrawerData.name, t.group, t.name)" class="btn btn-danger text-[10px] px-2.5 py-1">Delete</button>
+                                <button x-show="!config.readOnly && t.state !== 'Paused'" @click="pauseTrigger(t.group, t.name)" class="btn btn-warning text-[10px] px-2.5 py-1">Pause</button>
+                                <button x-show="!config.readOnly && t.state === 'Paused'" @click="resumeTrigger(t.group, t.name)" class="btn btn-success text-[10px] px-2.5 py-1">Resume</button>
+                                <button x-show="!config.readOnly" @click="deleteJobTrigger(jobDrawerData.group, jobDrawerData.name, t.group, t.name)" class="btn btn-danger text-[10px] px-2.5 py-1">Delete</button>
                               </div>
                             </div>
                           </div>
@@ -2005,7 +2034,7 @@
                     <svg style="width:12px;height:12px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
                 </div>
-                <button @click="closeTransientUi(); showCreateTriggerModal = true" class="btn btn-primary">
+                <button x-show="!config.readOnly" @click="closeTransientUi(); showCreateTriggerModal = true" class="btn btn-primary">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Create Trigger
                 </button>
@@ -2088,19 +2117,18 @@
                                 <td class="hidden lg:table-cell"><span class="badge badge-idle text-[9px]" x-text="t.misfireInstruction || 'SmartPolicy'"></span></td>
                                 <td class="text-xs mono text-gray-400">
                                   <span :title="t.nextFireTime ? formatDate(t.nextFireTime) : ''" x-text="formatCountdown(t.nextFireTime)"></span>
-                                  <span class="text-[9px] text-gray-600 ml-1" x-text="'(' + triggerCountdown(t.nextFireTime) + ')'" x-show="t.nextFireTime"></span>
                                 </td>
                                 <td class="text-right">
-                                  <div class="flex gap-1 justify-end">
+                                  <div class="flex gap-1 justify-end flex-wrap">
                                     <button @click.stop="openTriggerDetail(t)" class="btn btn-ghost text-[10px] px-2 py-1" title="View" :aria-label="'View trigger ' + t.name">
                                       <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
                                     </button>
-                                    <button @click.stop="openEditTrigger(t)" class="btn btn-ghost text-[10px] px-2 py-1" title="Edit" :aria-label="'Edit trigger ' + t.name">
+                                    <button x-show="!config.readOnly" @click.stop="openEditTrigger(t)" class="btn btn-ghost text-[10px] px-2 py-1" title="Edit" :aria-label="'Edit trigger ' + t.name">
                                       <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
                                     </button>
-                                    <button x-show="t.state !== 'Paused'" @click.stop="pauseTrigger(t.group, t.name)" class="btn btn-warning text-[10px] px-2 py-1" :aria-label="'Pause trigger ' + t.name">Pause</button>
-                                    <button x-show="t.state === 'Paused'" @click.stop="resumeTrigger(t.group, t.name)" class="btn btn-success text-[10px] px-2 py-1" :aria-label="'Resume trigger ' + t.name">Resume</button>
-                                    <button @click.stop="deleteTrigger(t.group, t.name)" class="btn btn-danger text-[10px] px-2 py-1" :aria-label="'Delete trigger ' + t.name">Delete</button>
+                                    <button x-show="!config.readOnly && t.state !== 'Paused'" @click.stop="pauseTrigger(t.group, t.name)" class="btn btn-warning text-[10px] px-2 py-1" :aria-label="'Pause trigger ' + t.name">Pause</button>
+                                    <button x-show="!config.readOnly && t.state === 'Paused'" @click.stop="resumeTrigger(t.group, t.name)" class="btn btn-success text-[10px] px-2 py-1" :aria-label="'Resume trigger ' + t.name">Resume</button>
+                                    <button x-show="!config.readOnly" @click.stop="deleteTrigger(t.group, t.name)" class="btn btn-danger text-[10px] px-2 py-1" :aria-label="'Delete trigger ' + t.name">Delete</button>
                                   </div>
                                 </td>
                               </tr>
@@ -2181,8 +2209,12 @@
                 <!-- Empty state -->
                 <div x-show="!loading.executing && (!executingJobs || executingJobs.length === 0)" class="empty-state">
                   <div class="empty-state-icon">⏱️</div>
-                  <div class="empty-state-title">No jobs executing</div>
-                  <div class="empty-state-desc">Running jobs will appear here in real time</div>
+                  <div class="empty-state-title">No jobs currently running</div>
+                  <div class="empty-state-desc">Jobs appear here the moment they start and disappear when they finish.<br>This view updates automatically via live connection.</div>
+                  <div class="mt-4 flex items-center gap-2 text-[11px] text-gray-600">
+                    <span class="status-dot status-dot-running"></span>
+                    <span>Live — connected</span>
+                  </div>
                 </div>
 
                 <!-- Job cards -->
@@ -2238,7 +2270,7 @@
                         </div>
                       </div>
                       <div x-show="!config.readOnly" class="mt-3 pt-3 border-t border-white/[0.04]">
-                        <button @click="interruptJob(ej.jobGroup, ej.jobName)"
+                        <button x-show="!config.readOnly" @click="interruptJob(ej.jobGroup, ej.jobName)"
                                 class="btn btn-ghost text-xs text-amber-400 hover:text-amber-300 w-full justify-center">
                           <svg class="w-3.5 h-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
@@ -2270,10 +2302,10 @@
               </div>
               <div class="flex items-center gap-2 flex-wrap">
                 <button @click="exportHistoryToCsv(history)"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                        class="btn btn-ghost text-xs"
                         title="Export history to CSV">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                   </svg>
                   Export CSV
                 </button>
@@ -2300,6 +2332,14 @@
                 <option value="success">✓ Success</option>
                 <option value="error">✗ Failed</option>
               </select>
+              <div class="flex items-center gap-1">
+                <template x-for="range in [{v:'1h',l:'1h'},{v:'6h',l:'6h'},{v:'24h',l:'24h'},{v:'all',l:'All'}]" :key="range.v">
+                  <button @click="historyFilterObj.dateRange = range.v"
+                          class="text-[10px] px-2 py-1 rounded border transition-colors"
+                          :class="(historyFilterObj.dateRange || 'all') === range.v ? 'bg-quartz-500/20 border-quartz-500/40 text-quartz-300' : 'bg-white/[0.03] border-white/[0.06] text-gray-500 hover:text-gray-300'"
+                          x-text="range.l"></button>
+                </template>
+              </div>
               <span class="text-[10px] text-gray-600 ml-auto tabular-nums" x-text="filteredHistory.length + ' of ' + history.length + ' records'"></span>
             </div>
 
@@ -2343,7 +2383,7 @@
                         <th @click="sortTable('history', 'fireTime')" class="cursor-pointer select-none">Time <span class="sort-indicator" :class="historySortCol === 'fireTime' ? 'active' : ''" x-text="historySortCol === 'fireTime' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
                         <th @click="sortTable('history', 'jobKey')" class="cursor-pointer select-none">Job <span class="sort-indicator" :class="historySortCol === 'jobKey' ? 'active' : ''" x-text="historySortCol === 'jobKey' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
                         <th @click="sortTable('history', 'triggerKey')" class="hidden sm:table-cell cursor-pointer select-none">Trigger <span class="sort-indicator" :class="historySortCol === 'triggerKey' ? 'active' : ''" x-text="historySortCol === 'triggerKey' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                        <th @click="sortTable('history', 'duration')" class="cursor-pointer select-none">Duration <span class="sort-indicator" :class="historySortCol === 'duration' ? 'active' : ''" x-text="historySortCol === 'duration' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                        <th @click="sortTable('history', 'duration')" class="cursor-pointer select-none">Duration <span class="text-gray-600 normal-case">(ms/s)</span> <span class="sort-indicator" :class="historySortCol === 'duration' ? 'active' : ''" x-text="historySortCol === 'duration' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
                         <th class="hidden md:table-cell">Bar</th>
                         <th @click="sortTable('history', 'success')" class="cursor-pointer select-none">Outcome <span class="sort-indicator" :class="historySortCol === 'success' ? 'active' : ''" x-text="historySortCol === 'success' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
                       </tr>
@@ -2355,11 +2395,14 @@
                             <td class="mono text-xs text-gray-400" data-label="Time" x-text="formatDate(h.fireTime)"></td>
                             <td class="font-medium text-gray-100 text-xs" data-label="Job">
                               <div class="flex items-center gap-2">
-                                <span x-text="h.jobKey"></span>
+                                <span x-text="h.jobKey" :title="h.jobKey"></span>
                                 <span x-show="h.refireCount > 0" class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500/20 text-[9px] font-semibold text-amber-400">R</span>
                               </div>
+                              <div x-show="!h.success && (h.exceptionMessage || h.errorMessage)"
+                                   class="text-[10px] text-red-400/70 truncate max-w-[220px] mt-0.5"
+                                   x-text="h.exceptionMessage || h.errorMessage"></div>
                             </td>
-                            <td class="text-xs text-gray-500 hidden sm:table-cell truncate max-w-[140px]" data-label="Trigger" x-text="h.triggerKey"></td>
+                            <td class="text-xs text-gray-500 hidden sm:table-cell truncate max-w-[140px]" data-label="Trigger" x-text="h.triggerKey" :title="h.triggerKey"></td>
                             <td class="text-xs mono text-gray-300" data-label="Duration" x-text="h.duration ? formatDuration(h.duration) : '\u2014'"></td>
                             <td class="hidden md:table-cell" data-label="">
                               <div class="w-24 h-1.5 bg-gray-700/40 rounded-full overflow-hidden">
@@ -2448,13 +2491,13 @@
                   <button @click="graphTimeRange = 360; loadGraphData()" :class="['px-2 py-1 text-[10px] font-medium rounded-md transition-colors', graphTimeRange === 360 ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200']">6h</button>
                 </div>
                 <!-- Download PNG -->
-                <button @click="ChartEngine.exportPNG($refs.graphSvg, 'quartz-graph.png')" class="btn btn-ghost" title="Download PNG">
+                <button @click="ChartEngine.exportPNG($refs.graphSvg, 'quartz-graph.png')" class="btn btn-ghost" title="Download PNG" aria-label="Download graph as PNG">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                   </svg>
                 </button>
                 <!-- Refresh -->
-                <button @click="loadGraphData()" class="btn btn-ghost">
+                <button @click="loadGraphData()" class="btn btn-ghost" title="Refresh graph" aria-label="Refresh graph">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
                 </button>
               </div>
@@ -2665,7 +2708,7 @@
                   </div>
 
                   <!-- Tooltip: time crosshair + jobs at cursor -->
-                  <div x-show="timelineCursor.show"
+                  <div x-show="timelineCursor.show && (timelineCursor.bar || timelineCursor.events.length)"
                        :style="'left:' + Math.min(timelineCursor.x + 14, timelineWidth - 250) + 'px;top:8px;'"
                        class="absolute z-30 pointer-events-none"
                        style="display:none">
@@ -2778,7 +2821,7 @@
                 <p class="text-xs text-gray-500 mt-0.5">Quartz calendar exclusions and schedule helpers</p>
               </div>
               <div class="flex items-center gap-2">
-                <button @click="showCreateCalendarModal = true" class="btn btn-primary">
+                <button x-show="!config.readOnly" @click="showCreateCalendarModal = true" class="btn btn-primary">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Create Calendar
                 </button>
@@ -2821,7 +2864,7 @@
                           </div>
                           <p class="text-xs text-gray-500 mt-1 break-all" x-text="calendar.description || calendar.cronExpression || 'No description'"></p>
                         </div>
-                        <button @click="deleteCalendar(calendar.name)" class="btn btn-danger text-[10px] px-2 py-1" :aria-label="'Delete calendar ' + calendar.name">Delete</button>
+                        <button x-show="!config.readOnly" @click="deleteCalendar(calendar.name)" class="btn btn-danger text-[10px] px-2 py-1" :aria-label="'Delete calendar ' + calendar.name">Delete</button>
                       </div>
                       <dl class="space-y-2 text-xs">
                         <div class="flex items-center justify-between gap-3">
@@ -3178,8 +3221,16 @@
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       <span>Jobs</span>
     </button>
-    <button @click="navigateTo('history')" class="mobile-nav-item" :class="currentPage === 'history' ? 'active' : ''" aria-label="Go to history">
+    <button @click="navigateTo('triggers')" class="mobile-nav-item" :class="currentPage === 'triggers' ? 'active' : ''" aria-label="Go to triggers">
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span>Triggers</span>
+    </button>
+    <button @click="navigateTo('executing')" class="mobile-nav-item" :class="currentPage === 'executing' ? 'active' : ''" aria-label="Go to executing jobs">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      <span>Running</span>
+    </button>
+    <button @click="navigateTo('history')" class="mobile-nav-item" :class="currentPage === 'history' ? 'active' : ''" aria-label="Go to history">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/></svg>
       <span>History</span>
     </button>
     <button @click="navigateTo('health')" class="mobile-nav-item" :class="currentPage === 'health' ? 'active' : ''" style="position:relative" aria-label="Go to health">

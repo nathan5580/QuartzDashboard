@@ -22,6 +22,10 @@ export function createJobsActionsSection() {
     },
 
     duplicateJob(job) {
+      if (this.config.readOnly) {
+        this.showToast('Dashboard is in read-only mode.', 'warning');
+        return;
+      }
       this.newJob = {
         name: (job?.name || '') + '-copy',
         group: job?.group || 'DEFAULT',
@@ -51,6 +55,10 @@ export function createJobsActionsSection() {
     },
 
     async submitCreateJob() {
+      if (this.config.readOnly) {
+        this.showToast('Dashboard is in read-only mode.', 'warning');
+        return;
+      }
       this.createJobSubmitted = true;
       this.createJobErrors = {};
       if (!String(this.newJob.name || '').trim()) {
@@ -90,6 +98,10 @@ export function createJobsActionsSection() {
     },
 
     deleteJob(group, name) {
+      if (this.config.readOnly) {
+        this.showToast('Dashboard is in read-only mode.', 'warning');
+        return;
+      }
       this.deleteConfirmMessage = 'Are you sure you want to delete job ' + group + '.' + name + '?';
       this.deletePending = { type: 'job', group: group, name: name };
       this.showDeleteConfirm = true;
@@ -97,6 +109,10 @@ export function createJobsActionsSection() {
 
     // Delete trigger from job inline details
     deleteJobTrigger(jobGroup, jobName, triggerGroup, triggerName) {
+      if (this.config.readOnly) {
+        this.showToast('Dashboard is in read-only mode.', 'warning');
+        return;
+      }
       this.deleteConfirmMessage = 'Are you sure you want to delete trigger ' + triggerGroup + '.' + triggerName + '?';
       this.deletePending = { type: 'trigger', group: triggerGroup, name: triggerName };
       this.showDeleteConfirm = true;
@@ -129,6 +145,10 @@ export function createJobsActionsSection() {
     },
 
     openTriggerJobModal(group, name) {
+      if (this.config.readOnly) {
+        this.showToast('Dashboard is in read-only mode.', 'warning');
+        return;
+      }
       this.closeRowActionsMenu();
       this.triggerJobTarget = { group: group, name: name };
       this.triggerJobDataMap = [{ key: '', value: '' }];
@@ -151,6 +171,10 @@ export function createJobsActionsSection() {
     },
 
     async triggerJob(group, name) {
+      if (this.config.readOnly) {
+        this.showToast('Dashboard is in read-only mode.', 'warning');
+        return;
+      }
       await this.withActionPending('trigger', group, name, async () => {
         try {
           const payload = {
@@ -165,6 +189,10 @@ export function createJobsActionsSection() {
     },
 
     async pauseJob(group, name) {
+      if (this.config.readOnly) {
+        this.showToast('Dashboard is in read-only mode.', 'warning');
+        return;
+      }
       await this.withActionPending('pause', group, name, async () => {
         try {
           await this.postApi('/jobs/' + group + '/' + name + '/pause');
@@ -175,6 +203,10 @@ export function createJobsActionsSection() {
     },
 
     async resumeJob(group, name) {
+      if (this.config.readOnly) {
+        this.showToast('Dashboard is in read-only mode.', 'warning');
+        return;
+      }
       await this.withActionPending('resume', group, name, async () => {
         try {
           await this.postApi('/jobs/' + group + '/' + name + '/resume');
@@ -185,6 +217,10 @@ export function createJobsActionsSection() {
     },
 
     async pauseJobGroup(group) {
+      if (this.config.readOnly) {
+        this.showToast('Dashboard is in read-only mode.', 'warning');
+        return;
+      }
       try {
         await this.postApi('/jobs/group/' + encodeURIComponent(group) + '/pause');
         await this.loadJobs();
@@ -193,6 +229,10 @@ export function createJobsActionsSection() {
     },
 
     async resumeJobGroup(group) {
+      if (this.config.readOnly) {
+        this.showToast('Dashboard is in read-only mode.', 'warning');
+        return;
+      }
       try {
         await this.postApi('/jobs/group/' + encodeURIComponent(group) + '/resume');
         await this.loadJobs();
@@ -201,6 +241,10 @@ export function createJobsActionsSection() {
     },
 
     async interruptJob(group, name) {
+      if (this.config.readOnly) {
+        this.showToast('Dashboard is in read-only mode.', 'warning');
+        return;
+      }
       try {
         const res = await this.postApi('/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name) + '/interrupt');
         if (res?.interrupted) {
@@ -226,6 +270,10 @@ export function createJobsActionsSection() {
     },
 
     async importJobs(event) {
+      if (this.config.readOnly) {
+        this.showToast('Dashboard is in read-only mode.', 'warning');
+        return;
+      }
       const file = event.target.files[0];
       if (!file) return;
       try {

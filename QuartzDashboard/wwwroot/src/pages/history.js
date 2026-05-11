@@ -13,6 +13,13 @@ export function createHistorySection() {
           }
           if (f.status === 'success') arr = arr.filter(h => h.success);
           if (f.status === 'error') arr = arr.filter(h => !h.success);
+          if (f.dateRange && f.dateRange !== 'all') {
+            const rangeMs = { '1h': 3600000, '6h': 21600000, '24h': 86400000 }[f.dateRange];
+            if (rangeMs) {
+              const cutoff = Date.now() - rangeMs;
+              arr = arr.filter(h => h.fireTime && new Date(h.fireTime).getTime() >= cutoff);
+            }
+          }
           return arr;
         },
 
@@ -301,6 +308,10 @@ export function createHistorySection() {
             overlayParent.style.position = 'relative';
             overlayParent.appendChild(overlay);
           }
+          if (this.config?.readOnly) {
+            overlay.innerHTML = '';
+            return;
+          }
           overlay.innerHTML = labels.map((lbl, rowIndex) => {
             const y = 8 + rowIndex * rowH;
             const parts = lbl.split('.');
@@ -308,9 +319,9 @@ export function createHistorySection() {
             const nm = parts.slice(1).join('.') || parts[0];
             return `<div class="tl-row-actions" data-row="${rowIndex}" style="position:absolute;top:${y}px;left:0;width:${labelW - 4}px;height:${rowH - 1}px;pointer-events:auto;display:flex;align-items:center;justify-content:flex-end;gap:2px;padding-right:24px;opacity:0;transition:opacity 0.15s;"
               onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0">
-              <button title="Run Now" onclick="window.dashboard && document.querySelector('[x-data]')?._x_dataStack?.[0]?.triggerJob('${grp}','${nm}')" style="background:rgba(99,102,241,0.7);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;color:#fff;font-size:10px;">▶</button>
-              <button title="Pause" onclick="window.dashboard && document.querySelector('[x-data]')?._x_dataStack?.[0]?.pauseJob('${grp}','${nm}')" style="background:rgba(245,158,11,0.7);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;color:#fff;font-size:10px;">⏸</button>
-              <button title="Resume" onclick="window.dashboard && document.querySelector('[x-data]')?._x_dataStack?.[0]?.resumeJob('${grp}','${nm}')" style="background:rgba(52,211,153,0.7);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;color:#fff;font-size:10px;">↺</button>
+              <button title="Run now" aria-label="Run ${lbl} now" onclick="window.dashboard && document.querySelector('[x-data]')?._x_dataStack?.[0]?.triggerJob('${grp}','${nm}')" style="background:rgba(99,102,241,0.7);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;color:#fff;font-size:10px;">▶</button>
+              <button title="Pause" aria-label="Pause ${lbl}" onclick="window.dashboard && document.querySelector('[x-data]')?._x_dataStack?.[0]?.pauseJob('${grp}','${nm}')" style="background:rgba(245,158,11,0.7);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;color:#fff;font-size:10px;">⏸</button>
+              <button title="Resume" aria-label="Resume ${lbl}" onclick="window.dashboard && document.querySelector('[x-data]')?._x_dataStack?.[0]?.resumeJob('${grp}','${nm}')" style="background:rgba(52,211,153,0.7);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;color:#fff;font-size:10px;">↺</button>
             </div>`;
           }).join('');
         },

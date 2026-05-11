@@ -240,7 +240,29 @@ export function createUtilsSection() {
 
         formatDuration(d) {
           if (!d) return '';
+          if (typeof d === 'number') {
+            if (d < 1000) return d.toFixed(d < 100 ? 1 : 0) + 'ms';
+            if (d < 60000) return (d / 1000).toFixed(d < 10000 ? 2 : 1) + 's';
+            const mins = Math.floor(d / 60000);
+            const secs = Math.round((d % 60000) / 1000);
+            return mins + 'm ' + secs + 's';
+          }
           if (typeof d === 'string') {
+            // .NET TimeSpan: [d.]hh:mm:ss[.fffffff]
+            const ts = d.match(/^(\d+\.)?(\d+):(\d+):(\d+)(\.\d+)?$/);
+            if (ts) {
+              const days = ts[1] ? parseInt(ts[1]) : 0;
+              const hours = parseInt(ts[2]);
+              const mins = parseInt(ts[3]);
+              const secs = parseInt(ts[4]);
+              const frac = ts[5] ? parseFloat('0' + ts[5]) : 0;
+              const totalMs = ((days * 86400 + hours * 3600 + mins * 60 + secs) * 1000) + Math.round(frac * 1000);
+              if (totalMs < 1000) return totalMs + 'ms';
+              if (days > 0) return days + 'd ' + hours + 'h';
+              if (hours > 0) return hours + 'h ' + mins + 'm';
+              if (mins > 0) return mins + 'm ' + secs + 's';
+              return secs + 's';
+            }
             return d.replace('PT', '').replace('H', 'h ').replace('M', 'm ').replace('S', 's');
           }
           if (typeof d === 'object') {
