@@ -22,6 +22,9 @@ function createMainSection() {
           // Sync Alpine theme state with the preloaded document theme.
           this.applyTheme(this.theme);
 
+          // Apply row density
+          if (this.rowDensity) document.body.setAttribute('data-density', this.rowDensity);
+
           // Load persistent settings
           try {
             const saved = JSON.parse(localStorage.getItem('qd-settings') || '{}');
@@ -36,6 +39,7 @@ function createMainSection() {
               // Only restore if at least one group is NOT collapsed (avoid all-collapsed corrupted state)
               this.collapsedGroups = saved.collapsedGroups;
             }
+            if (saved.rowDensity) this.rowDensity = saved.rowDensity;
           } catch(_) {}
 
           // Setup keyboard shortcuts

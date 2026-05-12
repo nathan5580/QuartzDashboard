@@ -6,7 +6,7 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
 
     <PackageId>Dot.QuartzDashboard.Abstractions</PackageId>
-    <Version>4.0.1</Version>
+    <Version>4.1.0</Version>
     <Authors>n8</Authors>
     <Description>Abstractions for Dot.QuartzDashboard — interfaces and records for implementing custom fire-history stores without pulling in the full dashboard.</Description>
     <PackageTags>quartz;dashboard;scheduler;abstractions</PackageTags>

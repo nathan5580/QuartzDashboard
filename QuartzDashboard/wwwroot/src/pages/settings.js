@@ -80,6 +80,7 @@ function createSettingsCoreSection() {
           refreshInterval: this.settings.refreshInterval,
           historyLimit: this.historyLimit,
           collapsedGroups: this.collapsedGroups,
+          rowDensity: this.rowDensity,
         }));
       } catch (_) {}
     },
@@ -122,6 +123,51 @@ function createSettingsCoreSection() {
     statsTrend(key) {
       if (!this.statsPrev || this.stats[key] === undefined || this.statsPrev[key] === undefined) return null;
       return (this.stats[key] || 0) - (this.statsPrev[key] || 0);
+    },
+
+    // ========================= DESKTOP NOTIFICATIONS =========================
+    async requestDesktopNotifications() {
+      if (typeof Notification === 'undefined') {
+        this.showToast('Notifications not supported in this browser', 'warning');
+        return;
+      }
+      if (Notification.permission === 'granted') {
+        this.desktopNotificationsEnabled = true;
+        localStorage.setItem('quartz-desktop-notifications', 'true');
+        this.showToast('Desktop notifications enabled', 'success');
+        return;
+      }
+      const result = await Notification.requestPermission();
+      this.desktopNotificationsPermission = result;
+      if (result === 'granted') {
+        this.desktopNotificationsEnabled = true;
+        localStorage.setItem('quartz-desktop-notifications', 'true');
+        this.showToast('Desktop notifications enabled', 'success');
+      } else {
+        this.desktopNotificationsEnabled = false;
+        localStorage.setItem('quartz-desktop-notifications', 'false');
+        this.showToast('Notification permission denied', 'warning');
+      }
+    },
+
+    disableDesktopNotifications() {
+      this.desktopNotificationsEnabled = false;
+      localStorage.setItem('quartz-desktop-notifications', 'false');
+    },
+
+    sendDesktopNotification(title, body, icon) {
+      if (!this.desktopNotificationsEnabled || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+      try {
+        const n = new Notification(title, { body, icon: icon || '/favicon.ico', tag: 'quartz-' + Date.now() });
+        setTimeout(() => n.close(), 5000);
+      } catch (_) {}
+    },
+
+    // ========================= ROW DENSITY =========================
+    setRowDensity(density) {
+      this.rowDensity = density;
+      localStorage.setItem('quartz-row-density', density);
+      document.body.setAttribute('data-density', density);
     },
   };
 }

@@ -1,6 +1,6 @@
 {
   "name": "quartzdashboard",
-  "version": "3.0.3",
+  "version": "4.1.0",
   "description": "Frontend asset build for Dot.QuartzDashboard.",
   "private": true,
   "scripts": {

@@ -105,7 +105,7 @@ export function createApiSection() {
           this.switchScheduler(this.activeSchedulerName);
         },
 
-        async refreshAll() {
+        async refreshAll(silent = false) {
           try {
             const jobsOffset = (this.jobsPage - 1) * this.jobsPageSize;
             const triggersOffset = (this.triggersPage - 1) * this.triggersPageSize;
@@ -116,42 +116,51 @@ export function createApiSection() {
               this.fetchApi('/executing').catch(() => ({ data: this.executingJobs })),
             ]);
             this.scheduler = scheduler;
-            this.jobs = (Array.isArray(jobsResp) ? jobsResp : (Array.isArray(jobsResp?.data) ? jobsResp.data : []))
+            const sortedJobs = (Array.isArray(jobsResp) ? jobsResp : (Array.isArray(jobsResp?.data) ? jobsResp.data : []))
               .sort((a, b) => (a.group + '.' + a.name).localeCompare(b.group + '.' + b.name));
+            this.mergeArrayInPlace(this.jobs, sortedJobs, j => j.group + '.' + j.name);
+            this.jobs.sort((a, b) => (a.group + '.' + a.name).localeCompare(b.group + '.' + b.name));
             this.jobsTotal = Number.isFinite(jobsResp?.total) ? jobsResp.total : this.jobs.length;
-            this.triggers = (Array.isArray(triggersResp) ? triggersResp : (Array.isArray(triggersResp?.data) ? triggersResp.data : []))
+            const sortedTriggers = (Array.isArray(triggersResp) ? triggersResp : (Array.isArray(triggersResp?.data) ? triggersResp.data : []))
               .sort((a, b) => (a.jobGroup + '.' + a.jobName + '/' + a.group + '.' + a.name).localeCompare(b.jobGroup + '.' + b.jobName + '/' + b.group + '.' + b.name));
+            this.mergeArrayInPlace(this.triggers, sortedTriggers, t => t.group + '.' + t.name + '/' + t.jobGroup + '.' + t.jobName);
+            this.triggers.sort((a, b) => (a.jobGroup + '.' + a.jobName + '/' + a.group + '.' + a.name).localeCompare(b.jobGroup + '.' + b.jobName + '/' + b.group + '.' + b.name));
             this.triggersTotal = Number.isFinite(triggersResp?.total) ? triggersResp.total : this.triggers.length;
-            this.executingJobs = (Array.isArray(executingResp) ? executingResp : (Array.isArray(executingResp?.data) ? executingResp.data : []))
+            const sortedExecuting = (Array.isArray(executingResp) ? executingResp : (Array.isArray(executingResp?.data) ? executingResp.data : []))
               .sort((a, b) => (a.jobGroup + '.' + a.jobName).localeCompare(b.jobGroup + '.' + b.jobName));
+            this.mergeArrayInPlace(this.executingJobs, sortedExecuting, ej => ej.fireInstanceId || (ej.jobGroup + '.' + ej.jobName));
+            this.executingJobs.sort((a, b) => (a.jobGroup + '.' + a.jobName).localeCompare(b.jobGroup + '.' + b.jobName));
             this.lastRefreshed = new Date();
           } catch (e) {
             console.error('Refresh error:', e);
             this.errors.jobs = 'Refresh failed: ' + e.message;
             this.errors.triggers = 'Refresh failed: ' + e.message;
             this.errors.executing = 'Refresh failed: ' + e.message;
-            this.showToast('Refresh failed: ' + e.message, 'error');
+            if (!silent) this.showToast('Refresh failed: ' + e.message, 'error');
           }
         },
 
-        async loadJobs(page) {
-          this.loading.jobs = true;
+        async loadJobs(page, silent = false) {
+          if (!silent) this.loading.jobs = true;
           try {
             if (page) this.jobsPage = page;
             if (this.jobsPage < 1) this.jobsPage = 1;
             const offset = (this.jobsPage - 1) * this.jobsPageSize;
             const resp = await this.fetchApi('/jobs?offset=' + offset + '&limit=' + this.jobsPageSize);
-            this.jobs = (Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []))
+            const sorted = (Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []))
               .sort((a, b) => (a.group + '.' + a.name).localeCompare(b.group + '.' + b.name));
+            this.mergeArrayInPlace(this.jobs, sorted, j => j.group + '.' + j.name);
+            this.jobs.sort((a, b) => (a.group + '.' + a.name).localeCompare(b.group + '.' + b.name));
             this.jobsTotal = Number.isFinite(resp?.total) ? resp.total : this.jobs.length;
             const lastPage = Math.max(1, Math.ceil((this.jobsTotal || 0) / this.jobsPageSize));
             if (this.jobsPage > lastPage) {
               this.jobsPage = lastPage;
-              return await this.loadJobs();
+              return await this.loadJobs(undefined, silent);
             }
+            // If job drawer is open, its data was updated in-place via mergeArrayInPlace
             this.errors.jobs = null; this.retryCounts.jobs = 0;
-          } catch (e) { console.error('loadJobs:', e); this.errors.jobs = e.message; this.showToast('Failed to load jobs: ' + e.message, 'error'); this._retryLoad('jobs', () => this.loadJobs()); }
-          this.loading.jobs = false;
+          } catch (e) { console.error('loadJobs:', e); this.errors.jobs = e.message; if (!silent) this.showToast('Failed to load jobs: ' + e.message, 'error'); this._retryLoad('jobs', () => this.loadJobs()); }
+          if (!silent) this.loading.jobs = false;
         },
 
         async jobsGoToPage(page) {
@@ -167,32 +176,33 @@ export function createApiSection() {
           await this.jobsGoToPage(this.jobsPage + 1);
         },
 
-        async loadTriggers(page) {
-          this.loading.triggers = true;
+        async loadTriggers(page, silent = false) {
+          if (!silent) this.loading.triggers = true;
           try {
             if (page) this.triggersPage = page;
             if (this.triggersPage < 1) this.triggersPage = 1;
             const offset = (this.triggersPage - 1) * this.triggersPageSize;
             const resp = await this.fetchApi('/triggers?offset=' + offset + '&limit=' + this.triggersPageSize);
             const list = Array.isArray(resp) ? resp : (resp.data ?? resp ?? []);
-            this.triggers = (Array.isArray(list) ? list : [])
+            const sorted = (Array.isArray(list) ? list : [])
               .sort((a, b) => (a.jobGroup + '.' + a.jobName + '/' + a.group + '.' + a.name).localeCompare(b.jobGroup + '.' + b.jobName + '/' + b.group + '.' + b.name));
+            this.mergeArrayInPlace(this.triggers, sorted, t => t.group + '.' + t.name + '/' + t.jobGroup + '.' + t.jobName);
+            this.triggers.sort((a, b) => (a.jobGroup + '.' + a.jobName + '/' + a.group + '.' + a.name).localeCompare(b.jobGroup + '.' + b.jobName + '/' + b.group + '.' + b.name));
             this.triggersTotal = Number.isFinite(resp?.total) ? resp.total : this.triggers.length;
             const lastPage = Math.max(1, Math.ceil((this.triggersTotal || 0) / this.triggersPageSize));
             if (this.triggersPage > lastPage) {
               this.triggersPage = lastPage;
-              return await this.loadTriggers();
+              return await this.loadTriggers(undefined, silent);
             }
             this.errors.triggers = null; this.retryCounts.triggers = 0;
-            // Merge new groups into existing expanded state — preserve open/closed
             for (const t of this.triggers) {
               const key = (t.jobGroup || '') + '.' + (t.jobName || '');
               if (!(key in this.expandedTriggerGroups)) {
                 this.expandedTriggerGroups[key] = true;
               }
             }
-          } catch (e) { console.error('loadTriggers:', e); this.errors.triggers = e.message; this.showToast('Failed to load triggers: ' + e.message, 'error'); this._retryLoad('triggers', () => this.loadTriggers()); }
-          this.loading.triggers = false;
+          } catch (e) { console.error('loadTriggers:', e); this.errors.triggers = e.message; if (!silent) this.showToast('Failed to load triggers: ' + e.message, 'error'); this._retryLoad('triggers', () => this.loadTriggers()); }
+          if (!silent) this.loading.triggers = false;
         },
 
         async triggersGoToPage(page) {
@@ -208,21 +218,22 @@ export function createApiSection() {
           await this.triggersGoToPage(this.triggersPage + 1);
         },
 
-        async loadExecutingJobs() {
-          this.loading.executing = true;
-          const prevIds = this.knownExecutingIds;
+        async loadExecutingJobs(silent = false) {
+          if (!silent) this.loading.executing = true;
           try {
             const resp = await this.fetchApi('/executing');
-            this.executingJobs = (Array.isArray(resp) ? resp : (resp.data || []))
+            const sorted = (Array.isArray(resp) ? resp : (resp.data || []))
               .sort((a, b) => (a.jobGroup + '.' + a.jobName).localeCompare(b.jobGroup + '.' + b.jobName));
+            this.mergeArrayInPlace(this.executingJobs, sorted, ej => ej.fireInstanceId || (ej.jobGroup + '.' + ej.jobName));
+            this.executingJobs.sort((a, b) => (a.jobGroup + '.' + a.jobName).localeCompare(b.jobGroup + '.' + b.jobName));
             this.knownExecutingIds = new Set(this.executingJobs.map(ej => ej.fireInstanceId));
             this.errors.executing = null; this.retryCounts.executing = 0;
-          } catch (e) { console.error('loadExecutingJobs:', e); this.errors.executing = e.message; this.showToast('Failed to load executing jobs: ' + e.message, 'error'); this._retryLoad('executing', () => this.loadExecutingJobs()); }
-          this.loading.executing = false;
+          } catch (e) { console.error('loadExecutingJobs:', e); this.errors.executing = e.message; if (!silent) this.showToast('Failed to load executing jobs: ' + e.message, 'error'); this._retryLoad('executing', () => this.loadExecutingJobs()); }
+          if (!silent) this.loading.executing = false;
         },
 
-        async loadHistory(page) {
-          this.loading.history = true;
+        async loadHistory(page, silent = false) {
+          if (!silent) this.loading.history = true;
           try {
             const pageSize = Math.max(this.historyPageSize || this.historyLimit || 50, 1);
             if (page) this.historyCurrentPage = page;
@@ -235,12 +246,13 @@ export function createApiSection() {
             if (this.historyFilterObj.dateFrom) params.set('dateFrom', this.historyFilterObj.dateFrom);
             if (this.historyFilterObj.dateTo) params.set('dateTo', this.historyFilterObj.dateTo);
             const resp = await this.fetchApi('/history?' + params.toString());
-            this.history = resp.data || [];
+            const incoming = resp.data || [];
+            this.mergeArrayInPlace(this.history, incoming, h => (h.fireTime || '') + '|' + (h.jobKey || '') + '|' + (h.triggerKey || ''));
             this.historyTotal = resp.total || 0;
             const lastPage = Math.max(1, Math.ceil((this.historyTotal || 0) / pageSize));
             if (this.historyCurrentPage > lastPage) {
               this.historyCurrentPage = lastPage;
-              return await this.loadHistory();
+              return await this.loadHistory(undefined, silent);
             }
             this.historyOffset = Number.isFinite(resp?.offset) ? resp.offset : this.historyOffset;
             this.maxHistoryDuration = 0;
@@ -252,8 +264,16 @@ export function createApiSection() {
             this.syncFaviconBadgeFromHistory(this.history);
             this.loadHeatmap();
             this.errors.history = null; this.retryCounts.history = 0;
-          } catch (e) { console.error('loadHistory:', e); this.errors.history = e.message; this.showToast('Failed to load history: ' + e.message, 'error'); this._retryLoad('history', () => this.loadHistory()); }
-          this.loading.history = false;
+          } catch (e) { console.error('loadHistory:', e); this.errors.history = e.message; if (!silent) this.showToast('Failed to load history: ' + e.message, 'error'); this._retryLoad('history', () => this.loadHistory()); }
+          if (!silent) this.loading.history = false;
+        },
+
+        async retriggerHistoryRecord(record) {
+          if (this.config.readOnly) { this.showToast('Dashboard is in read-only mode.', 'warning'); return; }
+          const group = record.jobGroup || (record.jobKey || '').split('.')[0] || '';
+          const name = record.jobName || (record.jobKey || '').split('.').slice(1).join('.') || (record.jobKey || '').split('.')[0] || '';
+          if (!group || !name) { this.showToast('Cannot determine job to retrigger', 'error'); return; }
+          this.openTriggerJobModal(group, name);
         },
 
         async historyGoToPage(page) {

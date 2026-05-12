@@ -16,6 +16,7 @@ A beautiful, self-contained **Quartz.NET scheduler dashboard** — drop it into 
 
 ## Contents
 
+- [What's New in v4.1.0](#whats-new-in-v410)
 - [What's New in v4.0.0](#whats-new-in-v400)
 - [What it does](#what-it-does)
 - [Quick Start](#quick-start)
@@ -40,6 +41,23 @@ A beautiful, self-contained **Quartz.NET scheduler dashboard** — drop it into 
 - [License](#license)
 
 ---
+
+## What's New in v4.1.0
+
+UX polish + anti-flicker refresh on top of v4.0:
+
+- **No more flicker on refresh.** Job/trigger/history lists update in place via `mergeArrayInPlace`, so Alpine `x-for` reuses DOM nodes. Scroll position, open drawers, and expanded rows survive auto-refreshes.
+- **Silent background refresh.** Auto-refresh and SignalR fan-out skip loading spinners and error toasts; visible refresh actions stay loud.
+- **Row density toggle** (comfortable / compact) in Settings, persisted to localStorage.
+- **Desktop notifications** for job failures — opt-in browser permission flow in Settings.
+- **Per-job sparkline column** on the Jobs page, showing recent duration trend (visible from `xl` ≥ 1280px).
+- **"In-memory only" banner** on the History page when no persistent store is registered. Dismissible.
+- **Triggers group header** — context-aware Pause/Resume buttons and a `N/M paused` counter.
+- One-click **Copy key** and **Retrigger** buttons on jobs / triggers / history rows.
+
+Plus targeted fixes: health nav badge no longer floats at the far-right of the sidebar, sparkline column actually renders (added missing Tailwind `xl:` utilities), timeline tooltip no longer flashes `01:00:00 AM` on cursor-init, graph "Current Rate" is correctly labeled `/min`, history trigger column gets more width, executing empty state uses an SVG icon instead of an emoji.
+
+No API or wire-format changes. Drop-in upgrade from v4.0.x.
 
 ## What's New in v4.0.0
 
@@ -672,6 +690,16 @@ POST {Path}/hub/negotiate?negotiateVersion=1  → 200 when working
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
+
+### v4.1.0 (2026-05-12)
+- **In-place refresh (no flicker)** — `mergeArrayInPlace` mutates job/trigger/history arrays in place so Alpine `x-for` reuses DOM nodes; scroll position, open drawers, and expanded rows survive auto-refreshes
+- **Silent background refresh** — auto-refresh and SignalR fan-out skip loading spinners and error toasts
+- **Row density toggle** (comfortable / compact), persisted to localStorage
+- **Desktop notifications** for job failures (opt-in)
+- **Per-job sparkline column** on Jobs page (visible from `xl` ≥ 1280px)
+- **"In-memory only" banner** on History when no persistent store is registered
+- **Triggers group header** — context-aware Pause/Resume + paused counter
+- Fixed: health nav badge position, sparkline column never rendering (Tailwind pre-build gap), timeline tooltip epoch flash, graph CURRENT RATE unit mislabel (`/s` → `/min`), history trigger truncation, executing empty-state emoji → SVG icon
 
 ### v4.0.0 (2026-05-11)
 - **Breaking**: `IFireHistoryStore` / `FireRecord` moved to `QuartzDashboard.Abstractions` namespace (`Dot.QuartzDashboard.Abstractions` package)

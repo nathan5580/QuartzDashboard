@@ -4,14 +4,12 @@ export function createSettingsRefreshSection() {
       if (this.autoRefreshTimer) clearInterval(this.autoRefreshTimer);
       const ms = this.settings.refreshInterval * 1000;
       this.autoRefreshTimer = setInterval(() => {
-        // If SignalR is connected and the page supports real-time, skip polling refresh for those pages
         if (this.signalRConnected) {
-          // Timeline, executing are real-time via SignalR
           if (this.currentPage === 'timeline' || this.currentPage === 'executing') return;
         }
         const page = this.currentPage;
         if (this.settings.autoRefreshPages[page]) {
-          this.refreshPage(page);
+          this.refreshPage(page, true);
         }
       }, ms);
     },
@@ -20,17 +18,25 @@ export function createSettingsRefreshSection() {
       this.settings.autoRefreshPages[pageId] = !this.settings.autoRefreshPages[pageId];
     },
 
-    async refreshPage(page) {
+    async refreshPage(page, silent = false) {
+      // Preserve scroll position so background refresh doesn't jump the view
+      const mainEl = document.querySelector('main') || document.querySelector('.main-content');
+      const scrollTop = mainEl ? mainEl.scrollTop : 0;
+
       switch (page) {
-        case 'overview': await this.refreshAll(); break;
-        case 'jobs': await this.loadJobs(); break;
-        case 'triggers': await this.loadTriggers(); break;
-        case 'executing': await this.loadExecutingJobs(); break;
-        case 'history': await this.loadHistory(); break;
+        case 'overview': await this.refreshAll(silent); break;
+        case 'jobs': await this.loadJobs(undefined, silent); break;
+        case 'triggers': await this.loadTriggers(undefined, silent); break;
+        case 'executing': await this.loadExecutingJobs(silent); break;
+        case 'history': await this.loadHistory(undefined, silent); break;
         case 'graph': await this.loadStats(); break;
         case 'timeline': await this.loadTimeline(); break;
         case 'health': await this.loadHealth(); break;
         case 'calendars': await this.loadCalendars(); break;
+      }
+
+      if (silent && mainEl && scrollTop > 0) {
+        this.$nextTick?.(() => { mainEl.scrollTop = scrollTop; });
       }
     },
 
