@@ -288,6 +288,38 @@ export function createUtilsSection() {
           return dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
         },
 
+        mergeArrayInPlace(existing, incoming, keyFn) {
+          const incomingMap = new Map(incoming.map(item => [keyFn(item), item]));
+          for (let i = existing.length - 1; i >= 0; i--) {
+            const key = keyFn(existing[i]);
+            const fresh = incomingMap.get(key);
+            if (fresh) {
+              Object.assign(existing[i], fresh);
+              incomingMap.delete(key);
+            } else {
+              existing.splice(i, 1);
+            }
+          }
+          for (const [, item] of incomingMap) {
+            existing.push(item);
+          }
+          return existing;
+        },
+
+        copyToClipboard(text, successMsg) {
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(() => this.showToast(successMsg || 'Copied!', 'success'));
+          } else {
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            this.showToast(successMsg || 'Copied!', 'success');
+          }
+        },
+
         exportHistoryToCsv(history) {
           const headers = ['Fire Time', 'Job Name', 'Job Group', 'Trigger Name', 'Trigger Group', 'Status', 'Duration (ms)', 'Error'];
           const splitKey = (key) => {

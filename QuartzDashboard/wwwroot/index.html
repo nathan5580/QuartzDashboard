@@ -601,9 +601,11 @@
                   :aria-current="currentPage === item.id ? 'page' : undefined"
                   :class="['sidebar-item w-full text-left bg-transparent border-0', currentPage === item.id ? 'active' : '', sidebarOpen ? '' : 'justify-center px-0']"
                   :title="!sidebarOpen ? item.label : ''">
-            <span x-html="item.icon" style="flex-shrink:0;display:flex;align-items:center;justify-content:center"></span>
+            <span style="flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative">
+              <span x-html="item.icon"></span>
+              <span x-show="item.id === 'health' && healthAlertCount > 0" class="nav-badge"></span>
+            </span>
             <span x-show="sidebarOpen" x-text="item.label" style="overflow:hidden;white-space:nowrap;font-size:13px"></span>
-            <span x-show="item.id === 'health' && healthAlertCount > 0" class="nav-badge"></span>
           </button>
         </template>
       </nav>
@@ -1089,7 +1091,9 @@
                 </div>
                 <div class="text-center py-2 px-3 rounded-lg bg-white/[0.03]">
                   <div class="text-[10px] text-gray-600 uppercase">P99</div>
-                  <div class="text-base font-bold text-red-400 tabular-nums" x-text="(stats.percentiles?.p99 || 0) + 'ms'"></div>
+                  <div class="text-base font-bold tabular-nums"
+                       :class="(stats.percentiles?.p99 || 0) > (stats.percentiles?.p50 || 0) * 2 ? 'text-red-400' : 'text-amber-400'"
+                       x-text="(stats.percentiles?.p99 || 0) + 'ms'"></div>
                 </div>
               </div>
               <div class="space-y-1" x-show="stats.percentiles?.perJob?.length > 0">
@@ -1478,6 +1482,7 @@
                           <th @click="sortTable('jobs', 'triggers')" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden lg:table-cell cursor-pointer select-none">Triggers <span class="sort-indicator" :class="jobsSortCol === 'triggers' ? 'active' : ''" x-text="jobsSortCol === 'triggers' ? (jobsSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
                           <th @click="sortTable('jobs', 'nextFireTime')" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 cursor-pointer select-none">Next Fire <span class="sort-indicator" :class="jobsSortCol === 'nextFireTime' ? 'active' : ''" x-text="jobsSortCol === 'nextFireTime' ? (jobsSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
                           <th @click="sortTable('jobs', 'lastRun')" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden xl:table-cell cursor-pointer select-none">Last Run <span class="sort-indicator" :class="jobsSortCol === 'lastRun' ? 'active' : ''" x-text="jobsSortCol === 'lastRun' ? (jobsSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                          <th class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden xl:table-cell">Trend</th>
                           <th class="py-2.5 px-4 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500">Actions</th>
                         </tr>
                       </thead>
@@ -1496,7 +1501,7 @@
                                  : (openJobDrawer(item.job), selectedJobIndex = filteredJobs.indexOf(item.job))">
 
                             <!-- ── HEADER cells (group row) ── -->
-                            <td x-show="item.isHeader" colspan="8" class="py-2 px-4">
+                            <td x-show="item.isHeader" colspan="9" class="py-2 px-4">
                               <div class="flex items-center gap-2">
                                 <svg class="w-3.5 h-3.5 text-gray-500 transition-transform duration-150 flex-shrink-0"
                                      :class="item.isCollapsed ? '' : 'rotate-90'"
@@ -1507,9 +1512,11 @@
                                 <span class="text-[10px] bg-white/[0.06] text-gray-500 px-1.5 py-0.5 rounded-full"
                                       x-text="item.count + ' job' + (item.count !== 1 ? 's' : '')"></span>
                                 <div class="ml-auto flex items-center gap-1" x-show="!config.readOnly" @click.stop>
-                                  <button @click="pauseJobGroup(item.groupName)" title="Pause all jobs in this group" :aria-label="'Pause all jobs in ' + item.groupName"
+                                  <button x-show="!jobGroupIsPaused(item.groupName)"
+                                          @click="pauseJobGroup(item.groupName)" :title="'Pause all jobs in ' + item.groupName" :aria-label="'Pause all jobs in ' + item.groupName"
                                           class="px-2 py-0.5 text-[10px] rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-colors">Pause</button>
-                                  <button @click="resumeJobGroup(item.groupName)" title="Resume all jobs in this group" :aria-label="'Resume all jobs in ' + item.groupName"
+                                  <button x-show="jobGroupIsPaused(item.groupName)"
+                                          @click="resumeJobGroup(item.groupName)" :title="'Resume all jobs in ' + item.groupName" :aria-label="'Resume all jobs in ' + item.groupName"
                                           class="px-2 py-0.5 text-[10px] rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors">Resume</button>
                                 </div>
                               </div>
@@ -1545,7 +1552,7 @@
                             </td>
                             <td x-show="!item.isHeader" class="py-3.5 px-4" data-label="Next Fire">
                               <span class="text-xs mono"
-                                    :class="item.job && item.job.nextFireTime ? 'text-gray-300' : 'text-gray-600'"
+                                    :class="[item.job && item.job.nextFireTime ? 'text-gray-300' : 'text-gray-600', item.job && formatCountdown(item.job.nextFireTime) === 'due now' ? 'due-now' : '']"
                                     :title="item.job && item.job.nextFireTime ? formatDate(item.job.nextFireTime) : ''"
                                     x-text="item.job && formatCountdown(item.job.nextFireTime)"></span>
                             </td>
@@ -1554,6 +1561,14 @@
                                     :class="item.job && getJobLastExecution(item.job.group, item.job.name) ? 'text-gray-300' : 'text-gray-600'"
                                     :title="item.job && getJobLastExecution(item.job.group, item.job.name) ? formatDate(getJobLastExecution(item.job.group, item.job.name).fireTime) : ''"
                                     x-text="item.job && getJobLastExecution(item.job.group, item.job.name) ? relativeTimePhrase(getJobLastExecution(item.job.group, item.job.name).fireTime) : '—'"></span>
+                            </td>
+                            <td x-show="!item.isHeader" class="py-3.5 px-4 hidden xl:table-cell" data-label="Trend">
+                              <template x-if="item.job && jobInlineSparklinePoints(item.job.group, item.job.name)">
+                                <svg width="56" height="18" viewBox="0 0 56 18" class="block overflow-visible" style="opacity:0.7">
+                                  <polyline :points="item.job && jobInlineSparklinePoints(item.job.group, item.job.name)"
+                                            fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+                                </svg>
+                              </template>
                             </td>
                             <td x-show="!item.isHeader" class="py-3.5 px-4 text-right" data-label="Actions">
                               <div x-show="item.job" class="relative inline-flex justify-end" @click.stop>
@@ -1569,6 +1584,10 @@
                                      @click.outside="closeRowActionsMenu()"
                                      class="row-actions-menu"
                                      style="display:none">
+                                  <button @click="item.job && (copyJobKey(item.job.group, item.job.name), closeRowActionsMenu())" class="row-actions-item"
+                                          :aria-label="item.job ? 'Copy key for ' + item.job.name : 'Copy key'">
+                                    <span>Copy key</span>
+                                  </button>
                                   <button @click="item.job && (historyFilterObj.search = item.job.group + '.' + item.job.name, navigateTo('history'), closeRowActionsMenu())" class="row-actions-item"
                                           :aria-label="item.job ? 'View history for ' + item.job.name : 'View history'">
                                     <span>View history</span>
@@ -2080,11 +2099,16 @@
                       </svg>
                       <span class="text-sm font-medium text-gray-200" x-text="group.jobName"></span>
                       <span class="badge badge-idle text-[10px]" x-text="group.triggers.length + ' trigger' + (group.triggers.length !== 1 ? 's' : '')"></span>
-                      <div class="ml-auto flex items-center gap-1" x-show="!config.readOnly" @click.stop>
-                        <button @click="pauseJob(group.jobGroup, group.jobNameOnly)" title="Pause all triggers for this job"
-                                class="px-2 py-0.5 text-[10px] rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-colors">Pause</button>
-                        <button @click="resumeJob(group.jobGroup, group.jobNameOnly)" title="Resume all triggers for this job"
-                                class="px-2 py-0.5 text-[10px] rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors">Resume</button>
+                      <div class="ml-auto flex items-center gap-2" @click.stop>
+                        <span x-show="group.triggers.some(t => t.state === 'Paused')"
+                              class="text-[10px] text-amber-400/60 font-mono tabular-nums"
+                              x-text="group.triggers.filter(t => t.state === 'Paused').length + '/' + group.triggers.length + ' paused'"></span>
+                        <div class="flex items-center gap-1" x-show="!config.readOnly">
+                          <button x-show="group.triggers.some(t => t.state !== 'Paused')" @click="pauseJob(group.jobGroup, group.jobNameOnly)" title="Pause all triggers for this job"
+                                  class="px-2 py-0.5 text-[10px] rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-colors">Pause</button>
+                          <button x-show="group.triggers.some(t => t.state === 'Paused')" @click="resumeJob(group.jobGroup, group.jobNameOnly)" title="Resume all triggers for this job"
+                                  class="px-2 py-0.5 text-[10px] rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors">Resume</button>
+                        </div>
                       </div>
                     </div>
                     <div x-show="expandedTriggerGroups[group.jobName]" class="accordion-enter">
@@ -2120,6 +2144,9 @@
                                 </td>
                                 <td class="text-right">
                                   <div class="flex gap-1 justify-end flex-wrap">
+                                    <button @click.stop="copyTriggerKey(t)" class="btn btn-ghost text-[10px] px-2 py-1" title="Copy trigger key" :aria-label="'Copy key for trigger ' + t.name">
+                                      <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                    </button>
                                     <button @click.stop="openTriggerDetail(t)" class="btn btn-ghost text-[10px] px-2 py-1" title="View" :aria-label="'View trigger ' + t.name">
                                       <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
                                     </button>
@@ -2208,7 +2235,12 @@
               <div>
                 <!-- Empty state -->
                 <div x-show="!loading.executing && (!executingJobs || executingJobs.length === 0)" class="empty-state">
-                  <div class="empty-state-icon">⏱️</div>
+                  <div class="empty-state-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" style="width:48px;height:48px;opacity:0.35">
+                      <circle cx="12" cy="12" r="10"/>
+                      <polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none" opacity="0.6"/>
+                    </svg>
+                  </div>
                   <div class="empty-state-title">No jobs currently running</div>
                   <div class="empty-state-desc">Jobs appear here the moment they start and disappear when they finish.<br>This view updates automatically via live connection.</div>
                   <div class="mt-4 flex items-center gap-2 text-[11px] text-gray-600">
@@ -2292,6 +2324,26 @@
       <!-- ===================== HISTORY PAGE ===================== -->
       <div x-show="currentPage === 'history'" x-transition.opacity.duration.150ms>
           <div class="space-y-4">
+
+            <!-- In-memory history notice (shown once, dismissible) -->
+            <div x-show="!historyBannerDismissed && config.hasPersistentHistory === false"
+                 x-transition.opacity
+                 class="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.07] text-sm"
+                 style="display:none">
+              <svg class="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <div class="flex-1 text-amber-300/90">
+                <span class="font-medium">In-memory history only.</span>
+                Records are lost on restart. Add
+                <span class="font-mono text-amber-200 bg-amber-500/10 px-1 rounded">Dot.QuartzDashboard.Sqlite</span>
+                or implement <span class="font-mono text-amber-200 bg-amber-500/10 px-1 rounded">IFireHistoryStore</span>
+                for persistent history.
+              </div>
+              <button @click="historyBannerDismissed = true; localStorage.setItem('quartz-history-banner-dismissed', 'true')"
+                      class="text-amber-500/60 hover:text-amber-400 transition-colors flex-shrink-0" title="Dismiss">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
             <div class="flex items-center justify-between flex-wrap gap-3">
               <div>
                 <div class="flex items-center gap-2 flex-wrap">
@@ -2384,15 +2436,16 @@
                         <th @click="sortTable('history', 'jobKey')" class="cursor-pointer select-none">Job <span class="sort-indicator" :class="historySortCol === 'jobKey' ? 'active' : ''" x-text="historySortCol === 'jobKey' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
                         <th @click="sortTable('history', 'triggerKey')" class="hidden sm:table-cell cursor-pointer select-none">Trigger <span class="sort-indicator" :class="historySortCol === 'triggerKey' ? 'active' : ''" x-text="historySortCol === 'triggerKey' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
                         <th @click="sortTable('history', 'duration')" class="cursor-pointer select-none">Duration <span class="text-gray-600 normal-case">(ms/s)</span> <span class="sort-indicator" :class="historySortCol === 'duration' ? 'active' : ''" x-text="historySortCol === 'duration' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                        <th class="hidden md:table-cell">Bar</th>
+                        <th class="hidden md:table-cell text-[10px] font-semibold uppercase tracking-widest text-gray-500">Rel.</th>
                         <th @click="sortTable('history', 'success')" class="cursor-pointer select-none">Outcome <span class="sort-indicator" :class="historySortCol === 'success' ? 'active' : ''" x-text="historySortCol === 'success' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                        <th class="hidden sm:table-cell text-[10px] font-semibold uppercase tracking-widest text-gray-500"></th>
                       </tr>
                     </thead>
                     <tbody>
                       <template x-for="(h, idx) in filteredHistory" :key="h.fireTime + '-' + h.jobKey + '-' + idx">
                         <template x-if="true">
-                          <tr class="table-row-hover cursor-pointer" @click="openHistoryDetail(h)">
-                            <td class="mono text-xs text-gray-400" data-label="Time" x-text="formatDate(h.fireTime)"></td>
+                          <tr class="table-row-hover cursor-pointer group" @click="openHistoryDetail(h)">
+                            <td class="mono text-xs text-gray-400" data-label="Time" :title="formatDate(h.fireTime)" x-text="relativeTimePhrase(h.fireTime)"></td>
                             <td class="font-medium text-gray-100 text-xs" data-label="Job">
                               <div class="flex items-center gap-2">
                                 <span x-text="h.jobKey" :title="h.jobKey"></span>
@@ -2402,7 +2455,7 @@
                                    class="text-[10px] text-red-400/70 truncate max-w-[220px] mt-0.5"
                                    x-text="h.exceptionMessage || h.errorMessage"></div>
                             </td>
-                            <td class="text-xs text-gray-500 hidden sm:table-cell truncate max-w-[140px]" data-label="Trigger" x-text="h.triggerKey" :title="h.triggerKey"></td>
+                            <td class="text-xs text-gray-500 hidden sm:table-cell truncate max-w-[200px]" data-label="Trigger" x-text="h.triggerKey" :title="h.triggerKey"></td>
                             <td class="text-xs mono text-gray-300" data-label="Duration" x-text="h.duration ? formatDuration(h.duration) : '\u2014'"></td>
                             <td class="hidden md:table-cell" data-label="">
                               <div class="w-24 h-1.5 bg-gray-700/40 rounded-full overflow-hidden">
@@ -2413,6 +2466,13 @@
                             </td>
                             <td data-label="Outcome">
                               <span :class="h.success ? 'badge badge-ok' : 'badge badge-error'" x-text="h.success ? 'OK' : 'Error'"></span>
+                            </td>
+                            <td class="hidden sm:table-cell pr-3" data-label="" @click.stop>
+                              <button x-show="!config.readOnly"
+                                      @click="retriggerHistoryRecord(h)"
+                                      class="btn-icon opacity-0 group-hover:opacity-100 transition-opacity" title="Run this job again" aria-label="Rerun job">
+                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                              </button>
                             </td>
                           </tr>
                           <tr x-show="historyExpandedRows[h.fireTime] && h.exceptionMessage" class="bg-red-500/[0.03]">
@@ -2596,7 +2656,7 @@
                   </div>
                   <div>
                     <span class="text-[10px] font-medium uppercase tracking-wider text-gray-500">Current Rate</span>
-                    <p class="text-base font-semibold text-gray-200 tabular-nums mt-0.5" x-text="(stats.executionRate || 0).toFixed(2) + '/s'"></p>
+                    <p class="text-base font-semibold text-gray-200 tabular-nums mt-0.5" x-text="(stats.executionRate || 0).toFixed(1) + '/min'"></p>
                 </div>
               </div>
             </div>  <!-- closes graphData.length wrapper -->
@@ -2708,7 +2768,7 @@
                   </div>
 
                   <!-- Tooltip: time crosshair + jobs at cursor -->
-                  <div x-show="timelineCursor.show && (timelineCursor.bar || timelineCursor.events.length)"
+                  <div x-show="timelineCursor.show && timelineCursor.timeMs > 0"
                        :style="'left:' + Math.min(timelineCursor.x + 14, timelineWidth - 250) + 'px;top:8px;'"
                        class="absolute z-30 pointer-events-none"
                        style="display:none">
@@ -3043,6 +3103,54 @@
               </button>
             </div>
 
+            <!-- Desktop Notifications -->
+            <div class="card-gradient space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                </div>
+                <div>
+                  <h2 class="text-sm font-semibold text-gray-100">Desktop Notifications</h2>
+                  <p class="text-xs text-gray-500">Show a system notification when jobs fail</p>
+                </div>
+                <div class="ml-auto flex items-center gap-2">
+                  <span x-show="desktopNotificationsPermission === 'denied'" class="text-[10px] text-red-400 bg-red-500/10 px-2 py-0.5 rounded">Blocked by browser</span>
+                  <label x-show="desktopNotificationsPermission !== 'denied'"
+                         @click.prevent="desktopNotificationsEnabled ? disableDesktopNotifications() : requestDesktopNotifications()"
+                         class="cursor-pointer">
+                    <div :class="['toggle', desktopNotificationsEnabled ? 'toggle-on' : 'toggle-off']">
+                      <div :class="['toggle-knob', desktopNotificationsEnabled ? 'toggle-knob-on' : 'toggle-knob-off']"></div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row Density -->
+            <div class="card-gradient space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-slate-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                </div>
+                <div>
+                  <h2 class="text-sm font-semibold text-gray-100">Row Density</h2>
+                  <p class="text-xs text-gray-500">Control table row spacing</p>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button @click="setRowDensity('comfortable')"
+                        :class="rowDensity === 'comfortable' ? 'bg-quartz-600 text-white border-quartz-500' : 'bg-white/[0.03] text-gray-400 border-white/[0.08] hover:bg-white/[0.06] hover:text-gray-200'"
+                        class="px-3 py-1.5 rounded-lg text-sm border transition-all flex-1 text-center">
+                  Comfortable
+                </button>
+                <button @click="setRowDensity('compact')"
+                        :class="rowDensity === 'compact' ? 'bg-quartz-600 text-white border-quartz-500' : 'bg-white/[0.03] text-gray-400 border-white/[0.08] hover:bg-white/[0.06] hover:text-gray-200'"
+                        class="px-3 py-1.5 rounded-lg text-sm border transition-all flex-1 text-center">
+                  Compact
+                </button>
+              </div>
+            </div>
+
             <!-- Keyboard shortcuts -->
             <div class="card-gradient space-y-3">
               <div class="flex items-center gap-3">
@@ -3190,7 +3298,7 @@
     <div class="flex items-center gap-4 w-full max-w-7xl mx-auto">
       <div class="flex items-center gap-1.5">
         <span class="relative inline-flex">
-          <span :class="['status-dot w-2 h-2', scheduler.isStarted && !scheduler.isStandbyMode ? 'status-dot-running' : scheduler.isStandbyMode ? 'status-dot-standby' : 'status-dot-stopped']"></span>
+          <span :class="['status-dot w-2 h-2', scheduler.isStarted && !scheduler.isStandbyMode ? 'status-dot-running status-dot-pulse' : scheduler.isStandbyMode ? 'status-dot-standby' : 'status-dot-stopped']"></span>
         </span>
         <span x-text="schedulerStatusLabel()" class="font-medium text-gray-400"></span>
       </div>

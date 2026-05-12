@@ -103,6 +103,10 @@ export function createState() {
         _gPressed: false,
         isFullscreen: false,
         soundAlerts: JSON.parse(localStorage.getItem('quartz-sound-alerts') || 'false'),
+        historyBannerDismissed: JSON.parse(localStorage.getItem('quartz-history-banner-dismissed') || 'false'),
+        desktopNotificationsEnabled: JSON.parse(localStorage.getItem('quartz-desktop-notifications') || 'false'),
+        desktopNotificationsPermission: typeof Notification !== 'undefined' ? Notification.permission : 'default',
+        rowDensity: localStorage.getItem('quartz-row-density') || 'comfortable',
         isMobile: false,
         mobileNavOpen: false,
 

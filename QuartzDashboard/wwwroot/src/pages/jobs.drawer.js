@@ -38,6 +38,10 @@ export function createJobsDrawerSection() {
       this.jobDrawerLogsLoading = false;
     },
 
+    copyJobKey(group, name) {
+      this.copyToClipboard((group || '') + '.' + (name || ''), 'Job key copied');
+    },
+
     copyJobJson() {
       const d = this.jobDrawerData || this.jobDetailData;
       if (!d) return;

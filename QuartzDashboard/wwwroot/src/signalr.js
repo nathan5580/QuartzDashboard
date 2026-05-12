@@ -17,6 +17,7 @@ export function createSignalRSection() {
                 if (!e.success) {
                   this.showToast('⚠ ' + e.jobKey + ' failed' + (e.exceptionMessage ? ': ' + e.exceptionMessage.substring(0, 80) : ''), 'error');
                   this.playAlertSound();
+                  this.sendDesktopNotification?.('Job Failed: ' + e.jobKey, e.exceptionMessage ? e.exceptionMessage.substring(0, 120) : 'Execution failed');
                 }
               }
             });
@@ -167,16 +168,16 @@ export function createSignalRSection() {
         },
 
         handleJobsUpdated(data) {
-          // Coalesce bursts to avoid excessive re-renders/fetches under heavy scheduler churn.
-          this.debounce(() => this.loadJobs(), 'signalr-jobs-updated-jobs', 200);
-          this.debounce(() => this.loadTriggers(), 'signalr-jobs-updated-triggers', 200);
+          // Coalesce bursts; silent=true so in-place update doesn't show spinner or flicker.
+          this.debounce(() => this.loadJobs(undefined, true), 'signalr-jobs-updated-jobs', 200);
+          this.debounce(() => this.loadTriggers(undefined, true), 'signalr-jobs-updated-triggers', 200);
         },
 
         // ========================= POLLING FALLBACK =========================
         startPollingFallback() {
           this.stopPollingFallback();
           this.pollingTimer = setInterval(() => {
-            this.refreshAll();
+            this.refreshAll(true);
             this.lastPollingTime = Date.now();
           }, this.settings.refreshInterval * 1000);
         },

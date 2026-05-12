@@ -2,6 +2,34 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [4.1.0] — 2026-05-12
+
+UI polish, anti-flicker refresh, and new UX features. No API changes; drop-in upgrade from 4.0.x.
+
+### Added
+- **In-place refresh (no flicker)** — `mergeArrayInPlace` mutates job/trigger/history arrays in place, so Alpine `x-for` reuses DOM nodes instead of destroying and recreating them. Scroll position, open drawers, and expanded rows survive auto-refreshes.
+- **Silent background refresh** — all `loadX(...)` functions accept a `silent` flag; auto-refresh and SignalR fan-out call them silently, skipping loading spinners and error toasts. Visible refresh actions remain loud.
+- **Scroll preservation** — `refreshPage(page, silent)` saves and restores `scrollTop` across the silent refresh so the page doesn't jump.
+- **Row density toggle** — `comfortable` / `compact` mode in Settings, persisted to localStorage and applied via `data-density` on `<body>`.
+- **Desktop notifications** — opt-in browser notifications for job failures. Permission state and enable flag persisted to localStorage.
+- **Per-job sparkline column** on the Jobs page (Trend), visible from `xl` (1280px). Shows duration trend across recent executions.
+- **History "in-memory only" banner** — dismissible amber banner on the History page when no persistent store is registered. Reads `config.hasPersistentHistory` from `/api/config`.
+- **Triggers group header** — context-aware Pause/Resume buttons (only shows the relevant action based on trigger states) and a `N/M paused` counter when any triggers are paused.
+- **Copy key buttons** on jobs and triggers — one-click copy of `group.name` to clipboard.
+- **History retrigger** — one-click retrigger button on history rows; reveals on row hover.
+- **"due now" pulse** on Next Fire cells when a trigger is due/overdue.
+- **Live ticker** — 1-second tick drives countdowns and live durations across the app.
+- **`rowDensity` persisted** in the `qd-settings` localStorage bundle alongside `sidebarOpen`, `refreshInterval`, etc.
+
+### Fixed
+- **Health nav badge mispositioned** — was absolutely positioned at the far-right of the sidebar button instead of on the icon. Now overlays the icon as a small dot.
+- **Triggers group Pause/Resume** — both buttons always showed regardless of state. Now Pause shows only when at least one trigger is running, Resume shows only when at least one is paused.
+- **Sparkline trend column never visible** — pre-built `tailwind.css` did not include `xl:table-cell` / `2xl:table-cell` utilities. Added explicit media queries in `responsive.css`.
+- **Timeline tooltip "01:00:00 AM" flash** — tooltip was rendering with the zero-epoch initial `timeMs`. Now gated on `timelineCursor.timeMs > 0`.
+- **Graph "Current Rate" unit mislabel** — value is averaged executions per 1-minute bucket; label was `/s`. Corrected to `/min`.
+- **History trigger column truncated too early** — `max-w` raised from 140px to 200px.
+- **Executing empty state emoji** — replaced ⏱️ with an inline SVG play-circle icon for visual consistency.
+
 ## [4.0.0] — 2026-05-11
 
 This release splits the package into three:

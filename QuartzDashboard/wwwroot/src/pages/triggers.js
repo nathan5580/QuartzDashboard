@@ -262,5 +262,9 @@ export function createTriggersSection() {
         toggleTriggerGroup(key) {
           this.expandedTriggerGroups[key] = !this.expandedTriggerGroups[key];
         },
+
+        copyTriggerKey(trigger) {
+          this.copyToClipboard((trigger.group || '') + '.' + (trigger.name || ''), 'Trigger key copied');
+        },
   };
 }

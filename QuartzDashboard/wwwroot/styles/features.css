@@ -30,8 +30,8 @@
 .sort-indicator { display: inline-block; margin-left: 4px; font-size: 10px; opacity: 0.6; }
 .sort-indicator.active { opacity: 1; color: #818cf8; }
 
-/* Notification badge */
-.nav-badge { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; animation: pulse-dot 2s infinite; }
+/* Notification badge — overlays the nav icon (icon wrapper must be position:relative) */
+.nav-badge { position: absolute; top: -2px; right: -3px; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; animation: pulse-dot 2s infinite; pointer-events: none; }
 
 /* CRON builder */
 .cron-builder { background: #1e1e2e; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; }
@@ -82,3 +82,18 @@
 /* Data pulse indicator — flashes when SignalR pushes data */
 .data-pulse-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #6366f1; margin-left: 4px; animation: data-pulse 0.6s ease-out; vertical-align: middle; }
 @keyframes data-pulse { 0% { transform: scale(1.8); opacity: 1; } 100% { transform: scale(1); opacity: 0.6; } }
+
+/* Live status dot ring pulse for running scheduler */
+.status-dot-pulse { position: relative; }
+.status-dot-pulse::before { content: ''; position: absolute; inset: -3px; border-radius: 50%; background: currentColor; opacity: 0; animation: status-ring-pulse 2s ease-out infinite; }
+@keyframes status-ring-pulse { 0% { transform: scale(1); opacity: 0.6; } 80%, 100% { transform: scale(2.4); opacity: 0; } }
+
+/* Due-now blink for countdown cells */
+.due-now { animation: due-blink 0.8s ease-in-out infinite; color: #f59e0b !important; }
+@keyframes due-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* Compact row density */
+[data-density="compact"] .table-row-hover td,
+[data-density="compact"] tr td { padding-top: 0.4rem !important; padding-bottom: 0.4rem !important; }
+[data-density="compact"] .py-3\.5 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+[data-density="compact"] .py-2\.5 { padding-top: 0.35rem !important; padding-bottom: 0.35rem !important; }

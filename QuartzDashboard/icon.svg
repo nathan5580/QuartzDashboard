@@ -1,12 +1,60 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#6366f1"/>
-      <stop offset="100%" stop-color="#8b5cf6"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.55" y2="1">
+      <stop offset="0%" stop-color="#1a1740"/>
+      <stop offset="100%" stop-color="#281e6e"/>
     </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0.5" y2="0.8">
+      <stop offset="0%" stop-color="white" stop-opacity="0.11"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="qg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e0e7ff"/>
+      <stop offset="100%" stop-color="#818cf8"/>
+    </linearGradient>
+    <linearGradient id="bars" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a5b4fc"/>
+      <stop offset="100%" stop-color="#5b5fd6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="45%" cy="42%" r="52%">
+      <stop offset="0%" stop-color="#4338ca" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#4338ca" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-  <rect width="128" height="128" rx="20" fill="url(#bg)"/>
-  <text x="64" y="84" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="bold" font-size="64" fill="white">Q</text>
-  <circle cx="92" cy="24" r="12" fill="white" opacity="0.9"/>
-  <circle cx="92" cy="24" r="8" fill="#6366f1"/>
+
+  <!-- Background + glow + shine -->
+  <rect width="128" height="128" rx="22" fill="url(#bg)"/>
+  <rect width="128" height="128" rx="22" fill="url(#glow)"/>
+  <rect width="128" height="128" rx="22" fill="url(#shine)"/>
+
+  <!--
+    Q ring: center (59,50) r=30  circumference≈188.5
+    Gap ~40° at lower-right (30°–70° CW from 3-o-clock)
+    gap-arc=40/360×188.5≈20.9   visible=167.6
+    dashoffset to start visible arc at 70°: -(70/360)×188.5≈-36.6
+  -->
+  <circle cx="59" cy="50" r="30"
+          fill="none"
+          stroke="url(#qg)"
+          stroke-width="11"
+          stroke-linecap="round"
+          stroke-dasharray="167.6 20.9"
+          stroke-dashoffset="-36.6"/>
+
+  <!-- Q tail from ~30° edge outward to lower-right -->
+  <line x1="84" y1="64" x2="102" y2="82"
+        stroke="url(#qg)" stroke-width="11" stroke-linecap="round"/>
+
+  <!-- Bar chart: execution pulse, bottom-left area -->
+  <rect x="14" y="104" width="7"  height="10" rx="2" fill="url(#bars)" opacity="0.5"/>
+  <rect x="25" y="98"  width="7"  height="16" rx="2" fill="url(#bars)" opacity="0.65"/>
+  <rect x="36" y="101" width="7"  height="13" rx="2" fill="url(#bars)" opacity="0.55"/>
+  <rect x="47" y="94"  width="7"  height="20" rx="2" fill="url(#bars)"/>
+  <rect x="58" y="97"  width="7"  height="17" rx="2" fill="url(#bars)" opacity="0.8"/>
+  <rect x="69" y="100" width="7"  height="14" rx="2" fill="url(#bars)" opacity="0.6"/>
+
+  <!-- Live indicator: top-right -->
+  <circle cx="103" cy="25" r="10" fill="#10b981" fill-opacity="0.2"/>
+  <circle cx="103" cy="25" r="6.5" fill="#10b981"/>
+  <circle cx="103" cy="25" r="2.8" fill="white"/>
 </svg>

@@ -43,10 +43,11 @@ export function createJobsMetricsSection() {
       for (const entry of history) {
         const key = entry?.jobKey;
         if (!key) continue;
-        if (!map[key]) map[key] = { total: 0, success: 0, lastEntry: null, lastFireTime: null };
+        if (!map[key]) map[key] = { total: 0, success: 0, lastEntry: null, lastFireTime: null, durations: [] };
         const metric = map[key];
         metric.total += 1;
         if (entry.success) metric.success += 1;
+        if (metric.durations.length < 20) metric.durations.push(entry.durationMs ?? entry.duration ?? 0);
 
         const fireTs = entry.fireTime ? Date.parse(entry.fireTime) : NaN;
         if (!metric.lastEntry || (Number.isFinite(fireTs) && fireTs > (metric.lastFireTime || 0))) {
@@ -159,6 +160,22 @@ export function createJobsMetricsSection() {
 
     isNewExecutingJob(ej) {
       return ej.fireInstanceId && !this.knownExecutingIds.has(ej.fireInstanceId);
+    },
+
+    jobInlineSparklinePoints(group, name) {
+      const key = group + '.' + name;
+      const metric = this.getJobHistoryMetricsMap()[key];
+      const durations = metric?.durations;
+      if (!durations || durations.length < 2) return '';
+      const max = Math.max(...durations, 1);
+      const w = 56, h = 18;
+      const step = w / (durations.length - 1);
+      return durations.map((d, i) => `${(i * step).toFixed(1)},${(h - (d / max) * (h - 2) - 1).toFixed(1)}`).join(' ');
+    },
+
+    jobGroupIsPaused(groupName) {
+      const groupJobs = (this.jobs || []).filter(j => j.group === groupName);
+      return groupJobs.length > 0 && groupJobs.every(j => j.status === 'Paused');
     },
   };
 }
