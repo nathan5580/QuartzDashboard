@@ -3,12 +3,12 @@ namespace QuartzDashboard.Internal;
 /// <summary>
 /// Base event for the dashboard event bus.
 /// </summary>
-public abstract record DashboardEvent
+internal abstract record DashboardEvent
 {
     public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.UtcNow;
 }
 
-public sealed record JobExecutedEvent(
+internal sealed record JobExecutedEvent(
     string JobKey,
     string TriggerKey,
     string FireInstanceId,
@@ -18,7 +18,7 @@ public sealed record JobExecutedEvent(
     string? ExceptionMessage = null
 ) : DashboardEvent;
 
-public sealed record JobTriggeredEvent(
+internal sealed record JobTriggeredEvent(
     string JobKey,
     string TriggerKey,
     string JobName,
@@ -31,19 +31,19 @@ public sealed record JobTriggeredEvent(
     DateTimeOffset? ScheduledFireTime
 ) : DashboardEvent;
 
-public sealed record SchedulerStatusEvent(
+internal sealed record SchedulerStatusEvent(
     bool IsStarted,
     bool IsStandbyMode,
     bool IsShutdown
 ) : DashboardEvent;
 
-public sealed record JobsUpdatedEvent() : DashboardEvent;
+internal sealed record JobsUpdatedEvent() : DashboardEvent;
 
 /// <summary>
 /// In-memory event bus that decouples Quartz listeners from the SignalR bridge.
 /// Singleton — shared across all components.
 /// </summary>
-public sealed class DashboardEventBus
+internal sealed class DashboardEventBus
 {
     public event EventHandler<DashboardEvent>? OnEvent;
     public event Action<JobExecutedEvent>? OnJobExecuted;

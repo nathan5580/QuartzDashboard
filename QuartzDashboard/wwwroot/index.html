@@ -73,7 +73,7 @@
   </svg>
 
   <!-- Toast queue -->
-  <div class="fixed bottom-12 right-4 z-50 flex flex-col-reverse gap-2 pointer-events-none" style="z-index: 55;">
+  <div class="fixed bottom-12 right-4 z-50 flex flex-col-reverse gap-2 pointer-events-none" style="z-index: 55;" role="status" aria-live="polite" aria-atomic="true">
     <template x-for="(t, idx) in toastQueue.slice(0, 3)" :key="t.id">
       <div class="toast pointer-events-auto"
            :class="'toast-' + t.type"
@@ -1347,7 +1347,7 @@
               <div class="card-gradient">
                 <h2 class="text-sm font-semibold text-gray-200 mb-3">Recent Failures</h2>
                 <div class="space-y-2 max-h-64 overflow-y-auto scrollbar-thin">
-                  <template x-for="(h, hIdx) in failedHistory.slice(0, 20)" :key="h.fireInstanceId || hIdx">
+                  <template x-for="(h, hIdx) in failedHistory.slice(0, 20)" :key="(h.fireInstanceId || '') + '|' + (h.fireTime || '') + '|' + hIdx">
                     <div class="flex items-start justify-between py-2 px-3 rounded-lg bg-red-500/5 border border-red-500/10 gap-2">
                       <div class="flex-1 min-w-0">
                         <p class="text-sm text-gray-200 truncate" x-text="h.jobKey || 'Unknown'"></p>

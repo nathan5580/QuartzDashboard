@@ -42,16 +42,16 @@ internal static class ExportImport
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Type> _jobTypeCache = new();
     private static int _loadedAssemblyCountSnapshot;
 
-    private static Type ResolveJobType(string typeName)
+    private static (Type ResolvedType, bool FellBackToPlaceholder) ResolveJobType(string typeName)
     {
         if (string.IsNullOrEmpty(typeName))
-            return typeof(PlaceholderJob);
+            return (typeof(PlaceholderJob), true);
 
         var currentCount = AppDomain.CurrentDomain.GetAssemblies().Length;
         if (Interlocked.Exchange(ref _loadedAssemblyCountSnapshot, currentCount) != currentCount)
             _jobTypeCache.Clear();
 
-        return _jobTypeCache.GetOrAdd(typeName, name =>
+        var resolved = _jobTypeCache.GetOrAdd(typeName, name =>
         {
             foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
             {
@@ -68,6 +68,8 @@ internal static class ExportImport
             }
             return typeof(PlaceholderJob);
         });
+
+        return (resolved, resolved == typeof(PlaceholderJob));
     }
 
     public static async Task<IResult> ExportJobs(IScheduler sched)
@@ -128,12 +130,15 @@ internal static class ExportImport
 
         int jobsCreated = 0, triggersCreated = 0, errors = 0;
         var errorMessages = new List<string>();
+        var placeholderJobs = new List<string>();
 
         foreach (var ej in payload.Jobs)
         {
             try
             {
-                var jobType = ResolveJobType(ej.JobType);
+                var (jobType, fellBack) = ResolveJobType(ej.JobType);
+                if (fellBack && !string.IsNullOrEmpty(ej.JobType))
+                    placeholderJobs.Add($"{ej.Group}.{ej.Name} ({ej.JobType})");
 
                 var jobBuilder = JobBuilder.Create(jobType)
                     .WithIdentity(ej.Name, ej.Group)
@@ -180,6 +185,19 @@ internal static class ExportImport
             }
         }
 
-        return Results.Ok(new { jobsCreated, triggersCreated, errors, errorMessages });
+        return Results.Ok(new
+        {
+            jobsCreated,
+            triggersCreated,
+            errors,
+            errorMessages,
+            placeholderJobs,
+            // When non-empty, the indicated jobs could not resolve their original IJob type and
+            // were imported as no-op PlaceholderJob entries. Re-import after referencing the
+            // assemblies that define the missing types, or supply fully qualified names.
+            placeholderWarning = placeholderJobs.Count > 0
+                ? "Some jobs were imported as PlaceholderJob because their type could not be resolved in the host AppDomain."
+                : null,
+        });
     }
 }

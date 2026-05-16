@@ -97,3 +97,17 @@
 [data-density="compact"] tr td { padding-top: 0.4rem !important; padding-bottom: 0.4rem !important; }
 [data-density="compact"] .py-3\.5 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
 [data-density="compact"] .py-2\.5 { padding-top: 0.35rem !important; padding-bottom: 0.35rem !important; }
+
+/* Respect user motion preferences — disable all animations and transitions for users
+   who set `prefers-reduced-motion: reduce` at the OS or browser level. Covers boot
+   loaders, pulses, blinks, ring pulses, drawer slides, and any third-party CSS
+   transitions that bubble through. The dashboard remains fully functional; only
+   decorative motion is suppressed. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

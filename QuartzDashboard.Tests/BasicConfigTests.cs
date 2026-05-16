@@ -35,10 +35,21 @@ public class BasicConfigTests : IClassFixture<QuartzTestFixture>
     }
 
     [Fact]
-    public void DefaultOptions_RequireAuthenticationIsFalse()
+    public void DefaultOptions_RequireAuthenticationIsTrue()
     {
+        // v4.2 secure-default flip: dashboard exposes job-trigger / delete endpoints, so the
+        // default must require auth. Adopters opt out explicitly when running on a trusted network.
         var options = new QuartzDashboardOptions();
-        Assert.False(options.RequireAuthentication);
+        Assert.True(options.RequireAuthentication);
+    }
+
+    [Fact]
+    public void DefaultOptions_RequireCsrfHeaderIsTrue()
+    {
+        // v4.2 secure-default: mutating endpoints require a CSRF guard header so a logged-in
+        // operator visiting a malicious page can't be made to trigger jobs cross-site.
+        var options = new QuartzDashboardOptions();
+        Assert.True(options.RequireCsrfHeader);
     }
 
     [Fact]

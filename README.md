@@ -218,6 +218,134 @@ builder.Services.AddQuartzDashboard(options =>
 });
 ```
 
+### Custom history store (Postgres, Redis, Mongo, …)
+
+Implement the two-method `IFireHistoryStore` interface (from `Dot.QuartzDashboard.Abstractions`)
+and register it as a singleton **after** `AddQuartzDashboard()` — it will replace the default
+in-memory store. The dashboard reads through the interface; you do not need to fork the package
+to add a new backend.
+
+```csharp
+using QuartzDashboard.Abstractions;
+using Npgsql;
+
+public sealed class PostgresFireHistoryStore : IFireHistoryStore, IDisposable
+{
+    private readonly NpgsqlDataSource _db;
+    public PostgresFireHistoryStore(string connectionString) =>
+        _db = NpgsqlDataSource.Create(connectionString);
+
+    public int Count
+    {
+        get
+        {
+            using var conn = _db.OpenConnection();
+            using var cmd = new NpgsqlCommand("SELECT COUNT(*) FROM fire_history", conn);
+            return Convert.ToInt32(cmd.ExecuteScalar());
+        }
+    }
+
+    public event Action<FireRecord>? OnFireRecorded;
+
+    public void RecordFire(string jobKey, string triggerKey, DateTimeOffset fireTime,
+        TimeSpan duration, bool success, int refireCount = 0,
+        string? exceptionMessage = null, string? exceptionType = null)
+    {
+        using var conn = _db.OpenConnection();
+        using var cmd = new NpgsqlCommand(
+            """
+            INSERT INTO fire_history
+              (job_key, trigger_key, fire_time, duration_ticks, success, refire_count, exception_message, exception_type)
+            VALUES (@j, @t, @f, @d, @s, @r, @em, @et)
+            """, conn);
+        cmd.Parameters.AddWithValue("@j", jobKey);
+        cmd.Parameters.AddWithValue("@t", triggerKey);
+        cmd.Parameters.AddWithValue("@f", fireTime.UtcDateTime);
+        cmd.Parameters.AddWithValue("@d", duration.Ticks);
+        cmd.Parameters.AddWithValue("@s", success);
+        cmd.Parameters.AddWithValue("@r", refireCount);
+        cmd.Parameters.AddWithValue("@em", (object?)exceptionMessage ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@et", (object?)exceptionType ?? DBNull.Value);
+        cmd.ExecuteNonQuery();
+
+        OnFireRecorded?.Invoke(new FireRecord
+        {
+            JobKey = jobKey,
+            TriggerKey = triggerKey,
+            FireTime = fireTime,
+            Duration = duration,
+            Success = success,
+            RefireCount = refireCount,
+            ExceptionMessage = exceptionMessage,
+            ExceptionType = exceptionType,
+        });
+    }
+
+    public IEnumerable<FireRecord> GetRecent(int count, int offset = 0)
+    {
+        using var conn = _db.OpenConnection();
+        using var cmd = new NpgsqlCommand(
+            """
+            SELECT job_key, trigger_key, fire_time, duration_ticks, success, refire_count,
+                   exception_message, exception_type
+            FROM fire_history
+            ORDER BY fire_time DESC, id DESC
+            LIMIT @count OFFSET @offset
+            """, conn);
+        cmd.Parameters.AddWithValue("@count", count);
+        cmd.Parameters.AddWithValue("@offset", offset);
+
+        using var reader = cmd.ExecuteReader();
+        var records = new List<FireRecord>();
+        while (reader.Read())
+        {
+            records.Add(new FireRecord
+            {
+                JobKey = reader.GetString(0),
+                TriggerKey = reader.GetString(1),
+                FireTime = new DateTimeOffset(reader.GetDateTime(2), TimeSpan.Zero),
+                Duration = TimeSpan.FromTicks(reader.GetInt64(3)),
+                Success = reader.GetBoolean(4),
+                RefireCount = reader.GetInt32(5),
+                ExceptionMessage = reader.IsDBNull(6) ? null : reader.GetString(6),
+                ExceptionType = reader.IsDBNull(7) ? null : reader.GetString(7),
+            });
+        }
+        return records;
+    }
+
+    public void Clear()
+    {
+        using var conn = _db.OpenConnection();
+        using var cmd = new NpgsqlCommand("DELETE FROM fire_history", conn);
+        cmd.ExecuteNonQuery();
+    }
+
+    public void Dispose() => _db.Dispose();
+}
+
+// Program.cs
+builder.Services.AddQuartzDashboard();
+builder.Services.AddSingleton<IFireHistoryStore>(
+    new PostgresFireHistoryStore(builder.Configuration.GetConnectionString("Quartz")!));
+```
+
+Contract notes:
+
+- **Singleton lifetime** — the same instance is shared across the scheduler listener, the
+  REST handlers, and the SignalR bridge. Make implementations thread-safe.
+- **`RecordFire` is called on the Quartz thread pool** — keep it short and non-blocking, or
+  buffer writes internally (the SQLite store coalesces to once per second; consider similar).
+- **`GetRecent(count, offset)` is the hot read path.** Return the newest record first. The
+  dashboard calls it on every refresh, so make it indexed-by-fire-time descending.
+- **`OnFireRecorded` is optional** — fire it after the write succeeds; the dashboard uses it
+  for SignalR real-time fan-out.
+- **`Count`** is read on the `/api/health` endpoint; expensive `COUNT(*)`s on huge tables
+  should be approximated (e.g., a cached value updated by `RecordFire`).
+
+The SQLite store in `Dot.QuartzDashboard.Sqlite` is a useful reference implementation
+covering write coalescing, WAL mode, and indexed lookups.
+
 ### SQLite persistent history
 
 SQLite persistence ships in a separate package so the main dashboard NuGet doesn't drag `Microsoft.Data.Sqlite` into apps that don't need it.
@@ -280,9 +408,32 @@ builder.Services.AddQuartzDashboard(options =>
 
 Three levels, checked in order:
 
-1. **`RequireAuthentication`** — unauthenticated requests → 401
+1. **`RequireAuthentication`** (default **`true`** since v4.2) — unauthenticated requests → 401
 2. **`RequiredPolicy`** — uses `IAuthorizationService` (named policy) → 403 on failure
 3. **`AllowedRoles`** — role whitelist, checked if no policy is set → 403 on failure
+
+The dashboard exposes job-trigger, pause, resume, and delete endpoints. Defaulting to "auth on"
+prevents a casual `app.UseQuartzDashboard()` from anonymously exposing remote job control.
+Disable explicitly only when the dashboard is reachable solely from a trusted network (the
+package logs a startup warning if you do).
+
+### CSRF protection
+
+`RequireCsrfHeader` (default **`true`** since v4.2) blocks mutating endpoints (POST / PUT /
+DELETE / PATCH) unless the request carries a custom header — either `X-Requested-With:
+XMLHttpRequest` or `X-CSRF-Token: anything`. Browsers cannot send custom headers via simple
+cross-origin form submits without triggering a preflight, so the header acts as a
+same-origin assertion and stops a logged-in operator's browser from being weaponised by a
+malicious page. The bundled SPA always sends the header. Custom front-ends (curl, Postman,
+scripts) must add it themselves:
+
+```bash
+curl -X POST -H "X-Requested-With: XMLHttpRequest" \
+     https://your.app/quartz/api/jobs/demo/MyJob/trigger
+```
+
+Disable only if you have an alternative anti-forgery defence (e.g., an upstream gateway that
+strips and validates a CSRF cookie); the package logs a startup warning when off.
 
 ```csharp
 // Role-based

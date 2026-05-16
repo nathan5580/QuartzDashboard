@@ -53,6 +53,7 @@ function createMainSection() {
 
           // Start SignalR connection
           this.appBootPhase = 'Connecting to SignalR...';
+          this.registerLifecycleCleanup();
           await this.connectSignalR();
 
           // Fallback: if SignalR doesn't connect in 5 seconds, start polling

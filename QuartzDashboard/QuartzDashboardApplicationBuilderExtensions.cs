@@ -121,6 +121,21 @@ public static class QuartzDashboardApplicationBuilderExtensions
             // --- API endpoints ---
             if (suffixStr.StartsWith("/api", StringComparison.OrdinalIgnoreCase))
             {
+                // CSRF: mutating verbs must carry a custom header. Browsers cannot send
+                // X-Requested-With or X-CSRF-Token via a simple cross-origin form submit
+                // without triggering a preflight (which we never respond OK to from a
+                // third-party origin), so the header acts as a same-origin assertion.
+                if (options.RequireCsrfHeader && IsMutatingMethod(ctx.Request.Method))
+                {
+                    var hasHeader = ctx.Request.Headers.ContainsKey("X-CSRF-Token")
+                        || (ctx.Request.Headers.TryGetValue("X-Requested-With", out var xrw)
+                            && xrw.Any(v => string.Equals(v, "XMLHttpRequest", StringComparison.OrdinalIgnoreCase)));
+                    if (!hasHeader)
+                    {
+                        await WriteJsonError(ctx, 403, "Missing CSRF guard header. Send X-Requested-With: XMLHttpRequest or X-CSRF-Token.");
+                        return;
+                    }
+                }
                 var schedFactory = app.ApplicationServices.GetRequiredService<ISchedulerFactory>();
 
                 // Multi-scheduler: ?scheduler=SchedulerName header or query param selects which scheduler
@@ -244,6 +259,12 @@ public static class QuartzDashboardApplicationBuilderExtensions
         }
     }
 
+    private static bool IsMutatingMethod(string method) =>
+        string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(method, "PUT", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(method, "DELETE", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(method, "PATCH", StringComparison.OrdinalIgnoreCase);
+
     private static Task WriteJsonError(HttpContext ctx, int statusCode, string message)
     {
         ctx.Response.StatusCode = statusCode;
@@ -275,6 +296,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
             ctx.Response.Headers.CacheControl = filePath == "index.html"
                 ? "no-cache"
                 : "public, max-age=86400";
+            ApplySecurityHeaders(ctx);
 
             if (filePath == "index.html")
             {
@@ -294,8 +316,20 @@ public static class QuartzDashboardApplicationBuilderExtensions
             // SPA fallback for client-side routes
             ctx.Response.ContentType = "text/html; charset=utf-8";
             ctx.Response.Headers.CacheControl = "no-cache";
+            ApplySecurityHeaders(ctx);
             await ServeIndexHtml(ctx, basePath, options);
         }
+    }
+
+    private static void ApplySecurityHeaders(HttpContext ctx)
+    {
+        // Defensive headers for the dashboard surface. These are deliberately self-contained
+        // (set on each response we own) so they apply even when the host app hasn't wired up
+        // a global security-headers middleware.
+        var headers = ctx.Response.Headers;
+        if (!headers.ContainsKey("X-Content-Type-Options")) headers["X-Content-Type-Options"] = "nosniff";
+        if (!headers.ContainsKey("X-Frame-Options")) headers["X-Frame-Options"] = "SAMEORIGIN";
+        if (!headers.ContainsKey("Referrer-Policy")) headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     }
 
     private static async Task ServeIndexHtml(HttpContext ctx, string basePath, QuartzDashboardOptions options)

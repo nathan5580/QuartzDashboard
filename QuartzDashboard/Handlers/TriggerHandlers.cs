@@ -15,47 +15,61 @@ internal static class TriggerHandlers
     {
         var offset = int.TryParse(ctx.Request.Query["offset"], out var o) ? o : 0;
         var limit = int.TryParse(ctx.Request.Query["limit"], out var l) ? Math.Min(l, 200) : 50;
+        var ct = ctx.RequestAborted;
 
-        var groups = await sched.GetTriggerGroupNames();
+        var groups = await sched.GetTriggerGroupNames(ct);
         var allTriggers = new List<object>();
 
+        // Collect (key, trigger) pairs in one pass per group, then resolve all trigger states
+        // in parallel. The previous loop called GetTriggerState per trigger sequentially —
+        // an N round-trip pattern that dominated the response time on schedulers with >50 triggers.
+        var triggerInfo = new List<(TriggerKey Key, ITrigger Trigger)>();
         foreach (var group in groups)
         {
-            var keys = await sched.GetTriggerKeys(GroupMatcher<TriggerKey>.GroupEquals(group));
+            var keys = await sched.GetTriggerKeys(GroupMatcher<TriggerKey>.GroupEquals(group), ct);
             foreach (var key in keys)
             {
-                var trigger = await sched.GetTrigger(key);
-                if (trigger == null) continue;
-
-                var state = await sched.GetTriggerState(key);
-                var cronTrigger = trigger as ICronTrigger;
-                var isCron = cronTrigger != null;
-                var simpleTrigger = trigger as ISimpleTrigger;
-
-                allTriggers.Add(new
-                {
-                    Name = key.Name,
-                    Group = key.Group,
-                    Type = trigger.GetType().Name.Replace("Impl", ""),
-                    State = state.ToString(),
-                    StartTime = trigger.StartTimeUtc,
-                    EndTime = trigger.EndTimeUtc,
-                    LastFireTime = trigger.GetPreviousFireTimeUtc(),
-                    NextFireTime = trigger.GetNextFireTimeUtc(),
-                    MayFireAgain = trigger.GetMayFireAgain(),
-                    Description = trigger.Description ?? "",
-                    CalendarName = trigger.CalendarName ?? "",
-                    JobName = trigger.JobKey.Name,
-                    JobGroup = trigger.JobKey.Group,
-                    Priority = trigger.Priority,
-                    ScheduleDescription = ScheduleHelper.GetScheduleDescription(trigger),
-                    CronExpression = cronTrigger?.CronExpressionString,
-                    IntervalSeconds = simpleTrigger != null ? (int?)Math.Max(1, (int)Math.Round(simpleTrigger.RepeatInterval.TotalSeconds)) : null,
-                    RepeatCount = simpleTrigger?.RepeatCount,
-                    MisfireInstruction = MisfireInstructionName(trigger.MisfireInstruction, isCron),
-                    MisfireInstructionValue = MisfireInstructionValue(trigger.MisfireInstruction, isCron),
-                });
+                var trigger = await sched.GetTrigger(key, ct);
+                if (trigger != null) triggerInfo.Add((key, trigger));
             }
+        }
+
+        var stateTasks = triggerInfo.Select(ti => sched.GetTriggerState(ti.Key, ct)).ToArray();
+        await Task.WhenAll(stateTasks);
+        var stateByKey = new Dictionary<TriggerKey, TriggerState>(triggerInfo.Count);
+        for (var i = 0; i < triggerInfo.Count; i++)
+            stateByKey[triggerInfo[i].Key] = stateTasks[i].Result;
+
+        foreach (var (key, trigger) in triggerInfo)
+        {
+            var state = stateByKey[key];
+            var cronTrigger = trigger as ICronTrigger;
+            var isCron = cronTrigger != null;
+            var simpleTrigger = trigger as ISimpleTrigger;
+
+            allTriggers.Add(new
+            {
+                Name = key.Name,
+                Group = key.Group,
+                Type = trigger.GetType().Name.Replace("Impl", ""),
+                State = state.ToString(),
+                StartTime = trigger.StartTimeUtc,
+                EndTime = trigger.EndTimeUtc,
+                LastFireTime = trigger.GetPreviousFireTimeUtc(),
+                NextFireTime = trigger.GetNextFireTimeUtc(),
+                MayFireAgain = trigger.GetMayFireAgain(),
+                Description = trigger.Description ?? "",
+                CalendarName = trigger.CalendarName ?? "",
+                JobName = trigger.JobKey.Name,
+                JobGroup = trigger.JobKey.Group,
+                Priority = trigger.Priority,
+                ScheduleDescription = ScheduleHelper.GetScheduleDescription(trigger),
+                CronExpression = cronTrigger?.CronExpressionString,
+                IntervalSeconds = simpleTrigger != null ? (int?)Math.Max(1, (int)Math.Round(simpleTrigger.RepeatInterval.TotalSeconds)) : null,
+                RepeatCount = simpleTrigger?.RepeatCount,
+                MisfireInstruction = MisfireInstructionName(trigger.MisfireInstruction, isCron),
+                MisfireInstructionValue = MisfireInstructionValue(trigger.MisfireInstruction, isCron),
+            });
         }
 
         var total = allTriggers.Count;
