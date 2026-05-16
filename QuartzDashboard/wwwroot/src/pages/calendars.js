@@ -41,7 +41,7 @@ export function createCalendarsSection() {
             return;
           }
           try {
-            const res = await fetch(this._api('/calendars/' + encodeURIComponent(name)), { method: 'DELETE' });
+            const res = await fetch(this._api('/calendars/' + encodeURIComponent(name)), { method: 'DELETE', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
             if (!res.ok) throw new Error(await this.apiErrorMessage(res));
             await this.loadCalendars();
             this.showToast('Calendar deleted', 'success');

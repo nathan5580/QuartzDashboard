@@ -188,5 +188,19 @@ export function createSignalRSection() {
             this.pollingTimer = null;
           }
         },
+
+        // Best-effort cleanup so the polling fallback (and any SignalR connection) doesn't
+        // keep ticking after the user navigates away. pagehide covers bfcache restores on
+        // Safari/Firefox; beforeunload covers regular navigations.
+        registerLifecycleCleanup() {
+          if (this._lifecycleRegistered) return;
+          this._lifecycleRegistered = true;
+          const cleanup = () => {
+            this.stopPollingFallback();
+            try { this.connection?.stop(); } catch (_) { /* ignore */ }
+          };
+          window.addEventListener('pagehide', cleanup);
+          window.addEventListener('beforeunload', cleanup);
+        },
   };
 }

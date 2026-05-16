@@ -38,9 +38,29 @@ public class QuartzDashboardOptions : IQuartzDashboardOptions
     /// <summary>
     /// Gets or sets a value indicating whether authentication is required for all dashboard routes.
     /// Unauthenticated requests receive a 401 response when this option is enabled.
-    /// The default value is <see langword="false"/>.
     /// </summary>
-    public bool RequireAuthentication { get; set; } = false;
+    /// <remarks>
+    /// Defaults to <see langword="true"/> since v4.2.0. The dashboard exposes job-trigger,
+    /// pause, resume, and delete endpoints, so an unauthenticated default would be remotely
+    /// equivalent to anonymous code execution on the host. Set this to <see langword="false"/>
+    /// only when the dashboard is reachable solely from a trusted network (localhost-only,
+    /// internal VPN, etc.); doing so writes a warning to the logger.
+    /// </remarks>
+    public bool RequireAuthentication { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether mutating dashboard endpoints (POST / PUT / DELETE)
+    /// must carry a CSRF guard header (<c>X-Requested-With: XMLHttpRequest</c> or
+    /// <c>X-CSRF-Token: *</c>). The bundled SPA always sends the header.
+    /// </summary>
+    /// <remarks>
+    /// Defaults to <see langword="true"/>. Blocks the classic CSRF attack where a third-party
+    /// site triggers job mutations through a logged-in operator's browser session, since
+    /// custom request headers are restricted under the same-origin policy. Set to
+    /// <see langword="false"/> only if you have an alternative anti-forgery defence in place
+    /// (e.g., an upstream gateway that strips and validates a CSRF cookie).
+    /// </remarks>
+    public bool RequireCsrfHeader { get; set; } = true;
 
     /// <summary>
     /// Gets or sets the allowed roles for dashboard access.

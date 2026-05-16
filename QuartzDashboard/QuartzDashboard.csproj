@@ -8,14 +8,25 @@
 
     <!-- NuGet packaging -->
     <PackageId>Dot.QuartzDashboard</PackageId>
-    <Version>4.1.0</Version>
+    <Version>4.2.0</Version>
     <Authors>n8</Authors>
-    <Description>A beautiful, self-contained Quartz.NET scheduler dashboard. Drop into any ASP.NET Core app with two lines of code. View jobs, triggers, history, execution graph, timeline, health, and control the scheduler from a polished SPA.</Description>
-    <PackageTags>quartz;dashboard;scheduler;admin</PackageTags>
+    <Description>A beautiful, self-contained Quartz.NET scheduler dashboard. Drop into any ASP.NET Core app with two lines of code. View jobs, triggers, history, execution graph, timeline, health, and control the scheduler from a polished SPA. Includes SignalR real-time updates and an embeddable read-only mode.</Description>
+    <PackageTags>quartz;dashboard;scheduler;admin;signalr;monitoring;cron</PackageTags>
+    <PackageReleaseNotes>v4.2.0 — Security hardening + perf + a11y polish.
+• Safer defaults: RequireAuthentication now defaults to true; new RequireCsrfHeader option (default true) blocks cross-site triggering of jobs.
+• Defence in depth: X-Content-Type-Options, X-Frame-Options, Referrer-Policy on dashboard responses.
+• Perf: GetAllJobs / GetAllTriggers batch trigger-state lookups in parallel (was N round-trips per request).
+• Reliability: SignalR bridge now unsubscribes event handlers in StopAsync, preventing handler accumulation across host recycles.
+• A11y: prefers-reduced-motion respected on all animations; toast queue announced via aria-live="polite".
+• Cleanup: FireRecord properties are init-only; DashboardEventBus internals no longer leak as public; polling fallback timer cleared on pagehide/beforeunload.
+• ExportImport: jobs imported as PlaceholderJob now reported back to the caller instead of failing silently.
+See CHANGELOG.md for the full list.</PackageReleaseNotes>
     <PackageProjectUrl>https://github.com/nathan5580/QuartzDashboard</PackageProjectUrl>
     <RepositoryUrl>https://github.com/nathan5580/QuartzDashboard</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DeterministicSourcePaths>true</DeterministicSourcePaths>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

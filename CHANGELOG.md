@@ -2,6 +2,94 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [4.2.0] — 2026-05-16
+
+Security hardening, perf, and accessibility polish. Two **breaking** default changes that
+make a misconfigured deployment fail closed instead of fail open — see the migration note
+at the bottom of the section.
+
+### ⚠️ Breaking changes
+
+- **`QuartzDashboardOptions.RequireAuthentication` default flipped from `false` → `true`.**
+  The dashboard exposes job-trigger, pause, resume, and delete endpoints; allowing anonymous
+  access by default is effectively anonymous remote job control. Adopters running on a trusted
+  network must explicitly set `options.RequireAuthentication = false`. The package logs a
+  startup warning when that flag is off.
+- **New `QuartzDashboardOptions.RequireCsrfHeader` option, default `true`.** Mutating
+  endpoints (POST / PUT / DELETE / PATCH) require an `X-Requested-With: XMLHttpRequest` or
+  `X-CSRF-Token` header. Blocks the classic CSRF attack where a logged-in operator visiting
+  a hostile page triggers job mutations from their session. The bundled SPA always sends the
+  header; custom front-ends and scripts must add it themselves. Disable only if you have an
+  upstream anti-forgery defence (a startup warning is logged when off).
+
+### Added
+- **CSRF guard middleware** on the dashboard API surface (see above).
+- **Defensive security headers** on dashboard responses: `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin`. Applied
+  only to responses the dashboard owns; host-app responses are untouched.
+- **`prefers-reduced-motion` respect** — all dashboard animations (`pulse-dot`, `boot-float`,
+  `due-blink`, `status-ring-pulse`, etc.) collapse to ≤0.01ms when the OS/browser signals
+  reduced-motion preference.
+- **Toast queue announced to screen readers** via `role="status" aria-live="polite"
+  aria-atomic="true"` — success/error messages are now picked up by assistive tech.
+- **README guide for custom `IFireHistoryStore`** — worked Postgres example covering the
+  thread-safety, ordering, and `OnFireRecorded` contract.
+- **`PackageReleaseNotes`** populated and **descriptions differentiated** across all three
+  NuGet packages so NuGet.org cards stop looking identical.
+- **`EmbedUntrackedSources` + `DeterministicSourcePaths`** added to all three csproj files
+  so SourceLink resolves correctly inside debuggers.
+
+### Fixed
+- **SignalR bridge memory leak across host recycles** — `DashboardSignalRBridge.StopAsync`
+  now `-=` unsubscribes every handler it attached to the singleton `DashboardEventBus`. A
+  subsequent `StartAsync` no longer stacks a second set of handlers on top of the first.
+- **N+1 trigger-state lookup** on `/api/jobs` and `/api/triggers` — `GetTriggerState` was
+  called per trigger inside the response-building loop, dominating latency on schedulers
+  with >50 triggers. Now batched in parallel via a single `Task.WhenAll`.
+- **`FileFireHistoryStore` path canonicalization** — relative paths with `..` segments are
+  now resolved via `Path.GetFullPath` so writes land somewhere debuggable instead of an
+  unexpected relative location.
+- **`/api/import` silent placeholder fallback** — jobs whose original `IJob` type can't be
+  resolved at import time used to be silently replaced with `PlaceholderJob`. The response
+  now includes `placeholderJobs[]` and a `placeholderWarning` so the operator knows.
+- **Polling fallback timer leak after page unload** — `pagehide` and `beforeunload` listeners
+  stop the interval (and the SignalR connection) so the dashboard goes quiet when navigated
+  away from.
+- **`failedHistory` `:key` collision** — composite key (`fireInstanceId + fireTime + index`)
+  prevents Alpine `x-for` from reusing the wrong DOM node when `fireInstanceId` is missing.
+
+### Changed
+- **`FireRecord` properties are now `{ get; init; }`** — records returned from
+  `IFireHistoryStore` are immutable across consumers and thread-safe by construction.
+- **`DashboardEventBus`, `DashboardEvent`, and the event records moved from `public` to
+  `internal`.** They live under `QuartzDashboard.Internal` and were not intended as
+  extension points; consumers couldn't reach them through a sanctioned API anyway, so this
+  closes a future-break risk. Custom integrations that need to publish dashboard events
+  should depend on the public `IFireHistoryStore` abstraction instead.
+- **`CancellationToken` propagation** — `ApiRouteContext.Ct` is bound to
+  `HttpContext.RequestAborted`. `GetAllJobs`, `GetAllTriggers`, `GetCurrentlyExecutingJobs`,
+  the inline group-pause/resume route handlers, and `cron/describe` now thread the token
+  into every Quartz scheduler call. Full per-handler coverage is targeted for v4.3.
+
+### Migration from v4.1.x
+
+Existing apps that previously relied on the open defaults:
+
+```diff
+  builder.Services.AddQuartzDashboard(options =>
+  {
+      options.Path = "/quartz";
++     // v4.2: defaults flipped to secure. Restore prior behaviour only if you have
++     // an external auth / anti-forgery layer.
++     options.RequireAuthentication = false;
++     options.RequireCsrfHeader = false;
+  });
+```
+
+Otherwise: wire up `app.UseAuthentication()` / `app.UseAuthorization()` and set
+`options.AllowedRoles` (or `options.RequiredPolicy`) — see the README's
+*Authentication & Authorization* section.
+
 ## [4.1.0] — 2026-05-12
 
 UI polish, anti-flicker refresh, and new UX features. No API changes; drop-in upgrade from 4.0.x.

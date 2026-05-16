@@ -6,14 +6,17 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
 
     <PackageId>Dot.QuartzDashboard.Abstractions</PackageId>
-    <Version>4.1.0</Version>
+    <Version>4.2.0</Version>
     <Authors>n8</Authors>
-    <Description>Abstractions for Dot.QuartzDashboard — interfaces and records for implementing custom fire-history stores without pulling in the full dashboard.</Description>
-    <PackageTags>quartz;dashboard;scheduler;abstractions</PackageTags>
+    <Description>Abstractions for Dot.QuartzDashboard. Reference this if you only need IFireHistoryStore + FireRecord to implement a custom history backend (Postgres, Redis, etc.) — no ASP.NET Core or SignalR dependencies are pulled in. Pair with Dot.QuartzDashboard at runtime.</Description>
+    <PackageTags>quartz;dashboard;scheduler;abstractions;history;extensibility</PackageTags>
+    <PackageReleaseNotes>v4.2.0 — FireRecord properties are now init-only (immutable across consumers, thread-safe by construction). No interface changes; drop-in upgrade from 4.1.x.</PackageReleaseNotes>
     <PackageProjectUrl>https://github.com/nathan5580/QuartzDashboard</PackageProjectUrl>
     <RepositoryUrl>https://github.com/nathan5580/QuartzDashboard</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DeterministicSourcePaths>true</DeterministicSourcePaths>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

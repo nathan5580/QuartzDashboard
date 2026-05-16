@@ -22,7 +22,10 @@ internal sealed class FileFireHistoryStore : IFireHistoryStore, IDisposable
 
     public FileFireHistoryStore(string filePath, ILogger<FileFireHistoryStore> logger, int maxRecords = 500, int retentionHours = 24)
     {
-        _filePath = filePath;
+        // Canonicalize to an absolute path so accidental relative path components
+        // (e.g. "../../etc/foo") resolve against the current working directory in a
+        // visible, debuggable way rather than silently writing somewhere unexpected.
+        _filePath = Path.GetFullPath(filePath);
         _logger = logger;
         _inner = new InMemoryFireHistoryStore(maxRecords, retentionHours);
 

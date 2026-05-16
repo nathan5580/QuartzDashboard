@@ -66,7 +66,7 @@ export function createApiSection() {
 
         async postApi(path, body) {
           const url = path.startsWith('http') ? path : this._api(path);
-          const options = { method: 'POST', headers: {} };
+          const options = { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } };
           if (body !== undefined) {
             options.headers['Content-Type'] = 'application/json';
             options.body = JSON.stringify(body);
@@ -80,8 +80,18 @@ export function createApiSection() {
           const url = path.startsWith('http') ? path : this._api(path);
           const res = await fetch(url, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             body: JSON.stringify(body || {})
+          });
+          if (!res.ok) throw new Error(await this.apiErrorMessage(res));
+          return res.json();
+        },
+
+        async deleteApi(path) {
+          const url = path.startsWith('http') ? path : this._api(path);
+          const res = await fetch(url, {
+            method: 'DELETE',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
           });
           if (!res.ok) throw new Error(await this.apiErrorMessage(res));
           return res.json();

@@ -38,6 +38,16 @@ public static class QuartzDashboardServiceCollectionExtensions
         configure?.Invoke(options);
         ValidateOptions(options);
         services.AddSingleton(options);
+        // Warn loudly if either of the two safe-by-default guards is turned off. These are
+        // not validation errors — there are legitimate trusted-network deployments where
+        // disabling them is appropriate — but the operator should see the trade-off in
+        // their startup logs rather than discover it via an incident.
+        if (!options.RequireAuthentication || !options.RequireCsrfHeader)
+        {
+            services.AddSingleton<IHostedService>(sp => new InsecureDefaultsWarner(
+                sp.GetRequiredService<ILogger<InsecureDefaultsWarner>>(),
+                options));
+        }
         // Also expose the read-only contract so handlers and custom integrations can opt out
         // of accidentally mutating the configured options at runtime.
         services.AddSingleton<IQuartzDashboardOptions>(options);
@@ -111,6 +121,33 @@ public static class QuartzDashboardServiceCollectionExtensions
                 throw new ArgumentException($"QuartzDashboardOptions.WebhookUrl must use http or https (got scheme '{webhookUri.Scheme}').", nameof(options));
         }
     }
+}
+
+internal sealed class InsecureDefaultsWarner(
+    ILogger<InsecureDefaultsWarner> logger,
+    QuartzDashboardOptions options) : IHostedService
+{
+    public Task StartAsync(CancellationToken ct)
+    {
+        if (!options.RequireAuthentication)
+        {
+            logger.LogWarning(
+                "QuartzDashboard: RequireAuthentication is FALSE. The dashboard exposes job-trigger, " +
+                "pause, resume, and delete endpoints to anonymous callers at '{Path}'. Set " +
+                "options.RequireAuthentication = true unless the dashboard is reachable only from a trusted network.",
+                options.Path);
+        }
+        if (!options.RequireCsrfHeader)
+        {
+            logger.LogWarning(
+                "QuartzDashboard: RequireCsrfHeader is FALSE. Mutating endpoints will accept requests " +
+                "without a CSRF guard header, allowing cross-site triggering of jobs from a logged-in " +
+                "operator's browser. Keep this enabled unless an upstream gateway provides equivalent protection.");
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken ct) => Task.CompletedTask;
 }
 
 internal sealed class DashboardListenerAttacher(

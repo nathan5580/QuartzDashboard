@@ -64,6 +64,7 @@ public sealed class TestScenarioBuilder
     public bool ReadOnly { get; set; }
     public bool UseSignalR { get; set; } = true;
     public bool RequireAuthentication { get; set; }
+    public bool RequireCsrfHeader { get; set; }
     public string[] AllowedRoles { get; set; } = [];
     public string RequiredPolicy { get; set; } = string.Empty;
     public bool EnableOnAuthorize { get; set; }
@@ -80,6 +81,7 @@ public sealed class TestScenarioBuilder
         ["QuartzDashboardIntegration:ReadOnly"] = ReadOnly.ToString(),
         ["QuartzDashboardIntegration:UseSignalR"] = UseSignalR.ToString(),
         ["QuartzDashboardIntegration:RequireAuthentication"] = RequireAuthentication.ToString(),
+        ["QuartzDashboardIntegration:RequireCsrfHeader"] = RequireCsrfHeader.ToString(),
         ["QuartzDashboardIntegration:AllowedRoles"] = string.Join(',', AllowedRoles),
         ["QuartzDashboardIntegration:RequiredPolicy"] = RequiredPolicy,
         ["QuartzDashboardIntegration:EnableOnAuthorize"] = EnableOnAuthorize.ToString(),

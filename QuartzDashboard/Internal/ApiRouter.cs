@@ -26,13 +26,20 @@ internal sealed class ApiRouteContext(
     public QuartzDashboardOptions Options { get; } = options;
     public string[] Segments { get; } = segments;
 
+    /// <summary>
+    /// CancellationToken bound to <see cref="HttpContext.RequestAborted"/>. Handlers should pass
+    /// this through to every <see cref="IScheduler"/> call so client disconnects (and graceful
+    /// shutdown) cancel in-flight work instead of running to completion against a dead socket.
+    /// </summary>
+    public CancellationToken Ct => Http.RequestAborted;
+
     public string Param(int index) => Segments[index];
 
     public async Task<T?> ReadJson<T>() where T : class
     {
         if (Http.Request.ContentLength is null or 0)
             return null;
-        return await Http.Request.ReadFromJsonAsync<T>();
+        return await Http.Request.ReadFromJsonAsync<T>(Ct);
     }
 
     public int QueryInt(string key, int @default)
@@ -86,13 +93,13 @@ internal static class ApiRouter
         Post("jobs/group/{}/pause", static async rc =>
         {
             if (rc.Options.ReadOnly) return DashboardResults.ReadOnly();
-            await rc.Scheduler.PauseJobs(GroupMatcher<JobKey>.GroupEquals(rc.Param(2)));
+            await rc.Scheduler.PauseJobs(GroupMatcher<JobKey>.GroupEquals(rc.Param(2)), rc.Ct);
             return Results.Ok(new StatusResponse("paused", Group: rc.Param(2)));
         }),
         Post("jobs/group/{}/resume", static async rc =>
         {
             if (rc.Options.ReadOnly) return DashboardResults.ReadOnly();
-            await rc.Scheduler.ResumeJobs(GroupMatcher<JobKey>.GroupEquals(rc.Param(2)));
+            await rc.Scheduler.ResumeJobs(GroupMatcher<JobKey>.GroupEquals(rc.Param(2)), rc.Ct);
             return Results.Ok(new StatusResponse("resumed", Group: rc.Param(2)));
         }),
 
@@ -115,13 +122,13 @@ internal static class ApiRouter
         Post("triggers/group/{}/pause", static async rc =>
         {
             if (rc.Options.ReadOnly) return DashboardResults.ReadOnly();
-            await rc.Scheduler.PauseTriggers(GroupMatcher<TriggerKey>.GroupEquals(rc.Param(2)));
+            await rc.Scheduler.PauseTriggers(GroupMatcher<TriggerKey>.GroupEquals(rc.Param(2)), rc.Ct);
             return Results.Ok(new StatusResponse("paused", Group: rc.Param(2)));
         }),
         Post("triggers/group/{}/resume", static async rc =>
         {
             if (rc.Options.ReadOnly) return DashboardResults.ReadOnly();
-            await rc.Scheduler.ResumeTriggers(GroupMatcher<TriggerKey>.GroupEquals(rc.Param(2)));
+            await rc.Scheduler.ResumeTriggers(GroupMatcher<TriggerKey>.GroupEquals(rc.Param(2)), rc.Ct);
             return Results.Ok(new StatusResponse("resumed", Group: rc.Param(2)));
         }),
 
@@ -139,7 +146,7 @@ internal static class ApiRouter
         Post("triggers/{}/{}/resume", static async rc => await TriggerHandlers.ResumeTrigger(rc.Scheduler, rc.Param(1), rc.Param(2), rc.Options)),
 
         // -- Executing / history / stats --
-        Get("executing", static async rc => await GetExecutingJobs(rc.Scheduler)),
+        Get("executing", static async rc => await GetExecutingJobs(rc.Scheduler, rc.Ct)),
         Get("history", static rc => Task.FromResult<object?>(HistoryHandlers.GetFireHistory(rc.Http))),
         Get("stats", static async rc =>
         {
@@ -160,7 +167,7 @@ internal static class ApiRouter
         // -- Cron describe --
         Post("cron/describe", static async rc =>
         {
-            var body = await rc.Http.Request.ReadFromJsonAsync<Dictionary<string, string>>();
+            var body = await rc.Http.Request.ReadFromJsonAsync<Dictionary<string, string>>(rc.Ct);
             var expression = body?.GetValueOrDefault("expression") ?? "";
             try
             {
@@ -227,9 +234,9 @@ internal static class ApiRouter
 
     // ============= Executing Jobs =============
 
-    private static async Task<IResult> GetExecutingJobs(IScheduler sched)
+    private static async Task<IResult> GetExecutingJobs(IScheduler sched, CancellationToken ct)
     {
-        var jobs = await sched.GetCurrentlyExecutingJobs();
+        var jobs = await sched.GetCurrentlyExecutingJobs(ct);
         return Results.Ok(jobs
             .OrderBy(j => j.JobDetail.Key.Group, StringComparer.OrdinalIgnoreCase)
             .ThenBy(j => j.JobDetail.Key.Name, StringComparer.OrdinalIgnoreCase)

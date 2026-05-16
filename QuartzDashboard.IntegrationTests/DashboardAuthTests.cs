@@ -129,4 +129,38 @@ public sealed class DashboardAuthTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    [Fact]
+    public async Task MutatingEndpoint_WithCsrfGuardEnabled_RequiresCustomHeader()
+    {
+        await using var customFactory = new TestWebAppFactory(options => options.RequireCsrfHeader = true);
+        using var client = customFactory.CreateAnonymousClient();
+
+        // No X-Requested-With / X-CSRF-Token header → must be rejected.
+        using var bareResponse = await client.PostAsync(
+            "/quartz/api/scheduler/standby",
+            new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.Forbidden, bareResponse.StatusCode);
+
+        // With the header set → allowed.
+        using var msg = new HttpRequestMessage(HttpMethod.Post, "/quartz/api/scheduler/standby")
+        {
+            Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
+        };
+        msg.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        using var guardedResponse = await client.SendAsync(msg);
+        Assert.NotEqual(HttpStatusCode.Forbidden, guardedResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetEndpoint_WithCsrfGuardEnabled_IsNotBlocked()
+    {
+        await using var customFactory = new TestWebAppFactory(options => options.RequireCsrfHeader = true);
+        using var client = customFactory.CreateAnonymousClient();
+
+        // GET is never blocked by the CSRF guard — it only applies to mutating verbs.
+        using var response = await client.GetAsync("/quartz/api/scheduler");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
 }

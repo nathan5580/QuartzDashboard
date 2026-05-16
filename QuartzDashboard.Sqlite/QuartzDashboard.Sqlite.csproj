@@ -6,14 +6,17 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
 
     <PackageId>Dot.QuartzDashboard.Sqlite</PackageId>
-    <Version>4.1.0</Version>
+    <Version>4.2.0</Version>
     <Authors>n8</Authors>
-    <Description>SQLite-backed persistent fire-history store for Dot.QuartzDashboard. Survives restarts, indexes by job key, uses WAL for concurrent reads.</Description>
-    <PackageTags>quartz;dashboard;scheduler;sqlite;history</PackageTags>
+    <Description>SQLite-backed persistent fire-history store for Dot.QuartzDashboard. Survives application restarts, indexed by job_key, WAL mode for concurrent reads, throttled TTL pruning. Call AddQuartzDashboardSqliteHistory("history.db") after AddQuartzDashboard() to opt in.</Description>
+    <PackageTags>quartz;dashboard;scheduler;sqlite;history;persistence</PackageTags>
+    <PackageReleaseNotes>v4.2.0 — Tracks the abstractions package version bump. No behavioural changes to the SQLite store. Drop-in upgrade from 4.1.x.</PackageReleaseNotes>
     <PackageProjectUrl>https://github.com/nathan5580/QuartzDashboard</PackageProjectUrl>
     <RepositoryUrl>https://github.com/nathan5580/QuartzDashboard</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DeterministicSourcePaths>true</DeterministicSourcePaths>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

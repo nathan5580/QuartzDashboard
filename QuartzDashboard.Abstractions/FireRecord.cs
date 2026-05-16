@@ -6,42 +6,42 @@ namespace QuartzDashboard.Abstractions;
 public sealed record FireRecord
 {
     /// <summary>
-    /// Gets or sets the fully qualified Quartz job key in <c>group.name</c> format.
+    /// Gets the fully qualified Quartz job key in <c>group.name</c> format.
     /// </summary>
-    public string JobKey { get; set; } = "";
+    public string JobKey { get; init; } = "";
 
     /// <summary>
-    /// Gets or sets the fully qualified Quartz trigger key in <c>group.name</c> format.
+    /// Gets the fully qualified Quartz trigger key in <c>group.name</c> format.
     /// </summary>
-    public string TriggerKey { get; set; } = "";
+    public string TriggerKey { get; init; } = "";
 
     /// <summary>
-    /// Gets or sets the UTC time when the execution started.
+    /// Gets the UTC time when the execution started.
     /// </summary>
-    public DateTimeOffset FireTime { get; set; }
+    public DateTimeOffset FireTime { get; init; }
 
     /// <summary>
-    /// Gets or sets the total duration of the execution.
+    /// Gets the total duration of the execution.
     /// </summary>
-    public TimeSpan Duration { get; set; }
+    public TimeSpan Duration { get; init; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the execution completed successfully.
+    /// Gets a value indicating whether the execution completed successfully.
     /// </summary>
-    public bool Success { get; set; }
+    public bool Success { get; init; }
 
     /// <summary>
-    /// Gets or sets the Quartz refire count for the execution.
+    /// Gets the Quartz refire count for the execution.
     /// </summary>
-    public int RefireCount { get; set; }
+    public int RefireCount { get; init; }
 
     /// <summary>
-    /// Gets or sets the captured exception message for a failed execution, if available.
+    /// Gets the captured exception message for a failed execution, if available.
     /// </summary>
-    public string? ExceptionMessage { get; set; }
+    public string? ExceptionMessage { get; init; }
 
     /// <summary>
-    /// Gets or sets the captured exception type for a failed execution, if available.
+    /// Gets the captured exception type for a failed execution, if available.
     /// </summary>
-    public string? ExceptionType { get; set; }
+    public string? ExceptionType { get; init; }
 }

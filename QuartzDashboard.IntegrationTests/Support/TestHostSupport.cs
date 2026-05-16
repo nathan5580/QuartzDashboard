@@ -18,6 +18,7 @@ internal sealed class DashboardTestScenario
     public bool ReadOnly { get; init; }
     public bool UseSignalR { get; init; } = true;
     public bool RequireAuthentication { get; init; }
+    public bool RequireCsrfHeader { get; init; }
     public string[] AllowedRoles { get; init; } = [];
     public string RequiredPolicy { get; init; } = string.Empty;
     public bool EnableOnAuthorize { get; init; }
@@ -38,6 +39,7 @@ internal sealed class DashboardTestScenario
             ReadOnly = configuration.GetValue("QuartzDashboardIntegration:ReadOnly", false),
             UseSignalR = configuration.GetValue("QuartzDashboardIntegration:UseSignalR", true),
             RequireAuthentication = configuration.GetValue("QuartzDashboardIntegration:RequireAuthentication", false),
+            RequireCsrfHeader = configuration.GetValue("QuartzDashboardIntegration:RequireCsrfHeader", false),
             AllowedRoles = string.IsNullOrWhiteSpace(allowedRoles)
                 ? []
                 : allowedRoles.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
@@ -58,6 +60,7 @@ internal sealed class DashboardTestScenario
         options.ReadOnly = ReadOnly;
         options.UseSignalR = UseSignalR;
         options.RequireAuthentication = RequireAuthentication;
+        options.RequireCsrfHeader = RequireCsrfHeader;
         options.AllowedRoles = AllowedRoles;
         options.RequiredPolicy = RequiredPolicy;
         options.Title = Title;

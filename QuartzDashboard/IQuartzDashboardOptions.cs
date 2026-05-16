@@ -24,6 +24,9 @@ public interface IQuartzDashboardOptions
     /// <summary>Whether authentication is required for dashboard routes.</summary>
     bool RequireAuthentication { get; }
 
+    /// <summary>Whether mutating endpoints require a CSRF guard header (<c>X-Requested-With</c> or <c>X-CSRF-Token</c>).</summary>
+    bool RequireCsrfHeader { get; }
+
     /// <summary>The role whitelist (only honored when <see cref="RequireAuthentication"/> is true and no policy is set).</summary>
     IReadOnlyList<string> AllowedRoles { get; }
 

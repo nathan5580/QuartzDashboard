@@ -70,10 +70,21 @@ internal sealed class DashboardSignalRBridge(
         FullMode = BoundedChannelFullMode.DropOldest
     });
 
+    // Stored delegate references so StopAsync can unsubscribe and avoid a leak across
+    // graceful host recycles. Without these refs, each StartAsync would attach new
+    // closures and StopAsync would have nothing to detach — handlers would pile up
+    // on the singleton DashboardEventBus.
+    private Action<JobExecutedEvent>? _onJobExecuted;
+    private Action<JobTriggeredEvent>? _onJobTriggered;
+    private Action<SchedulerStatusEvent>? _onSchedulerStatus;
+    private Action<JobsUpdatedEvent>? _onJobsUpdated;
+    private CancellationTokenSource? _consumerCts;
+
     public Task StartAsync(CancellationToken ct)
     {
-        // Producer: write typed event records to the channel
-        eventBus.OnJobExecuted += e =>
+        _consumerCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+
+        _onJobExecuted = e =>
         {
             if (!_channel.Writer.TryWrite(new ExecutedEvent(
                 JobKey: e.JobKey,
@@ -89,7 +100,7 @@ internal sealed class DashboardSignalRBridge(
             }
         };
 
-        eventBus.OnJobTriggered += e =>
+        _onJobTriggered = e =>
         {
             if (!_channel.Writer.TryWrite(new TriggeredEvent(
                 JobKey: e.JobKey,
@@ -108,7 +119,7 @@ internal sealed class DashboardSignalRBridge(
             }
         };
 
-        eventBus.OnSchedulerStatusChanged += async e =>
+        _onSchedulerStatus = async e =>
         {
             try
             {
@@ -118,23 +129,28 @@ internal sealed class DashboardSignalRBridge(
                         isStarted = e.IsStarted,
                         isStandbyMode = e.IsStandbyMode,
                         isShutdown = e.IsShutdown,
-                    }, ct);
+                    }, _consumerCts.Token);
             }
             catch (Exception ex) { logger.LogWarning(ex, "SignalR send failed (schedulerStatus)"); }
         };
 
-        eventBus.OnJobsUpdated += async _ =>
+        _onJobsUpdated = async _ =>
         {
             try
             {
                 await hubContext.Clients.Group(QuartzDashboardHub.GroupName)
-                    .SendAsync("jobsUpdated", new { }, ct);
+                    .SendAsync("jobsUpdated", new { }, _consumerCts.Token);
             }
             catch (Exception ex) { logger.LogWarning(ex, "SignalR send failed (jobsUpdated)"); }
         };
 
+        eventBus.OnJobExecuted += _onJobExecuted;
+        eventBus.OnJobTriggered += _onJobTriggered;
+        eventBus.OnSchedulerStatusChanged += _onSchedulerStatus;
+        eventBus.OnJobsUpdated += _onJobsUpdated;
+
         // Consumer: batch events every 100ms using pattern matching
-        _ = ConsumeChannelAsync(ct);
+        _ = ConsumeChannelAsync(_consumerCts.Token);
 
         return Task.CompletedTask;
     }
@@ -230,6 +246,23 @@ internal sealed class DashboardSignalRBridge(
 
     public Task StopAsync(CancellationToken ct)
     {
+        // Unsubscribe handlers so the singleton DashboardEventBus doesn't keep this
+        // bridge alive after the host recycles. Without these -= calls, a subsequent
+        // StartAsync would stack a second set of handlers on top of the first.
+        if (_onJobExecuted != null) eventBus.OnJobExecuted -= _onJobExecuted;
+        if (_onJobTriggered != null) eventBus.OnJobTriggered -= _onJobTriggered;
+        if (_onSchedulerStatus != null) eventBus.OnSchedulerStatusChanged -= _onSchedulerStatus;
+        if (_onJobsUpdated != null) eventBus.OnJobsUpdated -= _onJobsUpdated;
+
+        _onJobExecuted = null;
+        _onJobTriggered = null;
+        _onSchedulerStatus = null;
+        _onJobsUpdated = null;
+
+        _consumerCts?.Cancel();
+        _consumerCts?.Dispose();
+        _consumerCts = null;
+
         _channel.Writer.TryComplete();
         return Task.CompletedTask;
     }

@@ -19,21 +19,40 @@ internal static class JobHandlers
     {
         var offset = int.TryParse(ctx.Request.Query["offset"], out var o) ? o : 0;
         var limit = int.TryParse(ctx.Request.Query["limit"], out var l) ? Math.Min(l, 200) : 50;
+        var ct = ctx.RequestAborted;
 
-        var groups = await sched.GetJobGroupNames();
-        var executingJobs = await sched.GetCurrentlyExecutingJobs();
+        var groups = await sched.GetJobGroupNames(ct);
+        var executingJobs = await sched.GetCurrentlyExecutingJobs(ct);
         var executingKeys = new HashSet<JobKey>(executingJobs.Select(j => j.JobDetail.Key));
         var allJobs = new List<object>();
 
+        // First pass: collect every job + its triggers without touching trigger state
+        // (which is the expensive call). The previous implementation called
+        // GetTriggerState per trigger inside the loop — N+1 against the scheduler.
+        // After this pass we batch-fetch all trigger states in parallel.
+        var jobBundles = new List<(JobKey Key, IJobDetail Detail, IReadOnlyCollection<ITrigger> Triggers)>();
         foreach (var group in groups)
         {
-            var keys = await sched.GetJobKeys(GroupMatcher<JobKey>.GroupEquals(group));
+            var keys = await sched.GetJobKeys(GroupMatcher<JobKey>.GroupEquals(group), ct);
             foreach (var key in keys)
             {
-                var detail = await sched.GetJobDetail(key);
+                var detail = await sched.GetJobDetail(key, ct);
                 if (detail == null) continue;
+                var rawTriggers = await sched.GetTriggersOfJob(key, ct);
+                jobBundles.Add((key, detail, rawTriggers));
+            }
+        }
 
-                var rawTriggers = await sched.GetTriggersOfJob(key);
+        var allTriggerKeys = jobBundles.SelectMany(b => b.Triggers.Select(t => t.Key)).ToArray();
+        var stateTasks = allTriggerKeys.Select(k => sched.GetTriggerState(k, ct)).ToArray();
+        await Task.WhenAll(stateTasks);
+        var stateByKey = new Dictionary<TriggerKey, TriggerState>(allTriggerKeys.Length);
+        for (var i = 0; i < allTriggerKeys.Length; i++)
+            stateByKey[allTriggerKeys[i]] = stateTasks[i].Result;
+
+        foreach (var (key, detail, rawTriggers) in jobBundles)
+        {
+            {
                 var isExecuting = executingKeys.Contains(key);
 
                 var triggerData = new List<object>();
@@ -42,7 +61,7 @@ internal static class JobHandlers
 
                 foreach (var t in rawTriggers)
                 {
-                    var state = await sched.GetTriggerState(t.Key);
+                    var state = stateByKey[t.Key];
                     if (state != TriggerState.Paused) allPaused = false;
                     var nft = t.GetNextFireTimeUtc();
                     if (nft.HasValue && (!nearestNextFire.HasValue || nft < nearestNextFire))

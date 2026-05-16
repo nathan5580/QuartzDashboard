@@ -128,7 +128,7 @@ export function createJobsActionsSection() {
             ? '/jobs/' + encodeURIComponent(group) + '/' + encodeURIComponent(name)
             : '/triggers/' + encodeURIComponent(group) + '/' + encodeURIComponent(name);
 
-          const res = await fetch(this._api(endpoint), { method: 'DELETE' });
+          const res = await fetch(this._api(endpoint), { method: 'DELETE', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
           if (!res.ok) throw new Error(await this.apiErrorMessage(res));
 
           this.showToast((type === 'job' ? 'Job' : 'Trigger') + ' ' + group + '.' + name + ' deleted', 'success');
