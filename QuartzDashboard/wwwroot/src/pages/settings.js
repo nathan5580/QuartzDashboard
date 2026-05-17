@@ -30,6 +30,7 @@ function createSettingsCoreSection() {
         osc.start();
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
         osc.stop(ctx.currentTime + 0.3);
+        setTimeout(() => ctx.close(), 350);
       } catch (_) {}
     },
 
@@ -37,7 +38,7 @@ function createSettingsCoreSection() {
       const w = window.open('', '_blank');
       if (!w) return;
       const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-      const jobs = this.allJobs || [];
+      const jobs = this.jobs || [];
       const h = this.history || [];
       const successCount = h.filter(x => x.success).length;
       const failCount = h.filter(x => !x.success).length;
@@ -47,7 +48,7 @@ function createSettingsCoreSection() {
       const failRows = h.filter(x => !x.success).slice(0, 10).map(f => `<tr><td>${esc(f.jobKey)}</td><td>${esc(new Date(f.fireTime).toLocaleString())}</td><td>${esc(f.exceptionMessage || f.errorMessage || 'Failed')}</td></tr>`).join('');
 
       w.document.write(`<!DOCTYPE html><html><head><title>Quartz Dashboard Report</title>
-        <style>body{font-family:-apple-system,sans-serif;padding:40px;color:#333}h1{color:#4f46e5}table{border-collapse:collapse;width:100%;margin:16px 0}th,td{border:1px solid #e5e7eb;padding:8px 12px;text-align:left;font-size:13px}th{background:#f9fafb;font-weight:600}.stats{display:flex;gap:24px;margin:16px 0}.stat{padding:16px;border:1px solid #e5e7eb;border-radius:8px;text-align:center;flex:1}.stat .val{font-size:24px;font-weight:700;color:#4f46e5}.stat .lbl{font-size:11px;color:#6b7280;text-transform:uppercase;margin-top:4px}.perc{display:flex;gap:16px;margin:12px 0}.perc>div{flex:1;text-align:center;padding:8px;background:#f9fafb;border-radius:6px}.perc .val{font-size:18px;font-weight:700}.ok{color:#059669}.warn{color:#d97706}.bad{color:#dc2626}@media print{body{padding:20px}}</style></head><body>
+        <style>body{font-family:-apple-system,sans-serif;padding:40px;color:#333}h1{color:#4f46e5}table{border-collapse:collapse;width:100%;margin:16px 0}th,td{border:1px solid #e5e7eb;padding:8px 12px;text-align:left;font-size:13px}th{background:#f9fafb;font-weight:600}.stats{display:flex;gap:24px;margin:16px 0}.stat{padding:16px;border:1px solid #e5e7eb;border-radius:8px;text-align:center;flex:1}.stat .val{font-size:24px;font-weight:700;color:#4f46e5}.stat .lbl{font-size:11px;color:#6b7280;text-transform:uppercase;margin-top:4px}.perc{display:flex;gap:16px;margin:12px 0}.perc>div{flex:1;text-align:center;padding:8px;background:#f9fafb;border-radius:6px}.perc .val{font-size:18px;font-weight:700}.ok{color:#059669}.warn{color:#d97706}.bad{color:#dc2626}@page{margin:1.5cm}@media print{body{padding:0}thead{display:table-header-group}tr{page-break-inside:avoid}h2{page-break-before:auto;page-break-after:avoid}}</style></head><body>
         <h1>⚡ Quartz Dashboard Report</h1>
         <p style="color:#6b7280">Generated ${esc(new Date().toLocaleString())} · Scheduler: ${esc(this.scheduler?.schedulerName || this.scheduler?.name || '—')}</p>
         <div class="stats">
@@ -74,13 +75,16 @@ function createSettingsCoreSection() {
     // ========================= PERSISTENT SETTINGS =========================
     saveSettings() {
       try {
-        localStorage.setItem('qd-settings', JSON.stringify({
+        localStorage.setItem('quartz-settings', JSON.stringify({
           sidebarOpen: this.sidebarOpen,
           graphChartMode: this.graphChartMode,
           refreshInterval: this.settings.refreshInterval,
-          historyLimit: this.historyLimit,
+          historyPageSize: this.historyPageSize,
           collapsedGroups: this.collapsedGroups,
           rowDensity: this.rowDensity,
+          soundAlerts: this.soundAlerts,
+          desktopNotificationsEnabled: this.desktopNotificationsEnabled,
+          historyFilterObj: JSON.parse(JSON.stringify(this.historyFilterObj)),
         }));
       } catch (_) {}
     },

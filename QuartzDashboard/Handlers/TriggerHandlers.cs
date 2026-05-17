@@ -93,7 +93,7 @@ internal static class TriggerHandlers
         var key = new TriggerKey(name, group);
         var trigger = await sched.GetTrigger(key);
         if (trigger == null)
-            return Results.NotFound(new { Error = $"Trigger '{group}.{name}' not found" });
+            return Results.NotFound(new { error = $"Trigger '{group}.{name}' not found" });
 
         var state = await sched.GetTriggerState(key);
         var cronTrigger = trigger as ICronTrigger;
@@ -155,7 +155,7 @@ internal static class TriggerHandlers
             await sched.PauseTrigger(key);
             return Results.Ok(new StatusResponse("paused"));
         }
-        return Results.NotFound(new { Error = $"Trigger '{group}.{name}' not found" });
+        return Results.NotFound(new { error = $"Trigger '{group}.{name}' not found" });
     }
 
     public static async Task<IResult> ResumeTrigger(IScheduler sched, string group, string name,
@@ -168,7 +168,7 @@ internal static class TriggerHandlers
             await sched.ResumeTrigger(key);
             return Results.Ok(new StatusResponse("resumed"));
         }
-        return Results.NotFound(new { Error = $"Trigger '{group}.{name}' not found" });
+        return Results.NotFound(new { error = $"Trigger '{group}.{name}' not found" });
     }
 
     public static async Task<IResult> CreateTrigger(IScheduler sched, CreateTriggerRequest? req,
@@ -176,13 +176,13 @@ internal static class TriggerHandlers
     {
         if (options.ReadOnly) return DashboardResults.ReadOnly();
         if (req == null || string.IsNullOrWhiteSpace(req.Name))
-            return Results.BadRequest(new { Error = "Trigger name is required" });
+            return Results.BadRequest(new { error = "Trigger name is required" });
 
         var triggerKey = new TriggerKey(req.Name, req.Group ?? "DEFAULT");
         var jobKey = new JobKey(req.JobName, req.JobGroup ?? "DEFAULT");
 
         if (!await sched.CheckExists(jobKey))
-            return Results.NotFound(new { Error = $"Job '{jobKey.Group}.{jobKey.Name}' not found" });
+            return Results.NotFound(new { error = $"Job '{jobKey.Group}.{jobKey.Name}' not found" });
 
         var builder = TriggerBuilder.Create()
             .WithIdentity(triggerKey)
@@ -227,14 +227,14 @@ internal static class TriggerHandlers
         }
         else
         {
-            return Results.BadRequest(new { Error = "Either cronExpression or intervalSeconds is required" });
+            return Results.BadRequest(new { error = "Either cronExpression or intervalSeconds is required" });
         }
 
         if (!string.IsNullOrWhiteSpace(req.CalendarName))
         {
             var calendars = await sched.GetCalendarNames();
             if (!calendars.Contains(req.CalendarName))
-                return Results.BadRequest(new { Error = $"Calendar '{req.CalendarName}' not found" });
+                return Results.BadRequest(new { error = $"Calendar '{req.CalendarName}' not found" });
             trigger = trigger.GetTriggerBuilder().ModifiedByCalendar(req.CalendarName).Build();
         }
 
@@ -247,12 +247,12 @@ internal static class TriggerHandlers
     {
         if (options.ReadOnly) return DashboardResults.ReadOnly();
         if (req == null)
-            return Results.BadRequest(new { Error = "Trigger update payload is required" });
+            return Results.BadRequest(new { error = "Trigger update payload is required" });
 
         var key = new TriggerKey(name, group);
         var existing = await sched.GetTrigger(key);
         if (existing == null)
-            return Results.NotFound(new { Error = $"Trigger '{group}.{name}' not found" });
+            return Results.NotFound(new { error = $"Trigger '{group}.{name}' not found" });
 
         var builder = TriggerBuilder.Create()
             .WithIdentity(existing.Key)
@@ -272,7 +272,7 @@ internal static class TriggerHandlers
         {
             var cronExpression = req.CronExpression ?? cronTrigger.CronExpressionString;
             if (string.IsNullOrWhiteSpace(cronExpression))
-                return Results.BadRequest(new { Error = "cronExpression is required for cron triggers" });
+                return Results.BadRequest(new { error = "cronExpression is required for cron triggers" });
 
             updatedTrigger = builder.WithCronSchedule(cronExpression, cron =>
             {
@@ -283,7 +283,7 @@ internal static class TriggerHandlers
         {
             var intervalSeconds = req.IntervalSeconds ?? Math.Max(1, (int)Math.Round(simpleTrigger.RepeatInterval.TotalSeconds));
             if (intervalSeconds <= 0)
-                return Results.BadRequest(new { Error = "intervalSeconds must be greater than zero for simple triggers" });
+                return Results.BadRequest(new { error = "intervalSeconds must be greater than zero for simple triggers" });
 
             updatedTrigger = builder.WithSimpleSchedule(schedule =>
             {
@@ -298,7 +298,7 @@ internal static class TriggerHandlers
         }
         else
         {
-            return Results.BadRequest(new { Error = $"Trigger type '{existing.GetType().Name}' is not supported for updates" });
+            return Results.BadRequest(new { error = $"Trigger type '{existing.GetType().Name}' is not supported for updates" });
         }
 
         await sched.RescheduleJob(key, updatedTrigger);
@@ -313,9 +313,9 @@ internal static class TriggerHandlers
         if (await sched.CheckExists(key))
         {
             await sched.UnscheduleJob(key);
-            return Results.Ok(new StatusResponse("deleted", Trigger: $"{group}.{name}"));
+            return Results.NoContent();
         }
-        return Results.NotFound(new { Error = $"Trigger '{group}.{name}' not found" });
+        return Results.NotFound(new { error = $"Trigger '{group}.{name}' not found" });
     }
 
     internal static string MisfireInstructionName(int code, bool isCron)

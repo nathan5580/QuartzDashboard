@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "build": "node build-assets.mjs",
+    "test": "vitest run",
     "audit": "npm audit --audit-level=moderate"
   },
   "keywords": [
@@ -16,6 +17,7 @@
   "license": "MIT",
   "type": "commonjs",
   "devDependencies": {
-    "esbuild": "^0.28.0"
+    "esbuild": "^0.28.0",
+    "vitest": "^4.1.6"
   }
 }

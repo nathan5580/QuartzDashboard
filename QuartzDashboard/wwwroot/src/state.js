@@ -19,7 +19,6 @@ export function createState() {
         history: [],
         historyTotal: 0,
         historyOffset: 0,
-        historyLimit: 50,
         historyCurrentPage: 1,
         historyPageSize: 50,
         faviconFailureCount: 0,
@@ -65,7 +64,6 @@ export function createState() {
         knownExecutingIds: new Set(),
 
         // History page
-        historyFilter: '',
         historyFilterObj: { search: '', status: 'all', dateFrom: '', dateTo: '', dateRange: 'all' },
         maxHistoryDuration: 0,
         historyExpandedRows: {},
@@ -211,7 +209,7 @@ export function createState() {
         // ========================= THEME =========================
         // Dark is the default (app was designed dark-first). Toggle switches to light.
         theme: (() => {
-          return localStorage.getItem('qd-theme') || 'dark';
+          return localStorage.getItem('quartz-theme') || localStorage.getItem('qd-theme') || 'dark';
         })(),
         applyTheme(theme = this.theme) {
           this.theme = theme;
@@ -227,7 +225,7 @@ export function createState() {
         toggleTheme() {
           const nextTheme = this.theme === 'dark' ? 'light' : 'dark';
           this.applyTheme(nextTheme);
-          localStorage.setItem('qd-theme', nextTheme);
+          localStorage.setItem('quartz-theme', nextTheme);
           this.$nextTick?.(() => {
             this.updateGraphChart?.();
             this.updateTimelineChart?.();

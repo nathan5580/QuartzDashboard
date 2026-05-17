@@ -190,6 +190,19 @@ Open **`/quartz`** in your browser.
 
 Auto-refreshes every 5 seconds via SignalR. Dark/light theme with OS auto-detection. Fully responsive — mobile bottom tab bar covers all 10 sections (scrollable). Collapsible sidebar. Sticky/sortable table headers. Full keyboard navigation (`?` for shortcut reference). Global search (`Ctrl+K`) with deduped history results. Favicon failure badge. Embed mode (`?embed=true`).
 
+#### Iframe Embedding
+
+Append `?embed=true` to the dashboard URL to strip the sidebar and header for a cleaner embedded experience:
+
+```html
+<iframe src="https://yourapp.com/quartz?embed=true"
+        style="width: 100%; height: 700px; border: none;"
+        title="Quartz Dashboard">
+</iframe>
+```
+
+In embed mode, the sidebar navigation, top header, and breadcrumbs are hidden. All pages, API endpoints, and real-time features remain fully functional.
+
 ## Configuration
 
 ```csharp
@@ -197,7 +210,7 @@ builder.Services.AddQuartzDashboard(options =>
 {
     options.Path = "/admin/scheduler";    // default: "/quartz"
     options.Enabled = true;               // false = UseQuartzDashboard() is a no-op
-    options.ReadOnly = false;             // disable all write actions
+    options.ReadOnly = false;             // disable all write actions (see Read-Only Mode below)
     options.UseSignalR = true;            // real-time updates (registers hub automatically)
 
     // Auth
@@ -454,6 +467,33 @@ builder.Services.AddQuartzDashboard(options =>
 });
 ```
 
+### Read-Only Mode
+
+Set `ReadOnly = true` to expose the dashboard to a wider audience without granting control over the scheduler.
+
+When `ReadOnly = true`:
+
+**Blocked:** Trigger job, Pause/Resume job or trigger, Delete job/trigger/calendar, Start/Standby scheduler, Create/Edit triggers, Interrupt executing jobs.
+
+**Still available:** All GET endpoints, history export (CSV/JSON), print report, real-time updates via SignalR.
+
+Useful for monitoring-only dashboards exposed to a wider audience.
+
+### Multi-Scheduler Support
+
+When multiple Quartz.NET schedulers are registered in the same application, the dashboard automatically detects and displays a scheduler picker in the header. API calls are routed to the selected scheduler via a `?scheduler=SchedulerName` query parameter.
+
+```csharp
+// Register multiple schedulers with distinct IDs
+builder.Services.AddQuartz(q => { q.SchedulerId = "Primary"; });
+builder.Services.AddQuartz(q => { q.SchedulerId = "Secondary"; });
+
+// The dashboard picks up all registered ISchedulerFactory instances automatically
+builder.Services.AddQuartzDashboard();
+```
+
+No additional configuration is required — the scheduler picker appears automatically when more than one scheduler is detected.
+
 ## Migrating from v3.x to v4.0
 
 1. **Update `using` statements for custom history stores.** `IFireHistoryStore` and `FireRecord` moved namespace:
@@ -683,7 +723,7 @@ PACKAGES (v4 — split into three):
   Dot.QuartzDashboard               — middleware + handlers + SPA + in-memory/JSON history
   Dot.QuartzDashboard.Abstractions  — IFireHistoryStore + FireRecord (no ASP.NET deps)
   Dot.QuartzDashboard.Sqlite        — SqliteFireHistoryStore + AddQuartzDashboardSqliteHistory()
-CURRENT VERSION: 4.0.0
+CURRENT VERSION: 4.1.0
 TARGETS: net8.0, net9.0, net10.0
 NAMESPACES:
   QuartzDashboard                  — middleware, options, hub
@@ -819,15 +859,23 @@ Default endpoint: {Path}/hub  (e.g. /quartz/hub)
 Registered automatically when UseSignalR = true — no manual MapHub needed.
 POST {Path}/hub/negotiate?negotiateVersion=1  → 200 when working
 
---- UI FEATURES (v3.0.6) ---
-- Clickable stat cards on Overview — navigate to Jobs / Triggers / Executing / History
-- History date-range filters: 1h / 6h / 24h / All
-- History failed rows show inline error snippet
-- Jobs "View history" action pre-filters History for that job
+--- UI FEATURES (v4.1.0) ---
+- Anti-flicker refresh — mergeArrayInPlace keeps DOM nodes stable across auto-refresh cycles
+- Silent background refresh — SignalR/auto-refresh updates skip loading spinners and error toasts
+- Row density toggle (comfortable / compact), persisted to localStorage
+- Desktop notifications for job failures (opt-in browser permission)
+- Per-job sparkline column on Jobs page (xl ≥ 1280px)
+- "In-memory only" banner on History when no persistent store is registered
+- Triggers group header with Pause/Resume context buttons and paused-count badge
+- Favicon failure badge — red dot on browser tab when unacknowledged failures exist
+- CSV export and JSON export from History page
+- Print report from History/Health pages
+- Graph page: dual-line SVG (execution count + avg duration + error rate), zoom toggles
+- Timeline page: full-width Gantt bars, crosshair tooltip, pulsing now-marker
+- Mobile bottom tab bar (all 10 pages, horizontally scrollable)
 - Command palette (⌘K): "Run now: X.Y" label, keyword aliases (run/fire/trigger/execute)
-- Mobile bottom nav covers all 10 pages (scrollable)
-- Jobs search toggle button on mobile
-- Success rate card shows record-count context
+- Clickable stat cards on Overview — navigate to Jobs / Triggers / Executing / History
+- History date-range filters: 1h / 6h / 24h / All with inline error snippets on failed rows
 
 --- COMMON MISTAKES ---
 - Do NOT call app.MapHub<QuartzDashboardHub>() yourself when UseSignalR = true

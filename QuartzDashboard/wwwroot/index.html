@@ -15,7 +15,7 @@
   <script>
     // Apply theme before Alpine loads to avoid flash. Dark is default.
     (function() {
-      var saved = localStorage.getItem('qd-theme');
+      var saved = localStorage.getItem('quartz-theme') || localStorage.getItem('qd-theme');
       if (saved === 'light') {
         document.documentElement.setAttribute('data-theme', 'light');
         document.documentElement.classList.remove('dark');
@@ -73,7 +73,7 @@
   </svg>
 
   <!-- Toast queue -->
-  <div class="fixed bottom-12 right-4 z-50 flex flex-col-reverse gap-2 pointer-events-none" style="z-index: 55;" role="status" aria-live="polite" aria-atomic="true">
+  <div class="fixed right-4 z-50 flex flex-col-reverse gap-2 pointer-events-none" :class="isMobile && !embedMode ? 'bottom-[5.5rem]' : 'bottom-12'" style="z-index: 55;" role="status" aria-live="polite" aria-atomic="true">
     <template x-for="(t, idx) in toastQueue.slice(0, 3)" :key="t.id">
       <div class="toast pointer-events-auto"
            :class="'toast-' + t.type"
@@ -96,8 +96,8 @@
   <!-- SECTION: Modals / Create Job                                -->
   <!-- ============================================================ -->
   <!-- ============ CREATE JOB MODAL ============ -->
-    <div x-show="showCreateJobModal" class="modal-overlay" @click.self="showCreateJobModal = false; createJobErrors = {}; createJobSubmitted = false" @keydown.escape.window="showCreateJobModal = false; createJobErrors = {}; createJobSubmitted = false" :aria-hidden="(!showCreateJobModal).toString()" style="display: none;">
-      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="create-job-title">
+    <div x-show="showCreateJobModal" x-effect="if (showCreateJobModal) $nextTick(() => $refs.firstJobInput?.focus())" class="modal-overlay" @click.self="showCreateJobModal = false; createJobErrors = {}; createJobSubmitted = false" @keydown.escape.window="showCreateJobModal = false; createJobErrors = {}; createJobSubmitted = false" :aria-hidden="(!showCreateJobModal).toString()" style="display: none;">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="create-job-title" @keydown.ctrl.enter.prevent="submitCreateJob()" @keydown.meta.enter.prevent="submitCreateJob()">
         <div class="flex items-center justify-between mb-5">
           <h2 id="create-job-title" class="text-base font-semibold text-gray-100">Create Job</h2>
           <button @click="showCreateJobModal = false; createJobErrors = {}; createJobSubmitted = false" class="btn-icon" aria-label="Close create job">
@@ -106,8 +106,8 @@
         </div>
         <div class="space-y-4">
           <div>
-            <label class="form-label">Name *</label>
-            <input type="text" x-model="newJob.name" x-ref="newJobName"
+            <label for="job-name" class="form-label">Name *</label>
+            <input id="job-name" type="text" x-model="newJob.name" x-ref="firstJobInput"
                    @input="if (createJobErrors.name && newJob.name) createJobErrors.name = ''"
                    :aria-invalid="!!createJobErrors.name"
                    aria-describedby="create-job-name-error"
@@ -116,16 +116,16 @@
             <p id="create-job-name-error" x-show="createJobErrors.name" x-text="createJobErrors.name" class="mt-1 text-xs text-red-300" style="display:none"></p>
           </div>
           <div>
-            <label class="form-label">Group</label>
-            <input type="text" x-model="newJob.group" class="glass-input w-full" placeholder="DEFAULT">
+            <label for="job-group" class="form-label">Group</label>
+            <input id="job-group" type="text" x-model="newJob.group" class="glass-input w-full" placeholder="DEFAULT">
           </div>
           <div>
-            <label class="form-label">Description</label>
-            <textarea x-model="newJob.description" rows="2" class="glass-textarea w-full" placeholder="Optional description"></textarea>
+            <label for="job-description" class="form-label">Description</label>
+            <textarea id="job-description" x-model="newJob.description" rows="2" class="glass-textarea w-full" placeholder="Optional description"></textarea>
           </div>
           <div>
-            <label class="form-label">Job Type (.NET type name)</label>
-            <input type="text" x-model="newJob.jobType" class="glass-input w-full" placeholder="MyApp.Jobs.MyJob, MyApp">
+            <label for="job-type" class="form-label">Job Type (.NET type name)</label>
+            <input id="job-type" type="text" x-model="newJob.jobType" class="glass-input w-full" placeholder="MyApp.Jobs.MyJob, MyApp">
           </div>
           <div class="flex items-center gap-6 pt-1">
             <label class="flex items-center gap-2 cursor-pointer">
@@ -153,8 +153,8 @@
   <!-- SECTION: Modals / Create Trigger                            -->
   <!-- ============================================================ -->
   <!-- ============ CREATE TRIGGER MODAL ============ -->
-    <div x-show="showCreateTriggerModal" class="modal-overlay" @click.self="showCreateTriggerModal = false" @keydown.escape.window="showCreateTriggerModal = false" :aria-hidden="(!showCreateTriggerModal).toString()" style="display: none;">
-      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="create-trigger-title">
+    <div x-show="showCreateTriggerModal" x-effect="if (showCreateTriggerModal) $nextTick(() => $refs.firstTriggerInput?.focus())" class="modal-overlay" @click.self="showCreateTriggerModal = false" @keydown.escape.window="showCreateTriggerModal = false" :aria-hidden="(!showCreateTriggerModal).toString()" style="display: none;">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="create-trigger-title" @keydown.ctrl.enter.prevent="submitCreateTrigger()" @keydown.meta.enter.prevent="submitCreateTrigger()">
         <div class="flex items-center justify-between mb-5">
           <h2 id="create-trigger-title" class="text-base font-semibold text-gray-100">Create Trigger</h2>
           <button @click="showCreateTriggerModal = false" class="btn-icon" aria-label="Close create trigger">
@@ -163,24 +163,24 @@
         </div>
         <div class="space-y-4">
           <div>
-            <label class="form-label">Name *</label>
-            <input type="text" x-model="newTrigger.name" class="glass-input w-full" placeholder="MyTrigger">
+            <label for="trigger-name" class="form-label">Name *</label>
+            <input id="trigger-name" type="text" x-model="newTrigger.name" x-ref="firstTriggerInput" class="glass-input w-full" placeholder="MyTrigger">
           </div>
           <div>
-            <label class="form-label">Group</label>
-            <input type="text" x-model="newTrigger.group" class="glass-input w-full" placeholder="DEFAULT">
+            <label for="trigger-group" class="form-label">Group</label>
+            <input id="trigger-group" type="text" x-model="newTrigger.group" class="glass-input w-full" placeholder="DEFAULT">
           </div>
           <div>
-            <label class="form-label">Job Name *</label>
-            <input type="text" x-model="newTrigger.jobName" class="glass-input w-full" placeholder="MyJob">
+            <label for="trigger-job" class="form-label">Job Name *</label>
+            <input id="trigger-job" type="text" x-model="newTrigger.jobName" class="glass-input w-full" placeholder="MyJob">
           </div>
           <div>
-            <label class="form-label">Job Group</label>
-            <input type="text" x-model="newTrigger.jobGroup" class="glass-input w-full" placeholder="DEFAULT">
+            <label for="trigger-job-group" class="form-label">Job Group</label>
+            <input id="trigger-job-group" type="text" x-model="newTrigger.jobGroup" class="glass-input w-full" placeholder="DEFAULT">
           </div>
           <div>
-            <label class="form-label">Description</label>
-            <textarea x-model="newTrigger.description" rows="2" class="glass-textarea w-full" placeholder="Optional description"></textarea>
+            <label for="trigger-description" class="form-label">Description</label>
+            <textarea id="trigger-description" x-model="newTrigger.description" rows="2" class="glass-textarea w-full" placeholder="Optional description"></textarea>
           </div>
 
           <!-- Trigger type tabs -->
@@ -194,8 +194,8 @@
           <!-- Cron fields -->
           <template x-if="newTrigger.triggerType === 'cron'">
             <div>
-              <label class="form-label">Cron Expression *</label>
-              <input type="text" x-model="newTrigger.cronExpression" @input.debounce.500ms="validateCron(newTrigger.cronExpression)" class="glass-input w-full" placeholder="0/5 * * * * ?">
+              <label for="trigger-cron" class="form-label">Cron Expression *</label>
+              <input id="trigger-cron" type="text" x-model="newTrigger.cronExpression" @input.debounce.500ms="validateCron(newTrigger.cronExpression)" class="glass-input w-full" placeholder="0/5 * * * * ?">
               <div x-show="newTrigger.triggerType === 'cron' && newTrigger.cronExpression.length >= 5" class="mt-2 space-y-1">
                 <div x-show="cronValid === true" class="text-xs text-emerald-400">✓ Valid expression</div>
                 <div x-show="cronValid === false" class="text-xs text-red-400">✗ Invalid cron expression</div>
@@ -215,13 +215,13 @@
           <template x-if="newTrigger.triggerType === 'simple'">
             <div class="space-y-3">
               <div>
-                <label class="form-label">Interval (seconds) *</label>
-                <input type="number" x-model.number="newTrigger.intervalSeconds" class="glass-input w-full" placeholder="10" min="1">
+                <label for="trigger-interval" class="form-label">Interval (seconds) *</label>
+                <input id="trigger-interval" type="number" x-model.number="newTrigger.intervalSeconds" class="glass-input w-full" placeholder="10" min="1">
               </div>
               <div>
-                <label class="form-label">Repeat Count</label>
+                <label for="trigger-repeat" class="form-label">Repeat Count</label>
                 <div class="flex items-center gap-2">
-                  <input type="number" x-model.number="newTrigger.repeatCount" class="glass-input w-24" placeholder="0" min="-1">
+                  <input id="trigger-repeat" type="number" x-model.number="newTrigger.repeatCount" class="glass-input w-24" placeholder="0" min="-1">
                   <span class="text-xs text-gray-500">(-1 = infinite)</span>
                 </div>
               </div>
@@ -229,16 +229,16 @@
           </template>
 
           <div>
-            <label class="form-label">Priority</label>
-            <input type="number" x-model.number="newTrigger.priority" class="glass-input w-24" placeholder="5" min="0">
+            <label for="trigger-priority" class="form-label">Priority</label>
+            <input id="trigger-priority" type="number" x-model.number="newTrigger.priority" class="glass-input w-24" placeholder="5" min="0">
           </div>
           <div>
-            <label class="form-label">Start Time</label>
-            <input type="datetime-local" x-model="newTrigger.startTimeUtc" class="glass-input w-full">
+            <label for="trigger-start" class="form-label">Start Time</label>
+            <input id="trigger-start" type="datetime-local" x-model="newTrigger.startTimeUtc" class="glass-input w-full">
           </div>
           <div>
-            <label class="form-label">End Time (optional)</label>
-            <input type="datetime-local" x-model="newTrigger.endTimeUtc" class="glass-input w-full">
+            <label for="trigger-end" class="form-label">End Time (optional)</label>
+            <input id="trigger-end" type="datetime-local" x-model="newTrigger.endTimeUtc" class="glass-input w-full">
           </div>
 
           <div class="flex justify-end gap-2 pt-2">
@@ -253,8 +253,8 @@
   <!-- SECTION: Modals / Trigger Job                               -->
   <!-- ============================================================ -->
   <!-- ============ TRIGGER JOB MODAL ============ -->
-    <div x-show="showTriggerJobModal" class="modal-overlay" @click.self="closeTriggerJobModal()" @keydown.escape.window="closeTriggerJobModal()" :aria-hidden="(!showTriggerJobModal).toString()" style="display: none;">
-      <div class="modal-card max-w-lg" role="dialog" aria-modal="true" aria-labelledby="run-job-title">
+    <div x-show="showTriggerJobModal" x-effect="if (showTriggerJobModal) $nextTick(() => $refs.firstRunJobInput?.focus())" class="modal-overlay" @click.self="closeTriggerJobModal()" @keydown.escape.window="closeTriggerJobModal()" :aria-hidden="(!showTriggerJobModal).toString()" style="display: none;">
+      <div class="modal-card max-w-lg" role="dialog" aria-modal="true" aria-labelledby="run-job-title" @keydown.ctrl.enter.prevent="triggerJob(triggerJobTarget.group, triggerJobTarget.name)" @keydown.meta.enter.prevent="triggerJob(triggerJobTarget.group, triggerJobTarget.name)">
         <div class="flex items-center justify-between mb-5">
           <div>
             <h2 id="run-job-title" class="text-base font-semibold text-gray-100">Run Job</h2>
@@ -271,7 +271,7 @@
                 <div class="text-sm font-medium text-gray-200">Data Map</div>
                 <div class="text-xs text-gray-500">Optional transient parameters for this manual run</div>
               </div>
-              <button @click="addTriggerJobParam()" class="btn btn-ghost text-xs">
+              <button x-ref="firstRunJobInput" @click="addTriggerJobParam()" class="btn btn-ghost text-xs">
                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Add parameter
               </button>
@@ -408,8 +408,8 @@
   <!-- SECTION: Modals / Create Calendar                           -->
   <!-- ============================================================ -->
   <!-- ============ CREATE CALENDAR MODAL ============ -->
-    <div x-show="showCreateCalendarModal" class="modal-overlay" @click.self="showCreateCalendarModal = false" @keydown.escape.window="showCreateCalendarModal = false" :aria-hidden="(!showCreateCalendarModal).toString()" style="display: none;">
-      <div class="modal-card max-w-md" role="dialog" aria-modal="true" aria-labelledby="create-calendar-title">
+    <div x-show="showCreateCalendarModal" x-effect="if (showCreateCalendarModal) $nextTick(() => $refs.firstCalendarInput?.focus())" class="modal-overlay" @click.self="showCreateCalendarModal = false" @keydown.escape.window="showCreateCalendarModal = false" :aria-hidden="(!showCreateCalendarModal).toString()" style="display: none;">
+      <div class="modal-card max-w-md" role="dialog" aria-modal="true" aria-labelledby="create-calendar-title" @keydown.ctrl.enter.prevent="createCalendar()" @keydown.meta.enter.prevent="createCalendar()">
         <div class="flex items-center justify-between mb-5">
           <h2 id="create-calendar-title" class="text-base font-semibold text-gray-100">Create Calendar</h2>
           <button @click="showCreateCalendarModal = false" class="btn-icon" aria-label="Close create calendar">
@@ -418,12 +418,12 @@
         </div>
         <div class="space-y-4">
           <div>
-            <label class="form-label">Name *</label>
-            <input type="text" x-model="newCalendar.name" class="glass-input w-full" placeholder="BusinessHours">
+            <label for="calendar-name" class="form-label">Name *</label>
+            <input id="calendar-name" type="text" x-model="newCalendar.name" x-ref="firstCalendarInput" class="glass-input w-full" placeholder="BusinessHours">
           </div>
           <div>
-            <label class="form-label">Type</label>
-            <select x-model="newCalendar.type" class="glass-select w-full">
+            <label for="calendar-type" class="form-label">Type</label>
+            <select id="calendar-type" x-model="newCalendar.type" class="glass-select w-full">
               <option value="holiday">Holiday</option>
               <option value="monthly">Monthly</option>
               <option value="weekly">Weekly</option>
@@ -433,12 +433,12 @@
             </select>
           </div>
           <div x-show="newCalendar.type === 'cron'">
-            <label class="form-label">Cron Expression</label>
-            <input type="text" x-model="newCalendar.cronExpression" class="glass-input w-full" placeholder="0 0 0 * * ?">
+            <label for="calendar-cron" class="form-label">Cron Expression</label>
+            <input id="calendar-cron" type="text" x-model="newCalendar.cronExpression" class="glass-input w-full" placeholder="0 0 0 * * ?">
           </div>
           <div>
-            <label class="form-label">Description</label>
-            <textarea x-model="newCalendar.description" rows="3" class="glass-textarea w-full" placeholder="Optional description"></textarea>
+            <label for="calendar-description" class="form-label">Description</label>
+            <textarea id="calendar-description" x-model="newCalendar.description" rows="3" class="glass-textarea w-full" placeholder="Optional description"></textarea>
           </div>
           <div class="flex justify-end gap-2 pt-2">
             <button @click="showCreateCalendarModal = false" class="btn btn-ghost">Cancel</button>
@@ -545,7 +545,7 @@
             <div class="grid grid-cols-2 gap-1.5">
               <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white/[0.03]">
                 <span class="text-xs text-gray-400">Command palette</span>
-                <kbd class="mono text-[10px] bg-white/[0.07] text-gray-300 px-1.5 py-0.5 rounded border border-white/[0.1]">⌘K</kbd>
+                <kbd class="mono text-[10px] bg-white/[0.07] text-gray-300 px-1.5 py-0.5 rounded border border-white/[0.1]" x-text="navigator.platform.includes('Mac') ? '⌘K' : 'Ctrl+K'"></kbd>
               </div>
               <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white/[0.03]">
                 <span class="text-xs text-gray-400">Refresh page</span>
@@ -576,7 +576,7 @@
   <!-- ============================================================ -->
   <!-- SECTION: Sidebar / Navigation                                -->
   <!-- ============================================================ -->
-  <div class="flex h-screen overflow-hidden" :style="'padding-bottom: 2rem'">
+  <div class="flex h-screen overflow-hidden" :style="isMobile && !embedMode ? 'padding-bottom: 4.5rem' : 'padding-bottom: 2rem'">
     <!-- ===================== SIDEBAR ===================== -->
     <aside role="navigation" aria-label="Dashboard navigation" :class="['sidebar-collapse flex flex-col flex-shrink-0 bg-gray-950 sidebar-border z-20', sidebarOpen ? 'w-60' : 'w-16']">
       <!-- Logo -->
@@ -599,6 +599,7 @@
         <template x-for="item in navItems" :key="item.id">
           <button type="button" @click="navigateTo(item.id)"
                   :aria-current="currentPage === item.id ? 'page' : undefined"
+                  :aria-label="item.label"
                   :class="['sidebar-item w-full text-left bg-transparent border-0', currentPage === item.id ? 'active' : '', sidebarOpen ? '' : 'justify-center px-0']"
                   :title="!sidebarOpen ? item.label : ''">
             <span style="flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative">
@@ -744,7 +745,7 @@
               <div class="flex justify-between"><span class="text-xs text-gray-500">Job Key</span><span class="text-sm text-gray-200 font-mono" x-text="historyDetailData.jobKey"></span></div>
               <div class="flex justify-between"><span class="text-xs text-gray-500">Trigger Key</span><span class="text-sm text-gray-200 font-mono" x-text="historyDetailData.triggerKey"></span></div>
               <div class="flex justify-between"><span class="text-xs text-gray-500">Fire Time</span><span class="text-sm text-gray-200" x-text="new Date(historyDetailData.fireTime).toLocaleString()"></span></div>
-              <div class="flex justify-between"><span class="text-xs text-gray-500">Duration</span><span class="text-sm text-gray-200 tabular-nums" x-text="historyDetailData.duration.toFixed(1) + 'ms'"></span></div>
+              <div class="flex justify-between"><span class="text-xs text-gray-500">Duration</span><span class="text-sm text-gray-200 tabular-nums" x-text="formatDuration(historyDetailData.durationMs ?? historyDetailData.duration)"></span></div>
               <div class="flex justify-between" x-show="historyDetailData.refireCount > 0"><span class="text-xs text-gray-500">Refire Count</span><span class="text-sm text-amber-400" x-text="historyDetailData.refireCount"></span></div>
             </div>
 
@@ -840,7 +841,7 @@
         <button @click="openCommandPalette()" class="btn btn-ghost text-xs gap-1.5" title="Command palette">
           <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <span>Command Palette</span>
-          <kbd class="mono text-[10px] bg-white/[0.07] text-gray-300 px-1.5 py-0.5 rounded border border-white/[0.1]">⌘K</kbd>
+          <kbd class="mono text-[10px] bg-white/[0.07] text-gray-300 px-1.5 py-0.5 rounded border border-white/[0.1]" x-text="navigator.platform.includes('Mac') ? '⌘K' : 'Ctrl+K'"></kbd>
         </button>
         <button @click="toggleTheme()" class="btn-icon w-8 h-8" :title="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'" aria-label="Toggle dark or light mode">
           <template x-if="theme === 'dark'">
@@ -1475,15 +1476,15 @@
                     <table class="w-full text-sm mobile-card-table">
                       <thead>
                         <tr class="border-b border-white/[0.06] bg-white/[0.02]">
-                          <th class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 w-4"></th>
-                          <th @click="sortTable('jobs', 'name')" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 cursor-pointer select-none">Job <span class="sort-indicator" :class="jobsSortCol === 'name' ? 'active' : ''" x-text="jobsSortCol === 'name' ? (jobsSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                          <th @click="sortTable('jobs', 'group')" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden md:table-cell cursor-pointer select-none">Group <span class="sort-indicator" :class="jobsSortCol === 'group' ? 'active' : ''" x-text="jobsSortCol === 'group' ? (jobsSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                          <th @click="sortTable('jobs', 'status')" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden sm:table-cell cursor-pointer select-none">Status <span class="sort-indicator" :class="jobsSortCol === 'status' ? 'active' : ''" x-text="jobsSortCol === 'status' ? (jobsSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                          <th @click="sortTable('jobs', 'triggers')" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden lg:table-cell cursor-pointer select-none">Triggers <span class="sort-indicator" :class="jobsSortCol === 'triggers' ? 'active' : ''" x-text="jobsSortCol === 'triggers' ? (jobsSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                          <th @click="sortTable('jobs', 'nextFireTime')" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 cursor-pointer select-none">Next Fire <span class="sort-indicator" :class="jobsSortCol === 'nextFireTime' ? 'active' : ''" x-text="jobsSortCol === 'nextFireTime' ? (jobsSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                          <th @click="sortTable('jobs', 'lastRun')" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden xl:table-cell cursor-pointer select-none">Last Run <span class="sort-indicator" :class="jobsSortCol === 'lastRun' ? 'active' : ''" x-text="jobsSortCol === 'lastRun' ? (jobsSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                          <th class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden xl:table-cell">Trend</th>
-                          <th class="py-2.5 px-4 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500">Actions</th>
+                          <th scope="col" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 w-4"></th>
+                          <th scope="col" @click="sortTable('jobs', 'name')" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 cursor-pointer select-none">Job <span class="sort-indicator" :class="jobsSortCol === 'name' ? 'active' : ''" x-text="jobsSortCol === 'name' ? (jobsSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                          <th scope="col" @click="sortTable('jobs', 'group')" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden md:table-cell cursor-pointer select-none">Group <span class="sort-indicator" :class="jobsSortCol === 'group' ? 'active' : ''" x-text="jobsSortCol === 'group' ? (jobsSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                          <th scope="col" @click="sortTable('jobs', 'status')" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden sm:table-cell cursor-pointer select-none">Status <span class="sort-indicator" :class="jobsSortCol === 'status' ? 'active' : ''" x-text="jobsSortCol === 'status' ? (jobsSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                          <th scope="col" @click="sortTable('jobs', 'triggers')" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden lg:table-cell cursor-pointer select-none">Triggers <span class="sort-indicator" :class="jobsSortCol === 'triggers' ? 'active' : ''" x-text="jobsSortCol === 'triggers' ? (jobsSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                          <th scope="col" @click="sortTable('jobs', 'nextFireTime')" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 cursor-pointer select-none">Next Fire <span class="sort-indicator" :class="jobsSortCol === 'nextFireTime' ? 'active' : ''" x-text="jobsSortCol === 'nextFireTime' ? (jobsSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                          <th scope="col" @click="sortTable('jobs', 'lastRun')" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden xl:table-cell cursor-pointer select-none">Last Run <span class="sort-indicator" :class="jobsSortCol === 'lastRun' ? 'active' : ''" x-text="jobsSortCol === 'lastRun' ? (jobsSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                          <th scope="col" class="py-2.5 px-4 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 hidden xl:table-cell">Trend</th>
+                          <th scope="col" class="py-2.5 px-4 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500">Actions</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-white/[0.04]">
@@ -2089,6 +2090,11 @@
                   <div class="empty-state-title">No triggers configured</div>
                   <div class="empty-state-desc">Create a trigger to schedule job execution</div>
                 </div>
+                <div x-show="triggers && triggers.length > 0 && filteredGroupedTriggers.length === 0 && triggersFilter" class="card-gradient text-center py-10">
+                  <svg class="w-10 h-10 mx-auto text-gray-600 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <p class="text-gray-500 text-sm">No triggers matching "<span x-text="triggersFilter"></span>"</p>
+                  <button @click="triggersFilter = ''" class="btn btn-ghost mt-2 text-xs">Clear filter</button>
+                </div>
                 <template x-for="(group, gIdx) in filteredGroupedTriggers" :key="group.jobName">
                   <div class="card-gradient p-0 overflow-hidden">
                     <div @click="toggleTriggerGroup(group.jobName)" class="flex items-center gap-2 px-5 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors">
@@ -2116,14 +2122,14 @@
                         <table>
                           <thead>
                             <tr>
-                              <th @click="sortTable('triggers', 'name')" class="cursor-pointer select-none">Trigger <span class="sort-indicator" :class="triggersSortCol === 'name' ? 'active' : ''" x-text="triggersSortCol === 'name' ? (triggersSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                              <th @click="sortTable('triggers', 'type')" class="hidden sm:table-cell cursor-pointer select-none">Type <span class="sort-indicator" :class="triggersSortCol === 'type' ? 'active' : ''" x-text="triggersSortCol === 'type' ? (triggersSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                              <th @click="sortTable('triggers', 'state')" class="cursor-pointer select-none">State <span class="sort-indicator" :class="triggersSortCol === 'state' ? 'active' : ''" x-text="triggersSortCol === 'state' ? (triggersSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                              <th @click="sortTable('triggers', 'scheduleDescription')" class="hidden md:table-cell cursor-pointer select-none">Schedule <span class="sort-indicator" :class="triggersSortCol === 'scheduleDescription' ? 'active' : ''" x-text="triggersSortCol === 'scheduleDescription' ? (triggersSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                              <th @click="sortTable('triggers', 'lastFireTime')" class="hidden md:table-cell cursor-pointer select-none">Last Fire <span class="sort-indicator" :class="triggersSortCol === 'lastFireTime' ? 'active' : ''" x-text="triggersSortCol === 'lastFireTime' ? (triggersSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                              <th @click="sortTable('triggers', 'misfireInstruction')" class="hidden lg:table-cell cursor-pointer select-none">Misfire <span class="sort-indicator" :class="triggersSortCol === 'misfireInstruction' ? 'active' : ''" x-text="triggersSortCol === 'misfireInstruction' ? (triggersSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                              <th @click="sortTable('triggers', 'nextFireTime')" class="cursor-pointer select-none">Next Fire <span class="sort-indicator" :class="triggersSortCol === 'nextFireTime' ? 'active' : ''" x-text="triggersSortCol === 'nextFireTime' ? (triggersSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                              <th class="text-right">Actions</th>
+                              <th scope="col" @click="sortTable('triggers', 'name')" class="cursor-pointer select-none">Trigger <span class="sort-indicator" :class="triggersSortCol === 'name' ? 'active' : ''" x-text="triggersSortCol === 'name' ? (triggersSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                              <th scope="col" @click="sortTable('triggers', 'type')" class="hidden sm:table-cell cursor-pointer select-none">Type <span class="sort-indicator" :class="triggersSortCol === 'type' ? 'active' : ''" x-text="triggersSortCol === 'type' ? (triggersSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                              <th scope="col" @click="sortTable('triggers', 'state')" class="cursor-pointer select-none">State <span class="sort-indicator" :class="triggersSortCol === 'state' ? 'active' : ''" x-text="triggersSortCol === 'state' ? (triggersSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                              <th scope="col" @click="sortTable('triggers', 'scheduleDescription')" class="hidden md:table-cell cursor-pointer select-none">Schedule <span class="sort-indicator" :class="triggersSortCol === 'scheduleDescription' ? 'active' : ''" x-text="triggersSortCol === 'scheduleDescription' ? (triggersSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                              <th scope="col" @click="sortTable('triggers', 'lastFireTime')" class="hidden md:table-cell cursor-pointer select-none">Last Fire <span class="sort-indicator" :class="triggersSortCol === 'lastFireTime' ? 'active' : ''" x-text="triggersSortCol === 'lastFireTime' ? (triggersSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                              <th scope="col" @click="sortTable('triggers', 'misfireInstruction')" class="hidden lg:table-cell cursor-pointer select-none">Misfire <span class="sort-indicator" :class="triggersSortCol === 'misfireInstruction' ? 'active' : ''" x-text="triggersSortCol === 'misfireInstruction' ? (triggersSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                              <th scope="col" @click="sortTable('triggers', 'nextFireTime')" class="cursor-pointer select-none">Next Fire <span class="sort-indicator" :class="triggersSortCol === 'nextFireTime' ? 'active' : ''" x-text="triggersSortCol === 'nextFireTime' ? (triggersSortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                              <th scope="col" class="text-right">Actions</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -2432,13 +2438,13 @@
                   <table class="mobile-card-table">
                     <thead>
                       <tr>
-                        <th @click="sortTable('history', 'fireTime')" class="cursor-pointer select-none">Time <span class="sort-indicator" :class="historySortCol === 'fireTime' ? 'active' : ''" x-text="historySortCol === 'fireTime' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                        <th @click="sortTable('history', 'jobKey')" class="cursor-pointer select-none">Job <span class="sort-indicator" :class="historySortCol === 'jobKey' ? 'active' : ''" x-text="historySortCol === 'jobKey' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                        <th @click="sortTable('history', 'triggerKey')" class="hidden sm:table-cell cursor-pointer select-none">Trigger <span class="sort-indicator" :class="historySortCol === 'triggerKey' ? 'active' : ''" x-text="historySortCol === 'triggerKey' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                        <th @click="sortTable('history', 'duration')" class="cursor-pointer select-none">Duration <span class="text-gray-600 normal-case">(ms/s)</span> <span class="sort-indicator" :class="historySortCol === 'duration' ? 'active' : ''" x-text="historySortCol === 'duration' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                        <th class="hidden md:table-cell text-[10px] font-semibold uppercase tracking-widest text-gray-500">Rel.</th>
-                        <th @click="sortTable('history', 'success')" class="cursor-pointer select-none">Outcome <span class="sort-indicator" :class="historySortCol === 'success' ? 'active' : ''" x-text="historySortCol === 'success' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
-                        <th class="hidden sm:table-cell text-[10px] font-semibold uppercase tracking-widest text-gray-500"></th>
+                        <th scope="col" @click="sortTable('history', 'fireTime')" class="cursor-pointer select-none">Time <span class="sort-indicator" :class="historySortCol === 'fireTime' ? 'active' : ''" x-text="historySortCol === 'fireTime' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                        <th scope="col" @click="sortTable('history', 'jobKey')" class="cursor-pointer select-none">Job <span class="sort-indicator" :class="historySortCol === 'jobKey' ? 'active' : ''" x-text="historySortCol === 'jobKey' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                        <th scope="col" @click="sortTable('history', 'triggerKey')" class="hidden sm:table-cell cursor-pointer select-none">Trigger <span class="sort-indicator" :class="historySortCol === 'triggerKey' ? 'active' : ''" x-text="historySortCol === 'triggerKey' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                        <th scope="col" @click="sortTable('history', 'duration')" class="cursor-pointer select-none">Duration <span class="text-gray-600 normal-case">(ms/s)</span> <span class="sort-indicator" :class="historySortCol === 'duration' ? 'active' : ''" x-text="historySortCol === 'duration' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                        <th scope="col" class="hidden md:table-cell text-[10px] font-semibold uppercase tracking-widest text-gray-500">Rel.</th>
+                        <th scope="col" @click="sortTable('history', 'success')" class="cursor-pointer select-none">Outcome <span class="sort-indicator" :class="historySortCol === 'success' ? 'active' : ''" x-text="historySortCol === 'success' ? (historySortDir === 'asc' ? '▲' : '▼') : '▲'"></span></th>
+                        <th scope="col" class="hidden sm:table-cell text-[10px] font-semibold uppercase tracking-widest text-gray-500"></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2456,7 +2462,7 @@
                                    x-text="h.exceptionMessage || h.errorMessage"></div>
                             </td>
                             <td class="text-xs text-gray-500 hidden sm:table-cell truncate max-w-[200px]" data-label="Trigger" x-text="h.triggerKey" :title="h.triggerKey"></td>
-                            <td class="text-xs mono text-gray-300" data-label="Duration" x-text="h.duration ? formatDuration(h.duration) : '\u2014'"></td>
+                            <td class="text-xs mono text-gray-300" data-label="Duration" x-text="(h.durationMs != null || h.duration) ? formatDuration(h.durationMs ?? h.duration) : '\u2014'"></td>
                             <td class="hidden md:table-cell" data-label="">
                               <div class="w-24 h-1.5 bg-gray-700/40 rounded-full overflow-hidden">
                                 <div class="h-full rounded-full duration-bar"
@@ -2467,10 +2473,10 @@
                             <td data-label="Outcome">
                               <span :class="h.success ? 'badge badge-ok' : 'badge badge-error'" x-text="h.success ? 'OK' : 'Error'"></span>
                             </td>
-                            <td class="hidden sm:table-cell pr-3" data-label="" @click.stop>
+                            <td class="pr-3" data-label="" @click.stop>
                               <button x-show="!config.readOnly"
                                       @click="retriggerHistoryRecord(h)"
-                                      class="btn-icon opacity-0 group-hover:opacity-100 transition-opacity" title="Run this job again" aria-label="Rerun job">
+                                      class="btn-icon sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity" title="Run this job again" aria-label="Rerun job">
                                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
                               </button>
                             </td>
@@ -3340,6 +3346,14 @@
     <button @click="navigateTo('history')" class="mobile-nav-item" :class="currentPage === 'history' ? 'active' : ''" aria-label="Go to history">
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/></svg>
       <span>History</span>
+    </button>
+    <button @click="navigateTo('graph')" class="mobile-nav-item" :class="currentPage === 'graph' ? 'active' : ''" aria-label="Go to graph">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+      <span>Graph</span>
+    </button>
+    <button @click="navigateTo('timeline')" class="mobile-nav-item" :class="currentPage === 'timeline' ? 'active' : ''" aria-label="Go to timeline">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="12" x2="21" y2="12"/><polyline points="8 7 3 12 8 17"/><polyline points="16 7 21 12 16 17"/></svg>
+      <span>Timeline</span>
     </button>
     <button @click="navigateTo('health')" class="mobile-nav-item" :class="currentPage === 'health' ? 'active' : ''" style="position:relative" aria-label="Go to health">
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>

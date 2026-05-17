@@ -18,14 +18,18 @@ export function createApiSection() {
           if (!name) return;
           this.activeSchedulerName = name;
           this.showSchedulerPicker = false;
-          await Promise.all([
-            this.refreshAll(),
-            this.loadHistory(),
-            this.loadStats(),
-            this.loadTimeline(),
-            this.loadHealth(),
-            this.loadCalendars(),
-          ]);
+          try {
+            await Promise.all([
+              this.refreshAll(),
+              this.loadHistory(),
+              this.loadStats(),
+              this.loadTimeline(),
+              this.loadHealth(),
+              this.loadCalendars(),
+            ]);
+          } catch (e) {
+            this.showToast('Scheduler switch partially failed: ' + e.message, 'warning');
+          }
         },
 
         _base() { return window.__QUARTZ_BASE || '/quartz'; },
@@ -47,7 +51,7 @@ export function createApiSection() {
                 const json = JSON.parse(text);
                 detail = json.error || json.Error || json.message || text;
               } catch {
-                detail = text;
+                detail = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 120);
               }
             }
           } catch {
@@ -245,10 +249,9 @@ export function createApiSection() {
         async loadHistory(page, silent = false) {
           if (!silent) this.loading.history = true;
           try {
-            const pageSize = Math.max(this.historyPageSize || this.historyLimit || 50, 1);
+            const pageSize = Math.max(this.historyPageSize || 50, 1);
             if (page) this.historyCurrentPage = page;
             if (this.historyCurrentPage < 1) this.historyCurrentPage = 1;
-            this.historyLimit = pageSize;
             this.historyOffset = (this.historyCurrentPage - 1) * pageSize;
             const params = new URLSearchParams({ limit: String(pageSize), offset: String(this.historyOffset) });
             if (this.historyFilterObj.search) params.set('search', this.historyFilterObj.search);

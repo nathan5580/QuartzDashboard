@@ -31,11 +31,11 @@ internal static class CalendarHandlers
     {
         if (options.ReadOnly) return DashboardResults.ReadOnly();
         if (req == null || string.IsNullOrWhiteSpace(req.Name))
-            return Results.BadRequest(new { Error = "Calendar name is required" });
+            return Results.BadRequest(new { error = "Calendar name is required" });
 
         var names = await sched.GetCalendarNames();
         if (names.Contains(req.Name))
-            return Results.Conflict(new { Error = $"Calendar '{req.Name}' already exists" });
+            return Results.Conflict(new { error = $"Calendar '{req.Name}' already exists" });
 
         ICalendar? calendar = req.Type?.ToLowerInvariant() switch
         {
@@ -50,7 +50,7 @@ internal static class CalendarHandlers
 
         if (calendar == null)
             return Results.BadRequest(new
-                { Error = $"Unsupported calendar type '{req.Type}'. Supported: holiday, monthly, weekly, daily, cron, annual" });
+                { error = $"Unsupported calendar type '{req.Type}'. Supported: holiday, monthly, weekly, daily, cron, annual" });
 
         if (!string.IsNullOrWhiteSpace(req.Description))
             calendar.Description = req.Description;
@@ -65,9 +65,9 @@ internal static class CalendarHandlers
         if (options.ReadOnly) return DashboardResults.ReadOnly();
         var names = await sched.GetCalendarNames();
         if (!names.Contains(name))
-            return Results.NotFound(new { Error = $"Calendar '{name}' not found" });
+            return Results.NotFound(new { error = $"Calendar '{name}' not found" });
 
         await sched.DeleteCalendar(name);
-        return Results.Ok(new StatusResponse("deleted", Calendar: name));
+        return Results.NoContent();
     }
 }

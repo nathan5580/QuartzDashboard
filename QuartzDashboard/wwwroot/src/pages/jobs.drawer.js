@@ -9,6 +9,7 @@ export function createJobsDrawerSection() {
       this.showJobDrawer = true;
       this.loadJobDrawerHistory(job.group, job.name);
       document.body.style.overflow = 'hidden';
+      window.location.hash = this.currentPage + '/job/' + encodeURIComponent(job.group + '.' + job.name);
     },
 
     closeJobDrawer() {
@@ -17,6 +18,9 @@ export function createJobsDrawerSection() {
       this.jobDrawerHistory = [];
       this.jobDrawerLogs = [];
       document.body.style.overflow = '';
+      if (window.location.hash.includes('/job/')) {
+        window.location.hash = this.currentPage;
+      }
     },
 
     async loadJobDrawerHistory(group, name) {

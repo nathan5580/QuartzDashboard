@@ -141,6 +141,13 @@ public static class QuartzDashboardApplicationBuilderExtensions
                 // Multi-scheduler: ?scheduler=SchedulerName header or query param selects which scheduler
                 IScheduler sched;
                 var schedulerName = ctx.Request.Query["scheduler"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(schedulerName) &&
+                    (schedulerName.Length > 100 || !System.Text.RegularExpressions.Regex.IsMatch(schedulerName, @"^[\w\-. ]+$")))
+                {
+                    ctx.Response.StatusCode = 400;
+                    await ctx.Response.WriteAsJsonAsync(new { error = "Invalid scheduler name" });
+                    return;
+                }
                 if (!string.IsNullOrWhiteSpace(schedulerName))
                     sched = await schedFactory.GetScheduler(schedulerName) ?? await schedFactory.GetScheduler();
                 else

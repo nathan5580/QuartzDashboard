@@ -2,6 +2,9 @@ export function createSignalRSection() {
   return {
         async connectSignalR() {
           try {
+            if (this.connection) {
+              try { await this.connection.stop(); } catch (_) {}
+            }
             this.connection = new signalR.HubConnectionBuilder()
               .withUrl(this._base() + '/hub')
               .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
@@ -128,8 +131,8 @@ export function createSignalRSection() {
             this.executingJobs = this.executingJobs.filter(ej => ej.fireInstanceId !== data.fireInstanceId);
           }
 
-          // Update graph data
-          this.graphData = this.getGraphData();
+          // Update graph data (debounced to avoid per-job cascade re-renders)
+          this.debounce(() => { this.graphData = this.getGraphData(); }, 'graph-data-update', 500);
 
           // Add to timeline
           this.addTimelineEvent(data);
@@ -138,7 +141,7 @@ export function createSignalRSection() {
           } else if (this.isFailureHistoryEntry(data)) {
             this.updateFaviconBadge((this.faviconFailureCount || 0) + 1);
           }
-          this.loadHeatmap();
+          this.debounce(() => this.loadHeatmap(), 'heatmap-update', 1000);
         },
 
         handleJobTriggered(data) {

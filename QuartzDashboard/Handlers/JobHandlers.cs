@@ -132,7 +132,7 @@ internal static class JobHandlers
         var key = new JobKey(name, group);
         var detail = await sched.GetJobDetail(key);
         if (detail == null)
-            return Results.NotFound(new { Error = $"Job '{group}.{name}' not found" });
+            return Results.NotFound(new { error = $"Job '{group}.{name}' not found" });
 
         var triggers = await sched.GetTriggersOfJob(key);
         var executing = await sched.GetCurrentlyExecutingJobs();
@@ -199,7 +199,7 @@ internal static class JobHandlers
 
             return Results.Ok(new StatusResponse("triggered"));
         }
-        return Results.NotFound(new { Error = $"Job '{group}.{name}' not found" });
+        return Results.NotFound(new { error = $"Job '{group}.{name}' not found" });
     }
 
     public static async Task<IResult> PauseJob(IScheduler sched, string group, string name,
@@ -212,7 +212,7 @@ internal static class JobHandlers
             await sched.PauseJob(key);
             return Results.Ok(new StatusResponse("paused"));
         }
-        return Results.NotFound(new { Error = $"Job '{group}.{name}' not found" });
+        return Results.NotFound(new { error = $"Job '{group}.{name}' not found" });
     }
 
     public static async Task<IResult> ResumeJob(IScheduler sched, string group, string name,
@@ -225,7 +225,7 @@ internal static class JobHandlers
             await sched.ResumeJob(key);
             return Results.Ok(new StatusResponse("resumed"));
         }
-        return Results.NotFound(new { Error = $"Job '{group}.{name}' not found" });
+        return Results.NotFound(new { error = $"Job '{group}.{name}' not found" });
     }
 
     public static async Task<IResult> CreateJob(IScheduler sched, CreateJobRequest? req,
@@ -233,7 +233,7 @@ internal static class JobHandlers
     {
         if (options.ReadOnly) return DashboardResults.ReadOnly();
         if (req == null || string.IsNullOrWhiteSpace(req.Name))
-            return Results.BadRequest(new { Error = "Job name is required" });
+            return Results.BadRequest(new { error = "Job name is required" });
 
         var jobType = AppDomain.CurrentDomain.GetAssemblies()
             .SelectMany(a => a.GetTypes())
@@ -241,11 +241,11 @@ internal static class JobHandlers
 
         if (jobType == null && !string.IsNullOrWhiteSpace(req.JobType))
             return Results.BadRequest(new
-                { Error = $"Job type '{req.JobType}' not found. Must be an IJob implementation." });
+                { error = $"Job type '{req.JobType}' not found. Must be an IJob implementation." });
 
         var key = new JobKey(req.Name, req.Group ?? "DEFAULT");
         if (await sched.CheckExists(key))
-            return Results.Conflict(new { Error = $"Job '{key.Group}.{key.Name}' already exists" });
+            return Results.Conflict(new { error = $"Job '{key.Group}.{key.Name}' already exists" });
 
         var detail = jobType != null
             ? JobBuilder.Create(jobType).WithIdentity(key).Build()
@@ -272,9 +272,9 @@ internal static class JobHandlers
         if (await sched.CheckExists(key))
         {
             await sched.DeleteJob(key);
-            return Results.Ok(new StatusResponse("deleted", Job: $"{group}.{name}"));
+            return Results.NoContent();
         }
-        return Results.NotFound(new { Error = $"Job '{group}.{name}' not found" });
+        return Results.NotFound(new { error = $"Job '{group}.{name}' not found" });
     }
 
     public static async Task<IResult> UpdateJob(IScheduler sched, string group, string name,
@@ -284,7 +284,7 @@ internal static class JobHandlers
         var key = new JobKey(name, group);
         var detail = await sched.GetJobDetail(key);
         if (detail == null)
-            return Results.NotFound(new { Error = $"Job '{group}.{name}' not found" });
+            return Results.NotFound(new { error = $"Job '{group}.{name}' not found" });
 
         if (req?.JobDataMap != null)
         {
@@ -327,7 +327,7 @@ internal static class JobHandlers
     {
         if (options.ReadOnly) return DashboardResults.ReadOnly();
         if (req?.Jobs == null || req.Jobs.Length == 0)
-            return Results.BadRequest(new { Error = "No jobs specified" });
+            return Results.BadRequest(new { error = "No jobs specified" });
 
         var results = new List<object>();
         foreach (var jk in req.Jobs)

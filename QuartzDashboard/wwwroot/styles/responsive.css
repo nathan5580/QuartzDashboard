@@ -110,3 +110,14 @@
     .light .spinner { border-color: rgba(0,0,0,0.15); border-top-color: #4338ca; }
     .light .card-gradient:hover,
     .light .stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1) !important; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .nav-badge::before,
+      .status-dot-pulse,
+      .due-now,
+      [class*="animate-"],
+      .spinner {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
+      }
+    }

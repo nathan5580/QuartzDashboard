@@ -7,7 +7,7 @@ internal static class DashboardResults
     public static IResult ReadOnly()
         => Results.Json(new
         {
-            Error = "Dashboard is in read-only mode.",
-            Code = "read_only"
+            error = "Dashboard is in read-only mode.",
+            code = "read_only"
         }, statusCode: StatusCodes.Status403Forbidden);
 }

@@ -126,7 +126,7 @@ internal static class ExportImport
     public static async Task<IResult> ImportJobs(IScheduler sched, ExportPayload? payload)
     {
         if (payload?.Jobs == null || payload.Jobs.Count == 0)
-            return Results.BadRequest(new { Error = "No jobs to import" });
+            return Results.BadRequest(new { error = "No jobs to import" });
 
         int jobsCreated = 0, triggersCreated = 0, errors = 0;
         var errorMessages = new List<string>();

@@ -9,7 +9,7 @@
     <Version>4.2.0</Version>
     <Authors>n8</Authors>
     <Description>SQLite-backed persistent fire-history store for Dot.QuartzDashboard. Survives application restarts, indexed by job_key, WAL mode for concurrent reads, throttled TTL pruning. Call AddQuartzDashboardSqliteHistory("history.db") after AddQuartzDashboard() to opt in.</Description>
-    <PackageTags>quartz;dashboard;scheduler;sqlite;history;persistence</PackageTags>
+    <PackageTags>quartz;quartz.net;dashboard;scheduler;admin;monitoring;realtime;signalr;jobs;triggers;history;visualization;background-jobs;aspnetcore;dotnet</PackageTags>
     <PackageReleaseNotes>v4.2.0 — Tracks the abstractions package version bump. No behavioural changes to the SQLite store. Drop-in upgrade from 4.1.x.</PackageReleaseNotes>
     <PackageProjectUrl>https://github.com/nathan5580/QuartzDashboard</PackageProjectUrl>
     <RepositoryUrl>https://github.com/nathan5580/QuartzDashboard</RepositoryUrl>

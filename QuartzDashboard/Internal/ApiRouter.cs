@@ -183,7 +183,7 @@ internal static class ApiRouter
             }
             catch (Exception ex)
             {
-                return Results.Ok(new { valid = false, error = ex.Message, nextFireTimes = Array.Empty<string>() });
+                return Results.BadRequest(new { valid = false, error = ex.Message, nextFireTimes = Array.Empty<string>() });
             }
         }),
 
@@ -216,8 +216,8 @@ internal static class ApiRouter
 
         return Results.NotFound(new
         {
-            Error = "Unknown endpoint",
-            Path = string.Join("/", rc.Segments),
+            error = "Unknown endpoint",
+            path = string.Join("/", rc.Segments),
         });
     }
 
@@ -237,7 +237,7 @@ internal static class ApiRouter
     private static async Task<IResult> GetExecutingJobs(IScheduler sched, CancellationToken ct)
     {
         var jobs = await sched.GetCurrentlyExecutingJobs(ct);
-        return Results.Ok(jobs
+        var data = jobs
             .OrderBy(j => j.JobDetail.Key.Group, StringComparer.OrdinalIgnoreCase)
             .ThenBy(j => j.JobDetail.Key.Name, StringComparer.OrdinalIgnoreCase)
             .Select(j => new
@@ -254,6 +254,8 @@ internal static class ApiRouter
                 RefireCount = j.RefireCount,
                 Recovering = j.Recovering,
                 Duration = DateTimeOffset.UtcNow - j.FireTimeUtc,
-            }));
+            })
+            .ToList();
+        return Results.Ok(new { data, total = data.Count });
     }
 }

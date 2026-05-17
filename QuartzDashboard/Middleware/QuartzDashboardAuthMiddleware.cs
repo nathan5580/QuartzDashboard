@@ -27,7 +27,7 @@ internal sealed class QuartzDashboardAuthMiddleware
             ctx.Response.ContentType = "application/json";
             await ctx.Response.WriteAsync(
                 System.Text.Json.JsonSerializer.Serialize(
-                    new { Error = "Authentication required to access the dashboard" }));
+                    new { error = "Authentication required to access the dashboard" }));
             return;
         }
 
@@ -43,7 +43,7 @@ internal sealed class QuartzDashboardAuthMiddleware
                 ctx.Response.ContentType = "application/json";
                 await ctx.Response.WriteAsync(
                     System.Text.Json.JsonSerializer.Serialize(
-                        new { Error = "Insufficient permissions to access the dashboard" }));
+                        new { error = "Insufficient permissions to access the dashboard" }));
                 return;
             }
         }
@@ -56,7 +56,7 @@ internal sealed class QuartzDashboardAuthMiddleware
                 ctx.Response.ContentType = "application/json";
                 await ctx.Response.WriteAsync(
                     System.Text.Json.JsonSerializer.Serialize(
-                        new { Error = "Insufficient role to access the dashboard" }));
+                        new { error = "Insufficient role to access the dashboard" }));
                 return;
             }
         }

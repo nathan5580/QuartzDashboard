@@ -38,7 +38,7 @@ export function createHistorySection() {
         },
 
         get historyPageCount() {
-          const pageSize = Math.max(this.historyPageSize || this.historyLimit || 50, 1);
+          const pageSize = Math.max(this.historyPageSize || 50, 1);
           const total = this.historyTotal || 0;
           return Math.max(1, Math.ceil(total / pageSize));
         },

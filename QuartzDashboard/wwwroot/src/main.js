@@ -27,19 +27,20 @@ function createMainSection() {
 
           // Load persistent settings
           try {
-            const saved = JSON.parse(localStorage.getItem('qd-settings') || '{}');
+            const saved = JSON.parse(localStorage.getItem('quartz-settings') || localStorage.getItem('qd-settings') || '{}');
             if (saved.sidebarOpen !== undefined) this.sidebarOpen = saved.sidebarOpen;
             if (saved.graphChartMode) this.graphChartMode = saved.graphChartMode;
             if (saved.refreshInterval) this.settings.refreshInterval = saved.refreshInterval;
-            if (saved.historyLimit) {
-              this.historyLimit = saved.historyLimit;
-              this.historyPageSize = saved.historyLimit;
-            }
+            if (saved.historyPageSize) this.historyPageSize = saved.historyPageSize;
+            else if (saved.historyLimit) this.historyPageSize = saved.historyLimit;
             if (saved.collapsedGroups && Object.values(saved.collapsedGroups).some(v => !v)) {
               // Only restore if at least one group is NOT collapsed (avoid all-collapsed corrupted state)
               this.collapsedGroups = saved.collapsedGroups;
             }
             if (saved.rowDensity) this.rowDensity = saved.rowDensity;
+            if (saved.soundAlerts !== undefined) this.soundAlerts = saved.soundAlerts;
+            if (saved.desktopNotificationsEnabled !== undefined) this.desktopNotificationsEnabled = saved.desktopNotificationsEnabled;
+            if (saved.historyFilterObj) this.historyFilterObj = { ...this.historyFilterObj, ...saved.historyFilterObj };
           } catch(_) {}
 
           // Setup keyboard shortcuts
@@ -47,7 +48,7 @@ function createMainSection() {
           document.addEventListener('fullscreenchange', () => { this.isFullscreen = !!document.fullscreenElement; });
 
           // Live-tick every second for executing-job duration display and countdowns
-          setInterval(() => { this.currentTick = Date.now(); this.nowTick = Date.now(); }, 1000);
+          setInterval(() => { this.currentTick = this.nowTick = Date.now(); }, 1000);
 
           this.updateFaviconBadge(this.faviconFailureCount || 0);
 
@@ -112,20 +113,39 @@ function createMainSection() {
           });
           // Deep linking via URL hash
           const hash = window.location.hash.replace('#', '');
-          if (hash && this.navItems.find(n => n.id === hash)) {
+          const jobHashMatch = hash.match(/^jobs\/job\/(.+)$/);
+          if (jobHashMatch) {
+            this.navigateTo('jobs');
+            const jobKey = decodeURIComponent(jobHashMatch[1]);
+            this.$nextTick(() => {
+              const job = (this.jobs || []).find(j => j.group + '.' + j.name === jobKey);
+              if (job) this.openJobDrawer(job);
+            });
+          } else if (hash && this.navItems.find(n => n.id === hash)) {
             this.navigateTo(hash);
           }
           window.addEventListener('hashchange', () => {
             const h = window.location.hash.replace('#', '');
-            if (h && this.navItems.find(n => n.id === h) && this.currentPage !== h) {
+            const jobMatch = h.match(/^jobs\/job\/(.+)$/);
+            if (jobMatch) {
+              if (this.currentPage !== 'jobs') this.navigateTo('jobs');
+              const jobKey = decodeURIComponent(jobMatch[1]);
+              const job = (this.jobs || []).find(j => j.group + '.' + j.name === jobKey);
+              if (job && (!this.showJobDrawer || this.jobDrawerData?.group + '.' + this.jobDrawerData?.name !== jobKey)) {
+                this.openJobDrawer(job);
+              }
+            } else if (h && this.navItems.find(n => n.id === h) && this.currentPage !== h) {
               this.navigateTo(h);
             }
           });
           this.$watch('settings.refreshInterval', () => { this.startAutoRefresh(); this.saveSettings(); });
           this.$watch('sidebarOpen', () => this.saveSettings());
           this.$watch('graphChartMode', () => this.saveSettings());
-          this.$watch('historyLimit', () => this.saveSettings());
+          this.$watch('historyPageSize', () => this.saveSettings());
           this.$watch('collapsedGroups', () => this.saveSettings());
+          this.$watch('soundAlerts', () => this.saveSettings());
+          this.$watch('desktopNotificationsEnabled', () => this.saveSettings());
+          this.$watch('historyFilterObj', () => this.saveSettings(), { deep: true });
           if (this.$refs && this.$refs.graphContainer) {
             this.updateGraphSize();
           }

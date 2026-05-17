@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -20,6 +21,7 @@ public class QuartzDashboardHub : Hub
     /// Adds the current connection to the dashboard broadcast group.
     /// </summary>
     /// <returns>A task that completes when the subscription has been registered.</returns>
+    [Authorize]
     public async Task Subscribe() =>
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupName);
 
@@ -27,6 +29,7 @@ public class QuartzDashboardHub : Hub
     /// Removes the current connection from the dashboard broadcast group.
     /// </summary>
     /// <returns>A task that completes when the subscription has been removed.</returns>
+    [Authorize]
     public async Task Unsubscribe() =>
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName);
 }
