@@ -105,10 +105,12 @@ builder.Services.AddQuartzDashboard(options =>
 {
     options.Path = "/quartz";
     options.ReadOnly = readOnlyMode;
+    // v4.2.0 flipped the default to true. The demo should follow the CLI flag explicitly,
+    // otherwise `dotnet run` (no flags) returns 401 with no auth schemes registered.
+    options.RequireAuthentication = authMode;
 
     if (authMode)
     {
-        options.RequireAuthentication = true;
         options.AllowedRoles = ["Admin"];
     }
 });

@@ -1,5 +1,4 @@
 using System.Threading.Channels;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -10,6 +9,9 @@ namespace QuartzDashboard;
 /// <summary>
 /// SignalR hub used by dashboard clients to receive real-time scheduler and job execution updates.
 /// </summary>
+// Authorization is applied at the hub endpoint via MapHubEndpoint, which mirrors
+// the dashboard's RequireAuthentication / RequiredPolicy / AllowedRoles. Method-level
+// [Authorize] would override that and reject anonymous calls even when the host disables auth.
 public class QuartzDashboardHub : Hub
 {
     /// <summary>
@@ -21,7 +23,6 @@ public class QuartzDashboardHub : Hub
     /// Adds the current connection to the dashboard broadcast group.
     /// </summary>
     /// <returns>A task that completes when the subscription has been registered.</returns>
-    [Authorize]
     public async Task Subscribe() =>
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupName);
 
@@ -29,7 +30,6 @@ public class QuartzDashboardHub : Hub
     /// Removes the current connection from the dashboard broadcast group.
     /// </summary>
     /// <returns>A task that completes when the subscription has been removed.</returns>
-    [Authorize]
     public async Task Unsubscribe() =>
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName);
 }

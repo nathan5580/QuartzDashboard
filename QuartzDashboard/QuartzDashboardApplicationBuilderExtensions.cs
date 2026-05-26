@@ -274,10 +274,69 @@ public static class QuartzDashboardApplicationBuilderExtensions
 
     private static Task WriteJsonError(HttpContext ctx, int statusCode, string message)
     {
+        // Browser navigations send Accept: text/html — return a small HTML page with
+        // remediation guidance instead of a raw JSON blob. JSON is still returned for
+        // XHR/fetch/curl clients that ask for it or don't set Accept at all.
+        var accept = ctx.Request.Headers["Accept"].ToString();
+        var wantsHtml = accept.Contains("text/html", StringComparison.OrdinalIgnoreCase);
+
         ctx.Response.StatusCode = statusCode;
+
+        if (wantsHtml)
+        {
+            ctx.Response.ContentType = "text/html; charset=utf-8";
+            return ctx.Response.WriteAsync(RenderAuthErrorPage(statusCode, message));
+        }
+
         ctx.Response.ContentType = "application/json";
         return ctx.Response.WriteAsync(
             System.Text.Json.JsonSerializer.Serialize(new { error = message }));
+    }
+
+    private static string RenderAuthErrorPage(int statusCode, string message)
+    {
+        var title = statusCode == 403 ? "Access denied" : "Authentication required";
+        var hint = statusCode == 403
+            ? "Your account is signed in but does not have permission to view this dashboard."
+            : "This dashboard requires an authenticated user. Sign in to the host application and reload.";
+        var safeMessage = System.Net.WebUtility.HtmlEncode(message);
+        return $@"<!DOCTYPE html>
+<html lang=""en"">
+<head>
+<meta charset=""utf-8"" />
+<meta name=""viewport"" content=""width=device-width,initial-scale=1"" />
+<title>{title} — Quartz Dashboard</title>
+<style>
+  :root {{ color-scheme: dark light; }}
+  body {{ margin:0; min-height:100vh; display:grid; place-items:center; background:#030712; color:#e5e7eb;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, ""Segoe UI"", sans-serif; }}
+  .card {{ max-width: 32rem; width: 90vw; padding: 2rem 2.25rem; background: rgba(17,24,39,0.85);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 0.75rem; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }}
+  .badge {{ display:inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight:600;
+    background: rgba(239,68,68,0.15); color: #fca5a5; box-shadow: inset 0 0 0 1px rgba(239,68,68,0.2); }}
+  h1 {{ margin: 0.75rem 0 0.5rem; font-size: 1.25rem; font-weight: 600; color: #f3f4f6; }}
+  p {{ margin: 0 0 0.5rem; line-height: 1.55; color: #cbd5e1; }}
+  p.muted {{ color: #9ca3af; font-size: 0.85rem; }}
+  code {{ background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 4px; font-size: 0.85em; }}
+  a {{ color: #818cf8; text-decoration: none; }}
+  a:hover {{ text-decoration: underline; }}
+  @media (prefers-color-scheme: light) {{
+    body {{ background: #f3f4f6; color: #1f2937; }}
+    .card {{ background: #ffffff; border-color: rgba(0,0,0,0.08); }}
+    h1 {{ color: #111827; }} p {{ color: #374151; }} p.muted {{ color: #6b7280; }}
+    code {{ background: rgba(0,0,0,0.05); }}
+  }}
+</style>
+</head>
+<body>
+  <main class=""card"" role=""main"">
+    <span class=""badge"">{statusCode} — {safeMessage}</span>
+    <h1>{title}</h1>
+    <p>{hint}</p>
+    <p class=""muted"">If you are the developer: this dashboard's <code>RequireAuthentication</code> option defaults to <code>true</code> since v4.2.0. Either sign in via the host app's authentication middleware, or set <code>options.RequireAuthentication = false</code> for trusted local environments. See <a href=""https://github.com/nathan5580/QuartzDashboard#authentication"">the auth docs</a>.</p>
+  </main>
+</body>
+</html>";
     }
 
     private static readonly string AssemblyVersion =

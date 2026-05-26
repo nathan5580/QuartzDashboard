@@ -1575,7 +1575,7 @@
                               <div x-show="item.job" class="relative inline-flex justify-end" @click.stop>
                                 <button @click.stop="item.job && toggleRowActionsMenu(item.job.group, item.job.name)"
                                         class="btn btn-ghost text-xs px-2.5 py-1.5 gap-1.5 min-w-[78px] justify-center"
-                                        :aria-expanded="(item.job && rowActionsOpenFor === rowActionKey(item.job.group, item.job.name)).toString()"
+                                        :aria-expanded="(!!(item.job && rowActionsOpenFor === rowActionKey(item.job.group, item.job.name))).toString()"
                                         :aria-label="item.job ? ('Open actions for ' + item.job.name) : 'Open actions'">
                                   <span>Actions</span>
                                   <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
