@@ -87,7 +87,7 @@ export function createOverviewSection() {
             ? 'Scheduler is stopped — data may be stale'
             : this.scheduler.isStandbyMode
               ? 'Scheduler is in standby mode — jobs are paused'
-              : 'Real-time connection lost — data may be stale';
+              : 'Live updates paused — showing cached data';
         },
         formatShortDuration(ms, empty = '—') {
           if (!Number.isFinite(ms) || ms < 0) return empty;

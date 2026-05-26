@@ -2,6 +2,15 @@
 @media (min-width: 1280px) { .xl\:table-cell { display: table-cell !important; } }
 @media (min-width: 1536px) { .\32xl\:table-cell { display: table-cell !important; } }
 
+/* ── Containment guards ───────────────────────────────────────
+ * Flex children default to min-width: auto which lets them push the
+ * parent wider than the viewport. The main scroll container and toolbars
+ * need min-width: 0 so a long inner element clips/wraps instead of
+ * forcing horizontal page scroll. Toolbars allow-wrap on narrow viewports.
+ */
+main { min-width: 0; overflow-x: hidden; }
+main > * { min-width: 0; }
+
 /* ── Mobile responsive ─────────────────────────────────────── */
     @media (max-width: 768px) {
       .sidebar { width: 60px !important; }
@@ -19,13 +28,37 @@
       .mobile-card-table tbody td[data-label=""]::before { display: none; }
       .mobile-card-table tbody td .opacity-0 { opacity: 1 !important; }
       .mobile-card-table tbody td[data-label="Actions"] > div { opacity: 1 !important; justify-content: flex-end; }
+      /* On mobile the mobile-card-table rows stack; long names should ellipsize, not push siblings off-screen. */
+      .mobile-card-table tbody td > span,
+      .mobile-card-table tbody td > a { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
       .modal-card { width: 95vw !important; max-height: 85vh !important; }
       .command-palette-card { width: 95vw !important; }
       .footer-bar { font-size: 0.625rem !important; }
+
+      /* Tap-target floor: the toolbar dark-mode / fullscreen icons render
+         at 32×32 which is below WCAG 2.5.5 / Apple HIG 44pt. Bump the
+         hitbox on touch viewports without resizing the glyph. */
+      .btn-icon { min-width: 2.75rem; min-height: 2.75rem; }
+      /* Row-action buttons in mobile-card-table layouts need real height. */
+      .mobile-card-table .btn { min-height: 2.25rem; padding-top: 0.5rem; padding-bottom: 0.5rem; }
     }
     @media (max-width: 480px) {
       .sidebar { width: 0 !important; overflow: hidden !important; }
       main { padding: 0.75rem !important; }
+    }
+
+    /* ── Bottom-nav: legibility + scroll affordance ─────────────
+     * The mobile bottom nav scrolls horizontally when there are more items
+     * than fit the viewport. The original 10px label was hard to read on
+     * a swaying train (Tomás), and there was no visual hint that the row
+     * scrolled. Bump the type, add a right-edge fade as a scroll cue. */
+    @media (max-width: 767px) {
+      .mobile-nav-item { font-size: 11px !important; min-width: 64px !important; min-height: 3rem !important; padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+      .mobile-bottom-nav { position: relative; mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%); -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%); }
+      /* When the nav fits in the viewport, drop the fade. */
+      @supports (scrollbar-gutter: stable) {
+        .mobile-bottom-nav:not(:has(.mobile-nav-item:nth-child(8))) { mask-image: none; -webkit-mask-image: none; }
+      }
     }
     /* Accessibility — focus-visible indicators */
     :focus-visible {
