@@ -2970,9 +2970,16 @@
                 </div>
 
                 <div x-show="!loading.calendars && (!calendars || calendars.length === 0) && !errors.calendars" class="empty-state">
-                  <div class="empty-state-icon">📅</div>
-                  <div class="empty-state-title">No calendars configured</div>
-                  <div class="empty-state-desc">Create a calendar to manage schedule exclusions</div>
+                  <div class="empty-state-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500">
+                      <rect x="3" y="4" width="18" height="18" rx="2"/>
+                      <line x1="16" y1="2" x2="16" y2="6"/>
+                      <line x1="8" y1="2" x2="8" y2="6"/>
+                      <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                  </div>
+                  <div class="empty-state-title">No calendars yet</div>
+                  <div class="empty-state-desc">Calendars let you skip holidays and maintenance windows.</div>
                 </div>
               </div>
             </template>
