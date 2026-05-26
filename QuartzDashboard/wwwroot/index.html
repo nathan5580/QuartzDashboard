@@ -577,8 +577,14 @@
   <!-- SECTION: Sidebar / Navigation                                -->
   <!-- ============================================================ -->
   <div class="flex h-screen overflow-hidden" :style="isMobile && !embedMode ? 'padding-bottom: 4.5rem' : 'padding-bottom: 2rem'">
-    <!-- ===================== SIDEBAR ===================== -->
-    <aside role="navigation" aria-label="Dashboard navigation" :class="['sidebar-collapse flex flex-col flex-shrink-0 bg-gray-950 sidebar-border z-20', sidebarOpen ? 'w-60' : 'w-16']">
+    <!-- Skip-to-content link — visible only when focused. Lets keyboard users
+         bypass the 10+ sidebar buttons on every page nav round-trip. -->
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:px-3 focus:py-2 focus:bg-indigo-600 focus:text-white focus:rounded-lg focus:shadow-2xl focus:outline-none focus:ring-2 focus:ring-indigo-300">Skip to main content</a>
+    <!-- ===================== SIDEBAR =====================
+         The outer container is a styling wrapper; the inner <nav> below is
+         the actual landmark, so the wrapper has no role/aria-label of its
+         own (avoids landmark duplication). -->
+    <aside :class="['sidebar-collapse flex flex-col flex-shrink-0 bg-gray-950 sidebar-border z-20', sidebarOpen ? 'w-60' : 'w-16']">
       <!-- Logo -->
       <div :class="['h-14 flex items-center border-b border-white/[0.04]', sidebarOpen ? 'gap-2.5 px-5' : 'justify-center px-2']">
         <div class="w-7 h-7 rounded-lg bg-quartz-500/10 flex items-center justify-center flex-shrink-0">
@@ -589,13 +595,13 @@
         </div>
         <span x-show="sidebarOpen" class="font-semibold text-sm text-gray-100 whitespace-nowrap overflow-hidden">
           <span x-text="config.title || 'QuartzDash'" class="text-gray-100"></span>
-          <span class="ml-1 text-[10px] text-gray-600 font-mono">v__QUARTZ_VERSION__</span>
+          <span class="ml-1 text-[10px] text-gray-400 font-mono">v__QUARTZ_VERSION__</span>
           <span x-show="config.readOnly" title="Read-only mode" class="ml-1 text-[9px] text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1 py-0.5 rounded-full align-middle">RO</span>
         </span>
       </div>
 
       <!-- Nav items -->
-      <nav class="flex-1 p-2 space-y-0.5 overflow-y-auto scrollbar-thin mt-1">
+      <nav aria-label="Dashboard" class="flex-1 p-2 space-y-0.5 overflow-y-auto scrollbar-thin mt-1">
         <template x-for="item in navItems" :key="item.id">
           <button type="button" @click="navigateTo(item.id)"
                   :aria-current="currentPage === item.id ? 'page' : undefined"
@@ -604,7 +610,7 @@
                   :title="!sidebarOpen ? item.label : ''">
             <span style="flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative">
               <span x-html="item.icon"></span>
-              <span x-show="item.id === 'health' && healthAlertCount > 0" class="nav-badge"></span>
+              <span x-show="item.id === 'health' && healthAlertCount > 0" class="nav-badge" role="img" aria-label="Health needs attention"></span>
             </span>
             <span x-show="sidebarOpen" x-text="item.label" style="overflow:hidden;white-space:nowrap;font-size:13px"></span>
           </button>
@@ -633,7 +639,7 @@
               <span x-text="schedulerStatusLabel()"></span>
             </span>
           </div>
-          <span class="text-[10px] text-gray-600 font-mono" x-text="'Quartz v' + (scheduler.version || '?')"></span>
+          <span class="text-[10px] text-gray-400 font-mono" x-text="'Quartz v' + (scheduler.version || '?')"></span>
         </div>
         <button @click="sidebarOpen = !sidebarOpen"
                 class="w-full flex items-center justify-center py-1.5 rounded-lg hover:bg-white/[0.04] text-gray-500 hover:text-gray-300 transition-colors"
@@ -827,7 +833,7 @@
     <!-- SECTION: Main Content Shell                                 -->
     <!-- ============================================================ -->
     <!-- ===================== MAIN CONTENT ===================== -->
-    <main role="main" aria-label="Dashboard content" class="flex-1 overflow-y-auto scrollbar-thin p-6 lg:p-8">
+    <main id="main-content" role="main" aria-label="Dashboard content" class="flex-1 overflow-y-auto scrollbar-thin p-6 lg:p-8">
       <!-- ============================================================ -->
       <!-- SECTION: Header / Toolbar                                  -->
       <!-- ============================================================ -->
@@ -900,7 +906,7 @@
 
             <!-- Stat cards -->
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div class="stat-card cursor-pointer" @click="navigateTo('jobs')" title="Go to Jobs" role="button" tabindex="0" @keydown.enter="navigateTo('jobs')">
+              <div class="stat-card cursor-pointer" @click="navigateTo('jobs')" title="Go to Jobs" role="button" tabindex="0" @keydown.enter.prevent="navigateTo('jobs')" @keydown.space.prevent="navigateTo('jobs')">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Jobs</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100 stat-value">
                   <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
@@ -916,7 +922,7 @@
                   </svg>
                 </div>
               </div>
-              <div class="stat-card cursor-pointer" @click="navigateTo('triggers')" title="Go to Triggers" role="button" tabindex="0" @keydown.enter="navigateTo('triggers')">
+              <div class="stat-card cursor-pointer" @click="navigateTo('triggers')" title="Go to Triggers" role="button" tabindex="0" @keydown.enter.prevent="navigateTo('triggers')" @keydown.space.prevent="navigateTo('triggers')">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Triggers</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100 stat-value">
                   <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
@@ -932,7 +938,7 @@
                   </svg>
                 </div>
               </div>
-              <div class="stat-card cursor-pointer" @click="navigateTo('executing')" title="Go to Executing Jobs" role="button" tabindex="0" @keydown.enter="navigateTo('executing')">
+              <div class="stat-card cursor-pointer" @click="navigateTo('executing')" title="Go to Executing Jobs" role="button" tabindex="0" @keydown.enter.prevent="navigateTo('executing')" @keydown.space.prevent="navigateTo('executing')">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Executing Now</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight stat-value">
                   <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
@@ -948,7 +954,7 @@
                   </svg>
                 </div>
               </div>
-              <div class="stat-card cursor-pointer" @click="navigateTo('history')" title="Go to History" role="button" tabindex="0" @keydown.enter="navigateTo('history')">
+              <div class="stat-card cursor-pointer" @click="navigateTo('history')" title="Go to History" role="button" tabindex="0" @keydown.enter.prevent="navigateTo('history')" @keydown.space.prevent="navigateTo('history')">
                 <div class="text-[11px] font-medium uppercase tracking-widest text-gray-500 mb-2">Total Executions</div>
                 <div class="text-3xl font-bold tabular-nums tracking-tight text-gray-100 stat-value">
                   <template x-if="statsLoading"><div class="space-y-2"><div class="sk h-8 w-20"></div><div class="sk h-4 w-16 rounded-full"></div></div></template>
@@ -1498,9 +1504,18 @@
                                 !item.isHeader && item.job && jobFlash[item.job.group + '.' + item.job.name] === 'success' ? 'ring-1 ring-inset ring-emerald-400/40 bg-emerald-400/5' : '',
                                 !item.isHeader && item.job && jobFlash[item.job.group + '.' + item.job.name] === 'error' ? 'ring-1 ring-inset ring-red-400/40 bg-red-400/5' : ''
                               ]"
+                               tabindex="0"
+                               :aria-expanded="item.isHeader ? (!item.isCollapsed).toString() : null"
+                               :aria-label="item.isHeader ? ('Toggle ' + item.groupName + ' group') : (item.job ? ('Open details for ' + item.job.name) : '')"
                                @click="item.isHeader
                                  ? (collapsedGroups = { ...collapsedGroups, [item.groupName]: !collapsedGroups[item.groupName] }, saveSettings())
-                                 : (openJobDrawer(item.job), selectedJobIndex = filteredJobs.indexOf(item.job))">
+                                 : (openJobDrawer(item.job), selectedJobIndex = filteredJobs.indexOf(item.job))"
+                               @keydown.enter.prevent="item.isHeader
+                                 ? (collapsedGroups = { ...collapsedGroups, [item.groupName]: !collapsedGroups[item.groupName] }, saveSettings())
+                                 : (item.job && (openJobDrawer(item.job), selectedJobIndex = filteredJobs.indexOf(item.job)))"
+                               @keydown.space.prevent="item.isHeader
+                                 ? (collapsedGroups = { ...collapsedGroups, [item.groupName]: !collapsedGroups[item.groupName] }, saveSettings())
+                                 : (item.job && (openJobDrawer(item.job), selectedJobIndex = filteredJobs.indexOf(item.job)))">
 
                             <!-- ── HEADER cells (group row) ── -->
                             <td x-show="item.isHeader" colspan="9" class="py-2 px-4">
@@ -1527,6 +1542,8 @@
                             <!-- ── JOB cells ── -->
                             <td x-show="!item.isHeader" class="py-3.5 pl-4 pr-1 w-4" data-label="">
                               <span class="block w-2 h-2 rounded-full flex-shrink-0"
+                                    role="img"
+                                    :aria-label="item.job ? ('Status: ' + (item.job.status || 'Unknown')) : ''"
                                     :class="item.job && item.job.status === 'Executing' ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]' : item.job && item.job.status === 'Paused' ? 'bg-amber-400' : item.job && item.job.status === 'Scheduled' ? 'bg-indigo-400' : 'bg-gray-600'">
                               </span>
                             </td>
@@ -1683,7 +1700,8 @@
              @keydown.escape.window="closeJobDrawer()"
              class="fixed inset-0 bg-gray-950/60 backdrop-blur-sm z-30">
           </div>
-          <!-- Drawer panel -->
+          <!-- Drawer panel — modeled as a dialog so screen readers announce it,
+               and focus is restored to the row on close (see closeJobDrawer). -->
           <div
              x-transition:enter="transition ease-out duration-250"
              x-transition:enter-start="opacity-0 translate-x-8"
@@ -1691,6 +1709,10 @@
              x-transition:leave="transition ease-in duration-150"
              x-transition:leave-start="opacity-100 translate-x-0"
              x-transition:leave-end="opacity-0 translate-x-8"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="job-drawer-title"
+             tabindex="-1"
              class="fixed right-0 top-0 h-full w-full max-w-lg bg-gray-900 border-l border-white/[0.08] shadow-2xl z-50 flex flex-col"
              @keydown.escape.window="closeJobDrawer()">
 
@@ -1706,7 +1728,7 @@
                       <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-0.5"
                             :class="jobDrawerData.status === 'Executing' ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]' : jobDrawerData.status === 'Paused' ? 'bg-amber-400' : 'bg-indigo-400'">
                       </span>
-                      <h2 class="text-base font-semibold text-gray-100 truncate" x-text="jobDrawerData.name"></h2>
+                      <h2 id="job-drawer-title" class="text-base font-semibold text-gray-100 truncate" x-text="jobDrawerData.name"></h2>
                       <span :class="jobStatusBadge(jobDrawerData.status)" x-text="jobDrawerData.status || 'Idle'"></span>
                     </div>
                     <p class="text-xs text-gray-500 mt-1.5 flex items-center gap-2">
