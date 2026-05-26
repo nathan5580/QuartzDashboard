@@ -2,11 +2,14 @@
 
 ## Supported Versions
 
+Security fixes are applied to the latest minor release. Prior minors receive fixes only for high/critical severity issues.
+
 | Version | Supported          |
 | ------- | ------------------ |
-| 3.0.x   | :white_check_mark: |
-| 2.x     | :white_check_mark: |
-| 1.x     | :x:                |
+| 4.2.x   | :white_check_mark: |
+| 4.1.x   | :white_check_mark: (high/critical only) |
+| 4.0.x   | :x: — upgrade to 4.2.x |
+| < 4.0   | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -26,7 +29,8 @@ The dashboard is designed to be **opt-in** and **gateable**:
 - The dashboard exposes scheduler internals — treat it like an admin panel
 - Webhook URLs often contain credentials. The dashboard reports whether a webhook is configured, but does not expose the raw URL through `/api/config`.
 - SQLite persistence uses the path you provide — ensure it's writable and secure
-- SignalR hub negotiation is public by default — use auth middleware to protect it
+- SignalR hub authorization mirrors the dashboard's `RequireAuthentication` / `RequiredPolicy` / `AllowedRoles`. Since v4.2.0 the dashboard is authentication-required by default; the hub follows the same gate.
+- v4.2.0 also enables `RequireCsrfHeader` by default: mutating requests must carry `X-Requested-With: XMLHttpRequest` or `X-CSRF-Token: <any>`. The bundled SPA sends `X-Requested-With` automatically.
 
 ## Dependencies
 

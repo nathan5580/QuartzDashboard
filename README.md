@@ -4,7 +4,7 @@
   <img src="https://raw.githubusercontent.com/nathan5580/QuartzDashboard/main/assets/logo.svg" width="200" alt="Dot.QuartzDashboard">
 </p>
 
-A beautiful, self-contained **Quartz.NET scheduler dashboard** — drop it into any ASP.NET Core app with two lines of code.
+A self-contained, embedded **Quartz.NET scheduler dashboard** for ASP.NET Core. Two-line install, live SignalR updates, dark mode, persistent history, secure by default.
 
 [![NuGet](https://img.shields.io/nuget/v/Dot.QuartzDashboard?style=flat-square&logo=nuget&color=004880)](https://www.nuget.org/packages/Dot.QuartzDashboard)
 [![Downloads](https://img.shields.io/nuget/dt/Dot.QuartzDashboard?style=flat-square&logo=nuget&color=green)](https://www.nuget.org/packages/Dot.QuartzDashboard)
@@ -12,10 +12,17 @@ A beautiful, self-contained **Quartz.NET scheduler dashboard** — drop it into 
 [![.NET](https://img.shields.io/badge/.NET-8.0%20|%209.0%20|%2010.0-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/nathan5580/QuartzDashboard/main/ux-audit-screenshots/overview-dark.png" alt="Overview page in dark mode" width="900">
+  <br>
+  <em>Overview page (dark mode). See <a href="#dashboard-pages">all pages</a> below.</em>
+</p>
+
 ---
 
 ## Contents
 
+- [What's New in v4.2.x](#whats-new-in-v42x)
 - [What's New in v4.1.0](#whats-new-in-v410)
 - [What's New in v4.0.0](#whats-new-in-v400)
 - [What it does](#what-it-does)
@@ -41,6 +48,46 @@ A beautiful, self-contained **Quartz.NET scheduler dashboard** — drop it into 
 - [License](#license)
 
 ---
+
+## What's New in v4.2.x
+
+**v4.2 is the security-defaults release** — two breaking default flips that make a misconfigured deployment fail closed instead of fail open.
+
+- **`RequireAuthentication` now defaults to `true`.** Before v4.2 the dashboard accepted anonymous requests by default, which on an open port meant anonymous remote job control. From v4.2 you must wire up `UseAuthentication()` / `UseAuthorization()` (or explicitly opt back into anonymous with `options.RequireAuthentication = false` plus the startup warning).
+- **CSRF guard: `RequireCsrfHeader` defaults to `true`.** Mutating endpoints require `X-Requested-With: XMLHttpRequest` or `X-CSRF-Token`. The bundled SPA sends the header automatically; custom front-ends must add it.
+- **Defensive security headers**: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin` on dashboard-owned responses only.
+- **`prefers-reduced-motion` respected** across every dashboard animation.
+- **Toast queue announced to screen readers** via `aria-live="polite"`.
+- **SignalR bridge memory leak fixed** across host recycles — handlers now unsubscribe in `StopAsync`.
+- **N+1 trigger-state lookup eliminated** on `/api/jobs` and `/api/triggers` — `GetTriggerState` is batched via `Task.WhenAll`, dropping latency on schedulers with hundreds of triggers.
+- **File history store** canonicalizes paths via `Path.GetFullPath` so writes always land somewhere debuggable.
+- **`/api/import`** now surfaces `placeholderJobs[]` and a `placeholderWarning` when an `IJob` type can't be resolved at import time.
+- **Polling fallback timer leak after page unload** fixed — `pagehide` and `beforeunload` stop the interval and SignalR connection.
+- **`failedHistory` `:key` collision** fixed (composite key includes `fireInstanceId + fireTime + index`).
+- **`FireRecord` properties are now `{ get; init; }`** — immutable across consumers and thread-safe by construction.
+- **Per-request `CancellationToken` propagation** — `ApiRouteContext.Ct` is bound to `HttpContext.RequestAborted` and flows into Quartz scheduler calls.
+
+### v4.2.1 fixes (post-audit)
+
+- **SignalR `Subscribe` no longer rejects** when the dashboard's `RequireAuthentication` is `false`. The method-level `[Authorize]` overrode the hub endpoint's policy, leaving auth-off clients with a permanent "Real-time connection lost" banner.
+- **Jobs page Alpine `:aria-expanded` page-error** on every render fixed — `(undefined && ...).toString()` is now `(!! (...)).toString()`.
+- **Auth 401/403 returns an HTML error page** for browser navigations (`Accept: text/html`) instead of a raw JSON blob. Curl / fetch / XHR clients still get JSON.
+- **Demo** — `Program.cs` now explicitly sets `RequireAuthentication = authMode` so plain `dotnet run` (no flags) lands on a working dashboard instead of a 401.
+
+### Migration from v4.1.x
+
+```diff
+  builder.Services.AddQuartzDashboard(options =>
+  {
+      options.Path = "/quartz";
++     // v4.2: defaults flipped to secure. Set explicitly only if you have
++     // an external auth / anti-forgery layer or run on a trusted network.
++     options.RequireAuthentication = false;
++     options.RequireCsrfHeader = false;
+  });
+```
+
+Otherwise: wire up `app.UseAuthentication()` / `app.UseAuthorization()` and set `options.AllowedRoles` (or `options.RequiredPolicy`) — see [Authentication & Authorization](#authentication--authorization).
 
 ## What's New in v4.1.0
 
@@ -723,7 +770,7 @@ PACKAGES (v4 — split into three):
   Dot.QuartzDashboard               — middleware + handlers + SPA + in-memory/JSON history
   Dot.QuartzDashboard.Abstractions  — IFireHistoryStore + FireRecord (no ASP.NET deps)
   Dot.QuartzDashboard.Sqlite        — SqliteFireHistoryStore + AddQuartzDashboardSqliteHistory()
-CURRENT VERSION: 4.1.0
+CURRENT VERSION: 4.2.1
 TARGETS: net8.0, net9.0, net10.0
 NAMESPACES:
   QuartzDashboard                  — middleware, options, hub
@@ -859,7 +906,7 @@ Default endpoint: {Path}/hub  (e.g. /quartz/hub)
 Registered automatically when UseSignalR = true — no manual MapHub needed.
 POST {Path}/hub/negotiate?negotiateVersion=1  → 200 when working
 
---- UI FEATURES (v4.1.0) ---
+--- UI FEATURES (v4.2.x) ---
 - Anti-flicker refresh — mergeArrayInPlace keeps DOM nodes stable across auto-refresh cycles
 - Silent background refresh — SignalR/auto-refresh updates skip loading spinners and error toasts
 - Row density toggle (comfortable / compact), persisted to localStorage

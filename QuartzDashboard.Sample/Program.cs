@@ -3,10 +3,12 @@ using QuartzDashboard;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  QuartzDashboard Sample — minimal setup proving the NuGet works
-//  Just 3 lines to add the dashboard to any existing Quartz app:
+//  Two lines to add the dashboard. The third (UseRouting) is the standard
+//  ASP.NET Core pipeline call; minimal-hosting templates already include it.
 //    1. builder.Services.AddQuartzDashboard();
-//    2. app.UseRouting();
-//    3. app.UseQuartzDashboard();
+//    2. app.UseQuartzDashboard();
+//  (UseRouting is shown explicitly below for projects that need it before
+//   the dashboard middleware — see README "Middleware Placement".)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 var builder = WebApplication.CreateBuilder(args);
