@@ -10,9 +10,9 @@ using Quartz;
 using QuartzDashboard.Handlers;
 using QuartzDashboard.Internal;
 using QuartzDashboard.Abstractions;
-using QuartzDashboard.Middleware;
 using QuartzDashboard.Services;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace QuartzDashboard;
 
@@ -20,8 +20,13 @@ namespace QuartzDashboard;
 /// Extension methods for mounting the Quartz Dashboard.
 /// Call <c>app.UseQuartzDashboard()</c> at any point in the pipeline.
 /// </summary>
-public static class QuartzDashboardApplicationBuilderExtensions
+public static partial class QuartzDashboardApplicationBuilderExtensions
 {
+    // Source-generated, compiled regex — validated once at type-init,
+    // zero per-request allocation. Replaces the inline Regex.IsMatch.
+    [GeneratedRegex(@"^[\w\-. ]+$", RegexOptions.CultureInvariant)]
+    private static partial Regex SchedulerNameRegex();
+
     private static readonly Assembly ThisAssembly =
         typeof(QuartzDashboardApplicationBuilderExtensions).Assembly;
 
@@ -142,7 +147,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
                 IScheduler sched;
                 var schedulerName = ctx.Request.Query["scheduler"].FirstOrDefault();
                 if (!string.IsNullOrEmpty(schedulerName) &&
-                    (schedulerName.Length > 100 || !System.Text.RegularExpressions.Regex.IsMatch(schedulerName, @"^[\w\-. ]+$")))
+                    (schedulerName.Length > 100 || !SchedulerNameRegex().IsMatch(schedulerName)))
                 {
                     ctx.Response.StatusCode = 400;
                     await ctx.Response.WriteAsJsonAsync(new { error = "Invalid scheduler name" });
