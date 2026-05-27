@@ -4,6 +4,10 @@ export function createSettingsRefreshSection() {
       if (this.autoRefreshTimer) clearInterval(this.autoRefreshTimer);
       const ms = this.settings.refreshInterval * 1000;
       this.autoRefreshTimer = setInterval(() => {
+        // Skip polling when the tab isn't visible — admins leave the dashboard
+        // open in a background tab for hours; polling there is pure waste.
+        // SignalR fan-out still arrives when the tab is restored.
+        if (typeof document !== 'undefined' && document.hidden) return;
         if (this.signalRConnected) {
           if (this.currentPage === 'timeline' || this.currentPage === 'executing') return;
         }
@@ -12,6 +16,17 @@ export function createSettingsRefreshSection() {
           this.refreshPage(page, true);
         }
       }, ms);
+
+      // Catch-up refresh when the tab becomes visible after being hidden.
+      // One-shot listener installed alongside the interval.
+      if (typeof document !== 'undefined' && !this._visibilityListenerAttached) {
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden && this.settings?.autoRefreshPages?.[this.currentPage]) {
+            this.refreshPage(this.currentPage, true);
+          }
+        });
+        this._visibilityListenerAttached = true;
+      }
     },
 
     toggleAutoRefresh(pageId) {

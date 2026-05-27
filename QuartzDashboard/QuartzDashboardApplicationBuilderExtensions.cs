@@ -353,6 +353,11 @@ public static partial class QuartzDashboardApplicationBuilderExtensions
 
     // ============= Static File Serving =============
 
+    // ETag for embedded static assets — bundled with the package so they only
+    // change across releases. Using the assembly version as a weak validator
+    // means Day-2 visits get 304s for every cached asset.
+    private static readonly string AssetETag = $"W/\"{AssemblyVersion}\"";
+
     private static async Task ServeStaticFile(HttpContext ctx, string path, string basePath, QuartzDashboardOptions options)
     {
         var relativePath = path.TrimStart('/');
@@ -376,6 +381,17 @@ public static partial class QuartzDashboardApplicationBuilderExtensions
             if (filePath == "index.html")
             {
                 await ServeIndexHtml(ctx, basePath, options);
+                return;
+            }
+
+            // ETag short-circuit for the long-cached assets. AssetETag is keyed
+            // to the package version, so a deploy invalidates correctly without
+            // needing per-file content hashes.
+            ctx.Response.Headers.ETag = AssetETag;
+            if (ctx.Request.Headers.IfNoneMatch.Count > 0
+                && ctx.Request.Headers.IfNoneMatch.ToString() == AssetETag)
+            {
+                ctx.Response.StatusCode = StatusCodes.Status304NotModified;
                 return;
             }
 
@@ -407,19 +423,31 @@ public static partial class QuartzDashboardApplicationBuilderExtensions
         if (!headers.ContainsKey("Referrer-Policy")) headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     }
 
+    // Cache the token-replaced index.html bytes once per (basePath, title) tuple.
+    // The embedded resource is read + 3× string-replace + UTF-8 encoded only on
+    // first hit — every subsequent navigation writes the cached byte[] straight
+    // to the response. Concurrent first-hits race safely (last write wins on
+    // identical content). The keying tuple matters because basePath comes from
+    // options.Path (mostly "/quartz") and title is host-configurable.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string BasePath, string Title), byte[]> _indexHtmlCache = new();
+
     private static async Task ServeIndexHtml(HttpContext ctx, string basePath, QuartzDashboardOptions options)
     {
-        var fileInfo = EmbeddedFiles.GetFileInfo("index.html");
-        using var stream = fileInfo.CreateReadStream();
-        using var reader = new System.IO.StreamReader(stream);
-        var html = await reader.ReadToEndAsync();
-
-        html = html.Replace("'__QUARTZ_BASE__'", $"'{basePath}'");
-        html = html.Replace("__QUARTZ_VERSION__", AssemblyVersion);
-        html = html.Replace("__QUARTZ_TITLE__", System.Text.Encodings.Web.HtmlEncoder.Default.Encode(options.Title));
+        var key = (basePath, options.Title);
+        var bytes = _indexHtmlCache.GetOrAdd(key, static k =>
+        {
+            var fileInfo = EmbeddedFiles.GetFileInfo("index.html");
+            using var stream = fileInfo.CreateReadStream();
+            using var reader = new System.IO.StreamReader(stream);
+            var html = reader.ReadToEnd();
+            html = html.Replace("'__QUARTZ_BASE__'", $"'{k.BasePath}'");
+            html = html.Replace("__QUARTZ_VERSION__", AssemblyVersion);
+            html = html.Replace("__QUARTZ_TITLE__", System.Text.Encodings.Web.HtmlEncoder.Default.Encode(k.Title));
+            return System.Text.Encoding.UTF8.GetBytes(html);
+        });
 
         ctx.Response.ContentType = "text/html; charset=utf-8";
-        await ctx.Response.WriteAsync(html);
+        await ctx.Response.Body.WriteAsync(bytes);
     }
 }
 
