@@ -308,22 +308,44 @@ export function createHistorySection() {
             overlayParent.style.position = 'relative';
             overlayParent.appendChild(overlay);
           }
-          if (this.config?.readOnly) {
-            overlay.innerHTML = '';
-            return;
-          }
-          overlay.innerHTML = labels.map((lbl, rowIndex) => {
+          // Rebuild row actions from scratch (avoids stale handlers).
+          overlay.replaceChildren();
+          if (this.config?.readOnly) return;
+
+          // Build buttons via DOM APIs (no innerHTML, no inline onclick) so
+          // job/group names that contain quote characters can't break out of
+          // an attribute and execute. The handlers close over `grp` / `nm`
+          // captured here — they never reach the markup.
+          const self = this;
+          const makeButton = (glyph, title, ariaLabel, bg, handler) => {
+            const b = document.createElement('button');
+            b.title = title;
+            b.setAttribute('aria-label', ariaLabel);
+            b.style.cssText = `background:${bg};border:none;border-radius:4px;padding:2px 5px;cursor:pointer;color:#fff;font-size:10px;`;
+            b.textContent = glyph;
+            b.addEventListener('click', handler);
+            return b;
+          };
+
+          labels.forEach((lbl, rowIndex) => {
             const y = 8 + rowIndex * rowH;
             const parts = lbl.split('.');
             const grp = parts[0];
             const nm = parts.slice(1).join('.') || parts[0];
-            return `<div class="tl-row-actions" data-row="${rowIndex}" style="position:absolute;top:${y}px;left:0;width:${labelW - 4}px;height:${rowH - 1}px;pointer-events:auto;display:flex;align-items:center;justify-content:flex-end;gap:2px;padding-right:24px;opacity:0;transition:opacity 0.15s;"
-              onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0">
-              <button title="Run now" aria-label="Run ${lbl} now" onclick="window.dashboard && document.querySelector('[x-data]')?._x_dataStack?.[0]?.triggerJob('${grp}','${nm}')" style="background:rgba(99,102,241,0.7);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;color:#fff;font-size:10px;">▶</button>
-              <button title="Pause" aria-label="Pause ${lbl}" onclick="window.dashboard && document.querySelector('[x-data]')?._x_dataStack?.[0]?.pauseJob('${grp}','${nm}')" style="background:rgba(245,158,11,0.7);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;color:#fff;font-size:10px;">⏸</button>
-              <button title="Resume" aria-label="Resume ${lbl}" onclick="window.dashboard && document.querySelector('[x-data]')?._x_dataStack?.[0]?.resumeJob('${grp}','${nm}')" style="background:rgba(52,211,153,0.7);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;color:#fff;font-size:10px;">↺</button>
-            </div>`;
-          }).join('');
+
+            const row = document.createElement('div');
+            row.className = 'tl-row-actions';
+            row.dataset.row = String(rowIndex);
+            row.style.cssText = `position:absolute;top:${y}px;left:0;width:${labelW - 4}px;height:${rowH - 1}px;pointer-events:auto;display:flex;align-items:center;justify-content:flex-end;gap:2px;padding-right:24px;opacity:0;transition:opacity 0.15s;`;
+            row.addEventListener('mouseenter', () => { row.style.opacity = '1'; });
+            row.addEventListener('mouseleave', () => { row.style.opacity = '0'; });
+
+            row.appendChild(makeButton('▶', 'Run now', `Run ${lbl} now`, 'rgba(99,102,241,0.7)', () => self.triggerJob?.(grp, nm)));
+            row.appendChild(makeButton('⏸', 'Pause', `Pause ${lbl}`, 'rgba(245,158,11,0.7)', () => self.pauseJob?.(grp, nm)));
+            row.appendChild(makeButton('↺', 'Resume', `Resume ${lbl}`, 'rgba(52,211,153,0.7)', () => self.resumeJob?.(grp, nm)));
+
+            overlay.appendChild(row);
+          });
         },
 
 

@@ -232,8 +232,13 @@ internal static class JobHandlers
         QuartzDashboardOptions options)
     {
         if (options.ReadOnly) return DashboardResults.ReadOnly();
-        if (req == null || string.IsNullOrWhiteSpace(req.Name))
-            return Results.BadRequest(new { error = "Job name is required" });
+        if (req == null)
+            return Results.BadRequest(new { error = "Request body is required" });
+        if (QuartzDashboard.Internal.NameValidation.Validate(req.Name, "Job name") is { } nameErr)
+            return Results.BadRequest(new { error = nameErr });
+        if (!string.IsNullOrEmpty(req.Group)
+            && QuartzDashboard.Internal.NameValidation.Validate(req.Group, "Job group") is { } grpErr)
+            return Results.BadRequest(new { error = grpErr });
 
         var jobType = AppDomain.CurrentDomain.GetAssemblies()
             .SelectMany(a => a.GetTypes())

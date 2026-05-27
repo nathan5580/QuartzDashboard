@@ -62,7 +62,12 @@ internal static class ExportImport
 
                 foreach (var t in types)
                 {
-                    if (t.FullName == name || t.Name == name)
+                    // Match name AND require IJob — without the interface filter, a malicious
+                    // import payload could probe loaded types ("does this host have HttpClient
+                    // loaded?") even though JobBuilder.Create later rejects non-IJob types.
+                    // Same gate JobHandlers.CreateJob already enforces.
+                    if ((t.FullName == name || t.Name == name)
+                        && typeof(Quartz.IJob).IsAssignableFrom(t))
                         return t;
                 }
             }
@@ -136,6 +141,23 @@ internal static class ExportImport
         {
             try
             {
+                // Apply the same name validation as the create endpoints — an import
+                // payload from an attacker (or a corrupted export) shouldn't be allowed
+                // to insert names containing quotes / HTML metacharacters / control chars.
+                if (NameValidation.Validate(ej.Name, "Job name") is { } jobNameErr)
+                {
+                    errors++;
+                    errorMessages.Add($"{ej.Group}.{ej.Name}: {jobNameErr}");
+                    continue;
+                }
+                if (!string.IsNullOrEmpty(ej.Group)
+                    && NameValidation.Validate(ej.Group, "Job group") is { } jobGrpErr)
+                {
+                    errors++;
+                    errorMessages.Add($"{ej.Group}.{ej.Name}: {jobGrpErr}");
+                    continue;
+                }
+
                 var (jobType, fellBack) = ResolveJobType(ej.JobType);
                 if (fellBack && !string.IsNullOrEmpty(ej.JobType))
                     placeholderJobs.Add($"{ej.Group}.{ej.Name} ({ej.JobType})");

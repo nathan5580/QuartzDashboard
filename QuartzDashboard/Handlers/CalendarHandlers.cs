@@ -30,8 +30,10 @@ internal static class CalendarHandlers
         QuartzDashboardOptions options)
     {
         if (options.ReadOnly) return DashboardResults.ReadOnly();
-        if (req == null || string.IsNullOrWhiteSpace(req.Name))
-            return Results.BadRequest(new { error = "Calendar name is required" });
+        if (req == null)
+            return Results.BadRequest(new { error = "Request body is required" });
+        if (QuartzDashboard.Internal.NameValidation.Validate(req.Name, "Calendar name") is { } nameErr)
+            return Results.BadRequest(new { error = nameErr });
 
         var names = await sched.GetCalendarNames();
         if (names.Contains(req.Name))

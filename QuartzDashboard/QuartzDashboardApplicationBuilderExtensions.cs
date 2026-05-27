@@ -231,6 +231,10 @@ public static partial class QuartzDashboardApplicationBuilderExtensions
         ISchedulerFactory schedFactory,
         string path, QuartzDashboardOptions options)
     {
+        // Defensive headers apply to JSON responses too, not just static files.
+        // Cheap, idempotent, and consistent across the dashboard's surface.
+        ApplySecurityHeaders(ctx);
+
         var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
         // Strip "/api" or "/api/v1" prefix for API versioning support
         var apiOffset = 1; // skip "api"
