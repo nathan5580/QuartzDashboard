@@ -6,7 +6,7 @@ namespace QuartzDashboard;
 /// Options used to configure the Quartz Dashboard middleware and related services.
 /// Implements <see cref="IQuartzDashboardOptions"/>, the read-only contract consumed by handlers.
 /// </summary>
-public class QuartzDashboardOptions : IQuartzDashboardOptions
+public sealed class QuartzDashboardOptions : IQuartzDashboardOptions
 {
     /// <summary>
     /// Gets or sets the base path where the dashboard is served.
