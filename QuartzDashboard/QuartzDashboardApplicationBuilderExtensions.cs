@@ -10,9 +10,9 @@ using Quartz;
 using QuartzDashboard.Handlers;
 using QuartzDashboard.Internal;
 using QuartzDashboard.Abstractions;
-using QuartzDashboard.Middleware;
 using QuartzDashboard.Services;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace QuartzDashboard;
 
@@ -20,8 +20,13 @@ namespace QuartzDashboard;
 /// Extension methods for mounting the Quartz Dashboard.
 /// Call <c>app.UseQuartzDashboard()</c> at any point in the pipeline.
 /// </summary>
-public static class QuartzDashboardApplicationBuilderExtensions
+public static partial class QuartzDashboardApplicationBuilderExtensions
 {
+    // Source-generated, compiled regex — validated once at type-init,
+    // zero per-request allocation. Replaces the inline Regex.IsMatch.
+    [GeneratedRegex(@"^[\w\-. ]+$", RegexOptions.CultureInvariant)]
+    private static partial Regex SchedulerNameRegex();
+
     private static readonly Assembly ThisAssembly =
         typeof(QuartzDashboardApplicationBuilderExtensions).Assembly;
 
@@ -142,7 +147,7 @@ public static class QuartzDashboardApplicationBuilderExtensions
                 IScheduler sched;
                 var schedulerName = ctx.Request.Query["scheduler"].FirstOrDefault();
                 if (!string.IsNullOrEmpty(schedulerName) &&
-                    (schedulerName.Length > 100 || !System.Text.RegularExpressions.Regex.IsMatch(schedulerName, @"^[\w\-. ]+$")))
+                    (schedulerName.Length > 100 || !SchedulerNameRegex().IsMatch(schedulerName)))
                 {
                     ctx.Response.StatusCode = 400;
                     await ctx.Response.WriteAsJsonAsync(new { error = "Invalid scheduler name" });
@@ -226,6 +231,10 @@ public static class QuartzDashboardApplicationBuilderExtensions
         ISchedulerFactory schedFactory,
         string path, QuartzDashboardOptions options)
     {
+        // Defensive headers apply to JSON responses too, not just static files.
+        // Cheap, idempotent, and consistent across the dashboard's surface.
+        ApplySecurityHeaders(ctx);
+
         var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
         // Strip "/api" or "/api/v1" prefix for API versioning support
         var apiOffset = 1; // skip "api"
@@ -274,16 +283,80 @@ public static class QuartzDashboardApplicationBuilderExtensions
 
     private static Task WriteJsonError(HttpContext ctx, int statusCode, string message)
     {
+        // Browser navigations send Accept: text/html — return a small HTML page with
+        // remediation guidance instead of a raw JSON blob. JSON is still returned for
+        // XHR/fetch/curl clients that ask for it or don't set Accept at all.
+        var accept = ctx.Request.Headers["Accept"].ToString();
+        var wantsHtml = accept.Contains("text/html", StringComparison.OrdinalIgnoreCase);
+
         ctx.Response.StatusCode = statusCode;
+
+        if (wantsHtml)
+        {
+            ctx.Response.ContentType = "text/html; charset=utf-8";
+            return ctx.Response.WriteAsync(RenderAuthErrorPage(statusCode, message));
+        }
+
         ctx.Response.ContentType = "application/json";
         return ctx.Response.WriteAsync(
             System.Text.Json.JsonSerializer.Serialize(new { error = message }));
+    }
+
+    private static string RenderAuthErrorPage(int statusCode, string message)
+    {
+        var title = statusCode == 403 ? "Access denied" : "Authentication required";
+        var hint = statusCode == 403
+            ? "Your account is signed in but does not have permission to view this dashboard."
+            : "This dashboard requires an authenticated user. Sign in to the host application and reload.";
+        var safeMessage = System.Net.WebUtility.HtmlEncode(message);
+        return $@"<!DOCTYPE html>
+<html lang=""en"">
+<head>
+<meta charset=""utf-8"" />
+<meta name=""viewport"" content=""width=device-width,initial-scale=1"" />
+<title>{title} — Quartz Dashboard</title>
+<style>
+  :root {{ color-scheme: dark light; }}
+  body {{ margin:0; min-height:100vh; display:grid; place-items:center; background:#030712; color:#e5e7eb;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, ""Segoe UI"", sans-serif; }}
+  .card {{ max-width: 32rem; width: 90vw; padding: 2rem 2.25rem; background: rgba(17,24,39,0.85);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 0.75rem; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }}
+  .badge {{ display:inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight:600;
+    background: rgba(239,68,68,0.15); color: #fca5a5; box-shadow: inset 0 0 0 1px rgba(239,68,68,0.2); }}
+  h1 {{ margin: 0.75rem 0 0.5rem; font-size: 1.25rem; font-weight: 600; color: #f3f4f6; }}
+  p {{ margin: 0 0 0.5rem; line-height: 1.55; color: #cbd5e1; }}
+  p.muted {{ color: #9ca3af; font-size: 0.85rem; }}
+  code {{ background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 4px; font-size: 0.85em; }}
+  a {{ color: #818cf8; text-decoration: none; }}
+  a:hover {{ text-decoration: underline; }}
+  @media (prefers-color-scheme: light) {{
+    body {{ background: #f3f4f6; color: #1f2937; }}
+    .card {{ background: #ffffff; border-color: rgba(0,0,0,0.08); }}
+    h1 {{ color: #111827; }} p {{ color: #374151; }} p.muted {{ color: #6b7280; }}
+    code {{ background: rgba(0,0,0,0.05); }}
+  }}
+</style>
+</head>
+<body>
+  <main class=""card"" role=""main"">
+    <span class=""badge"">{statusCode} — {safeMessage}</span>
+    <h1>{title}</h1>
+    <p>{hint}</p>
+    <p class=""muted"">If you are the developer: this dashboard's <code>RequireAuthentication</code> option defaults to <code>true</code> since v4.2.0. Either sign in via the host app's authentication middleware, or set <code>options.RequireAuthentication = false</code> for trusted local environments. See <a href=""https://github.com/nathan5580/QuartzDashboard#authentication"">the auth docs</a>.</p>
+  </main>
+</body>
+</html>";
     }
 
     private static readonly string AssemblyVersion =
         ThisAssembly.GetName().Version?.ToString(3) ?? "0";
 
     // ============= Static File Serving =============
+
+    // ETag for embedded static assets — bundled with the package so they only
+    // change across releases. Using the assembly version as a weak validator
+    // means Day-2 visits get 304s for every cached asset.
+    private static readonly string AssetETag = $"W/\"{AssemblyVersion}\"";
 
     private static async Task ServeStaticFile(HttpContext ctx, string path, string basePath, QuartzDashboardOptions options)
     {
@@ -308,6 +381,17 @@ public static class QuartzDashboardApplicationBuilderExtensions
             if (filePath == "index.html")
             {
                 await ServeIndexHtml(ctx, basePath, options);
+                return;
+            }
+
+            // ETag short-circuit for the long-cached assets. AssetETag is keyed
+            // to the package version, so a deploy invalidates correctly without
+            // needing per-file content hashes.
+            ctx.Response.Headers.ETag = AssetETag;
+            if (ctx.Request.Headers.IfNoneMatch.Count > 0
+                && ctx.Request.Headers.IfNoneMatch.ToString() == AssetETag)
+            {
+                ctx.Response.StatusCode = StatusCodes.Status304NotModified;
                 return;
             }
 
@@ -339,19 +423,31 @@ public static class QuartzDashboardApplicationBuilderExtensions
         if (!headers.ContainsKey("Referrer-Policy")) headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     }
 
+    // Cache the token-replaced index.html bytes once per (basePath, title) tuple.
+    // The embedded resource is read + 3× string-replace + UTF-8 encoded only on
+    // first hit — every subsequent navigation writes the cached byte[] straight
+    // to the response. Concurrent first-hits race safely (last write wins on
+    // identical content). The keying tuple matters because basePath comes from
+    // options.Path (mostly "/quartz") and title is host-configurable.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string BasePath, string Title), byte[]> _indexHtmlCache = new();
+
     private static async Task ServeIndexHtml(HttpContext ctx, string basePath, QuartzDashboardOptions options)
     {
-        var fileInfo = EmbeddedFiles.GetFileInfo("index.html");
-        using var stream = fileInfo.CreateReadStream();
-        using var reader = new System.IO.StreamReader(stream);
-        var html = await reader.ReadToEndAsync();
-
-        html = html.Replace("'__QUARTZ_BASE__'", $"'{basePath}'");
-        html = html.Replace("__QUARTZ_VERSION__", AssemblyVersion);
-        html = html.Replace("__QUARTZ_TITLE__", System.Text.Encodings.Web.HtmlEncoder.Default.Encode(options.Title));
+        var key = (basePath, options.Title);
+        var bytes = _indexHtmlCache.GetOrAdd(key, static k =>
+        {
+            var fileInfo = EmbeddedFiles.GetFileInfo("index.html");
+            using var stream = fileInfo.CreateReadStream();
+            using var reader = new System.IO.StreamReader(stream);
+            var html = reader.ReadToEnd();
+            html = html.Replace("'__QUARTZ_BASE__'", $"'{k.BasePath}'");
+            html = html.Replace("__QUARTZ_VERSION__", AssemblyVersion);
+            html = html.Replace("__QUARTZ_TITLE__", System.Text.Encodings.Web.HtmlEncoder.Default.Encode(k.Title));
+            return System.Text.Encoding.UTF8.GetBytes(html);
+        });
 
         ctx.Response.ContentType = "text/html; charset=utf-8";
-        await ctx.Response.WriteAsync(html);
+        await ctx.Response.Body.WriteAsync(bytes);
     }
 }
 

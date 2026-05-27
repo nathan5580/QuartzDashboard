@@ -232,12 +232,21 @@ internal static class JobHandlers
         QuartzDashboardOptions options)
     {
         if (options.ReadOnly) return DashboardResults.ReadOnly();
-        if (req == null || string.IsNullOrWhiteSpace(req.Name))
-            return Results.BadRequest(new { error = "Job name is required" });
+        if (req == null)
+            return Results.BadRequest(new { error = "Request body is required" });
+        if (QuartzDashboard.Internal.NameValidation.Validate(req.Name, "Job name") is { } nameErr)
+            return Results.BadRequest(new { error = nameErr });
+        if (!string.IsNullOrEmpty(req.Group)
+            && QuartzDashboard.Internal.NameValidation.Validate(req.Group, "Job group") is { } grpErr)
+            return Results.BadRequest(new { error = grpErr });
 
-        var jobType = AppDomain.CurrentDomain.GetAssemblies()
-            .SelectMany(a => a.GetTypes())
-            .FirstOrDefault(t => t.GetInterfaces().Contains(typeof(IJob)) && t.Name == req.JobType);
+        // Memoized IJob type lookup — avoids the per-request AppDomain.GetAssemblies +
+        // SelectMany(GetTypes) scan, which can touch tens of thousands of types in a
+        // large host. Cache is invalidated when the loaded-assembly count changes
+        // (covers dynamic plugin loading without holding stale Type refs forever).
+        var jobType = !string.IsNullOrWhiteSpace(req.JobType)
+            ? ResolveJobTypeByShortName(req.JobType!)
+            : null;
 
         if (jobType == null && !string.IsNullOrWhiteSpace(req.JobType))
             return Results.BadRequest(new
@@ -354,5 +363,37 @@ internal static class JobHandlers
         var key = new JobKey(name, group);
         var interrupted = await sched.Interrupt(key);
         return Results.Ok(new { interrupted });
+    }
+
+    // ===== IJob type-name resolution (memoized) =====
+    // Caches both positive and negative lookups; invalidates when the loaded
+    // assembly count changes (covers dynamic plugin loading).
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Type?> _jobTypeByShortName = new();
+    private static int _jobTypeCacheAssemblyCount;
+
+    private static Type? ResolveJobTypeByShortName(string shortName)
+    {
+        var count = AppDomain.CurrentDomain.GetAssemblies().Length;
+        if (Interlocked.Exchange(ref _jobTypeCacheAssemblyCount, count) != count)
+            _jobTypeByShortName.Clear();
+
+        return _jobTypeByShortName.GetOrAdd(shortName, static name =>
+        {
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type[] types;
+                try { types = asm.GetTypes(); }
+                catch (System.Reflection.ReflectionTypeLoadException ex) { types = ex.Types.Where(t => t != null).ToArray()!; }
+                catch { continue; }
+
+                foreach (var t in types)
+                {
+                    if (t.Name == name && typeof(IJob).IsAssignableFrom(t))
+                        return (Type?)t;
+                }
+            }
+            return null;
+        });
     }
 }

@@ -168,13 +168,9 @@ public class JobHandlerTests : IClassFixture<QuartzTestFixture>
 
         await _client.PostAsync("/quartz/api/jobs", createContent);
 
-        // Delete the job
+        // Delete the job — handler returns 204 NoContent per REST convention.
         var deleteResponse = await _client.DeleteAsync("/quartz/api/jobs/DEFAULT/DeleteTestJob");
-        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
-
-        var json = await deleteResponse.Content.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(json);
-        Assert.Equal("deleted", doc.RootElement.GetProperty("status").GetString());
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
 
         // Verify it's gone
         var getResponse = await _client.GetAsync("/quartz/api/jobs/DEFAULT/DeleteTestJob");

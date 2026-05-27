@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Quartz;
@@ -34,6 +35,22 @@ public static class QuartzDashboardServiceCollectionExtensions
     /// </example>
     public static IServiceCollection AddQuartzDashboard(this IServiceCollection services, Action<QuartzDashboardOptions>? configure = null)
     {
+        // Idempotency guard: a host calling AddQuartzDashboard twice (e.g. via a shared
+        // ConfigureServices helper) used to register duplicate IFireHistoryStore and
+        // listener singletons, then resolve the wrong one via IEnumerable<T>. Short-circuit
+        // the second call so configure is still honoured but the registrations don't double up.
+        if (services.Any(d => d.ServiceType == typeof(QuartzDashboardOptions)))
+        {
+            if (configure != null)
+            {
+                var existing = (QuartzDashboardOptions?)services
+                    .First(d => d.ServiceType == typeof(QuartzDashboardOptions))
+                    .ImplementationInstance;
+                if (existing != null) configure(existing);
+            }
+            return services;
+        }
+
         var options = new QuartzDashboardOptions();
         configure?.Invoke(options);
         ValidateOptions(options);
@@ -54,25 +71,27 @@ public static class QuartzDashboardServiceCollectionExtensions
         services.AddHttpClient();
 
         // Fire history store — JSON file if PersistHistoryPath is set, otherwise in-memory.
+        // TryAddSingleton so a sub-package (e.g. .Sqlite) that registers its store BEFORE
+        // AddQuartzDashboard wins, and so a second AddQuartzDashboard call can't clobber it.
         // For SQLite persistence, add the Dot.QuartzDashboard.Sqlite package and call
         // services.AddQuartzDashboardSqliteHistory(...) AFTER AddQuartzDashboard().
         if (!string.IsNullOrWhiteSpace(options.PersistHistoryPath))
-            services.AddSingleton<IFireHistoryStore>(sp => new FileFireHistoryStore(
+            services.TryAddSingleton<IFireHistoryStore>(sp => new FileFireHistoryStore(
                 options.PersistHistoryPath,
                 sp.GetRequiredService<ILogger<FileFireHistoryStore>>(),
                 options.MaxFireHistory,
                 options.HistoryRetentionHours));
         else
-            services.AddSingleton<IFireHistoryStore>(_ => new InMemoryFireHistoryStore(options.MaxFireHistory, options.HistoryRetentionHours));
+            services.TryAddSingleton<IFireHistoryStore>(_ => new InMemoryFireHistoryStore(options.MaxFireHistory, options.HistoryRetentionHours));
 
         // Execution log buffer
-        services.AddSingleton(_ => new ExecutionLogBuffer(options.MaxExecutionLogsPerJob));
+        services.TryAddSingleton(_ => new ExecutionLogBuffer(options.MaxExecutionLogsPerJob));
 
         // Execution bucket service (thread-safe performance stats)
-        services.AddSingleton<ExecutionBucketService>();
+        services.TryAddSingleton<ExecutionBucketService>();
 
         // Event bus
-        services.AddSingleton<DashboardEventBus>();
+        services.TryAddSingleton<DashboardEventBus>();
 
         if (options.UseSignalR)
         {

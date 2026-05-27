@@ -7,6 +7,15 @@ obj/
 .DS_Store
 nupkg/
 
+# Local demo runtime artifacts (SQLite history store from `dotnet run --sqlite`)
+demo-history.db
+demo-history.db-shm
+demo-history.db-wal
+
+# UX-audit artefacts (kept locally for review; not part of the package)
+ux-audit-screenshots/persona-*/
+ux-audit-screenshots/batch*/
+
 # JetBrains Rider
 .idea/
 *.sln.iml

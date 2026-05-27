@@ -107,10 +107,14 @@ public class SchedulerHandlerTests : IClassFixture<QuartzTestFixture>
         var response = await _client.GetAsync("/quartz/api/executing");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
+        // Shape is { data: [], total: 0 } since v4.2 (PagedResponse).
         var json = await response.Content.ReadAsStringAsync();
         using var doc = JsonDocument.Parse(json);
-        Assert.Equal(JsonValueKind.Array, doc.RootElement.ValueKind);
-        Assert.Equal(0, doc.RootElement.GetArrayLength());
+        Assert.Equal(JsonValueKind.Object, doc.RootElement.ValueKind);
+        var data = doc.RootElement.GetProperty("data");
+        Assert.Equal(JsonValueKind.Array, data.ValueKind);
+        Assert.Equal(0, data.GetArrayLength());
+        Assert.Equal(0, doc.RootElement.GetProperty("total").GetInt32());
     }
 
     [Fact]

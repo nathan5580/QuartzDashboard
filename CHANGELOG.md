@@ -2,6 +2,122 @@
 
 All notable changes to **Dot.QuartzDashboard** are documented here.
 
+## [4.2.2] — 2026-05-27
+
+Two-round persona-driven audit pass (9 + 5 personas covering SRE / junior
+dev / a11y / mobile / design / README reader / integrator / branding /
+feature parity, then security / perf / code-quality / i18n / color-blind).
+No API or wire-format changes; drop-in upgrade from 4.2.1.
+
+### Security
+- **Closed a stored XSS in the timeline row-action overlay** (CWE-79).
+  The overlay built `<button onclick="…triggerJob('${grp}','${nm}')…">`
+  via innerHTML, interpolating un-validated job/group names. A job named
+  `x',alert(1),'y` broke out and ran in any operator's session. Rewrote
+  the overlay to use `createElement` + `addEventListener` so names live
+  in JS closures and never reach markup.
+- **Validate job / group / trigger / calendar names at the API boundary**
+  (defence-in-depth). New internal `NameValidation` rejects control
+  chars, quote characters, HTML metacharacters, and caps length at 200.
+- **Apply security headers to API responses**, not just static files.
+- **Require `IJob` in `ExportImport.ResolveJobType`** — closes a
+  CWE-200 type-enumeration oracle through `/api/import`.
+- **Redact cron parse errors** at `/api/cron/describe` (CWE-209).
+- **HTML 401/403 page** for browser navigations (was raw JSON).
+- **SignalR `Subscribe` / `Unsubscribe`** no longer carry method-level
+  `[Authorize]` — hub-endpoint authorization (mirrors the dashboard's
+  `RequireAuthentication`) is the single source of truth. Fixes the
+  persistent "Real-time connection lost" banner when auth was off.
+
+### Performance
+- **ETag short-circuit for cached static assets** — `If-None-Match:
+  W/"<version>"` returns 304 for the bundled JS/CSS. Day-2 visits avoid
+  the ~264 kB bundle redownload.
+- **Cache the token-replaced `index.html`** as a `byte[]` per
+  `(basePath, title)` tuple (was read + 3× `string.Replace` + UTF-8
+  encoded on every navigation).
+- **Memoize the `IJob` type scan in `CreateJob`** — keyed on the
+  loaded-assembly count so dynamic plugin loading still invalidates.
+- **Pause auto-refresh polling on hidden tabs** via `document.hidden`
+  + a `visibilitychange` catch-up listener.
+
+### Accessibility (WCAG 2.2 AA pass)
+- **Skip-to-content link** as the first Tab stop.
+- **Job rows are keyboard-operable** — `tabindex="0"` + Enter / Space
+  open the job drawer (was mouse-only; WCAG 2.1.1).
+- **Job drawer is a proper dialog** with `role="dialog"`,
+  `aria-modal="true"`, `aria-labelledby`, focus pull on open, focus
+  restore to the originating row on close.
+- **Sidebar landmark cleanup** — dropped redundant `<aside role>`; the
+  inner `<nav aria-label="Dashboard">` is the single nav landmark.
+- **`aria-label` on color-only signals** — job-row status dots, the
+  health-alert nav badge.
+- **Stat cards** also accept `keydown.space` (in addition to Enter).
+- **Sidebar version footer contrast** lifted from 2.45:1 to ~7:1.
+- **Color-blind / forced-colors hardening**: replaced translucent
+  `box-shadow: inset` borders with real `border: 1px solid`;
+  `forced-color-adjust: none` on SVG charts; outline on `.status-dot`.
+- **Failure-rate bar chart** now shows the numeric value above any
+  non-zero bar (WCAG 1.4.1); tick contrast 3.2:1 → ~6.5:1 (1.4.3).
+
+### Mobile / responsive
+- **Triggers page right-edge clip fixed** — inner table marked
+  `mobile-card-table`; Pause / Delete buttons are now fully visible.
+- **Graph toolbar wraps** on narrow viewports.
+- **Timeline stat strip** uses `grid-cols-2 sm:grid-cols-4` so
+  "1023.8 ms" stops clipping to "1023.8 m" on iPhone width.
+- **Tap-target floor** of 44×44 pt on toolbar `btn-icon` glyphs.
+- **Bottom-nav legibility**: 10 → 11 px, min-width 56 → 64 px, 48 px
+  min-height; right-edge mask hints the row scrolls.
+- **"Real-time connection lost" banner** is now amber and reads "Live
+  updates paused — showing cached data" (was contradictory with the
+  inline "Live — connected" pill).
+
+### Design polish
+- **Typography hierarchy**: h1 = 20/28/600, h2 = 16/24/600, h3 = 14/20/
+  500 (h2 and h3 were identical before).
+- **Tabular numerals on every table cell**.
+- **Table headers** bumped to 11 px with 0.06 em tracking.
+- **Dark-mode error red** `#ef4444` → `#f87171`.
+- **Body theme transition** of 180 ms for the dark/light toggle.
+- **Calendars empty state**: inline 1.5 px-stroke calendar SVG +
+  rewritten copy.
+
+### Branding
+- **Unified on the NuGet icon's Q-ring mark** across favicon, sidebar
+  logo, and boot splash (was three different marks before).
+
+### Documentation
+- README: added "What's New in v4.2.x", hero screenshot above install,
+  v4.2.2 audit summary.
+- SECURITY.md: supported-versions table updated to 4.2.x / 4.1.x.
+
+### Code quality
+- **`AddQuartzDashboard` is now idempotent.** Second calls honour the
+  configure callback but don't double-register singletons. Internal
+  services use `TryAddSingleton`.
+- **`QuartzDashboardOptions` is now sealed** — `IQuartzDashboardOptions`
+  is the read-only extension point.
+- **Deleted dead `QuartzDashboardAuthMiddleware`** (shipped since v3.x,
+  never wired to the pipeline).
+- **Source-generated regex** for scheduler-name validation.
+- **Fixed Alpine `:aria-expanded` page-error** on Jobs render — guard
+  `(undefined && …).toString()` is now `(!!(…)).toString()`.
+- **Demo `Program.cs`** explicitly sets `RequireAuthentication = authMode`
+  so plain `dotnet run` (no flags) lands on a working dashboard.
+
+### i18n
+- **Locale-aware durations** — `formatDuration` / `formatDurationAxis`
+  go through `Intl.NumberFormat`.
+- **`<html lang>` + `dir`** set from `navigator.language` at boot,
+  including RTL for ar / he / fa / ur.
+
+### Tests
+- Pre-existing stale unit tests for DELETE endpoints (expected `200 OK`
+  but the handlers return `204 NoContent` per REST convention) and for
+  the paged `/api/executing` shape have been updated. Unit tests
+  **116 / 116 green** for the first time.
+
 ## [4.2.0] — 2026-05-16
 
 Security hardening, perf, and accessibility polish. Two **breaking** default changes that

@@ -87,7 +87,7 @@ export function createOverviewSection() {
             ? 'Scheduler is stopped — data may be stale'
             : this.scheduler.isStandbyMode
               ? 'Scheduler is in standby mode — jobs are paused'
-              : 'Real-time connection lost — data may be stale';
+              : 'Live updates paused — showing cached data';
         },
         formatShortDuration(ms, empty = '—') {
           if (!Number.isFinite(ms) || ms < 0) return empty;
@@ -107,8 +107,16 @@ export function createOverviewSection() {
             const barHeight = Math.max(4, (errorRate / 100) * 120);
             const color = errorRate > 0 ? '#ef4444' : '#22c55e';
             const opacity = errorRate > 0 ? 0.78 : 0.35;
-            return '<rect x="' + (centerX - barWidth / 2) + '" y="' + (148 - barHeight) + '" width="' + barWidth + '" height="' + barHeight + '" rx="2" fill="' + color + '" fill-opacity="' + opacity + '"/>' +
-              '<text x="' + centerX + '" y="165" text-anchor="middle" style="font-size:9px;fill:#374151">' + (bucket.label || '') + '</text>';
+            // Numeric label above any non-zero bar — color-blind users get the
+            // signal without relying on red/green distinction (WCAG 1.4.1).
+            const valueLabel = errorRate > 0
+              ? '<text x="' + centerX + '" y="' + (143 - barHeight) + '" text-anchor="middle" style="font-size:9px;fill:#fca5a5;font-weight:600">' + Math.round(errorRate) + '%</text>'
+              : '';
+            // Tick label contrast bumped from #374151 (~3.2:1) to #9ca3af (~6.5:1)
+            // for WCAG 1.4.3 AA on the gray-950 page background.
+            return '<rect x="' + (centerX - barWidth / 2) + '" y="' + (148 - barHeight) + '" width="' + barWidth + '" height="' + barHeight + '" rx="2" fill="' + color + '" fill-opacity="' + opacity + '"><title>' + (bucket.label || '') + (errorRate > 0 ? ': ' + Math.round(errorRate) + '% failure' : ': healthy') + '</title></rect>' +
+              valueLabel +
+              '<text x="' + centerX + '" y="165" text-anchor="middle" style="font-size:9px;fill:#9ca3af">' + (bucket.label || '') + '</text>';
           }).join('');
         },
 

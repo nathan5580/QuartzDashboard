@@ -175,8 +175,13 @@ internal static class TriggerHandlers
         QuartzDashboardOptions options)
     {
         if (options.ReadOnly) return DashboardResults.ReadOnly();
-        if (req == null || string.IsNullOrWhiteSpace(req.Name))
-            return Results.BadRequest(new { error = "Trigger name is required" });
+        if (req == null)
+            return Results.BadRequest(new { error = "Request body is required" });
+        if (QuartzDashboard.Internal.NameValidation.Validate(req.Name, "Trigger name") is { } nameErr)
+            return Results.BadRequest(new { error = nameErr });
+        if (!string.IsNullOrEmpty(req.Group)
+            && QuartzDashboard.Internal.NameValidation.Validate(req.Group, "Trigger group") is { } grpErr)
+            return Results.BadRequest(new { error = grpErr });
 
         var triggerKey = new TriggerKey(req.Name, req.Group ?? "DEFAULT");
         var jobKey = new JobKey(req.JobName, req.JobGroup ?? "DEFAULT");

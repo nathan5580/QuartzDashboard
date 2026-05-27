@@ -162,11 +162,14 @@ public class CalendarHandlerTests : IClassFixture<QuartzTestFixture>
 
         var response = await _client.DeleteAsync("/quartz/api/calendars/DeleteMe");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var json = await response.Content.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(json);
-        Assert.Equal("deleted", doc.RootElement.GetProperty("status").GetString());
-        Assert.Equal("DeleteMe", doc.RootElement.GetProperty("calendar").GetString());
+        // DELETE returns 204 NoContent per REST convention (handler updated; the SPA
+        // checks res.ok, so 204 is fine on the consumer side).
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        // Confirm the calendar is actually gone from the scheduler.
+        var listResponse = await _client.GetAsync("/quartz/api/calendars");
+        var listJson = await listResponse.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("\"DeleteMe\"", listJson);
     }
 
     [Fact]

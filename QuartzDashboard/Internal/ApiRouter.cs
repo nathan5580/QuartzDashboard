@@ -181,9 +181,10 @@ internal static class ApiRouter
                 }
                 return Results.Ok(new { valid = true, description = cron.CronExpressionString, nextFireTimes = nextFires });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return Results.BadRequest(new { valid = false, error = ex.Message, nextFireTimes = Array.Empty<string>() });
+                // Don't echo Quartz internals (CWE-209). The caller only needs to know parsing failed.
+                return Results.BadRequest(new { valid = false, error = "Invalid cron expression", nextFireTimes = Array.Empty<string>() });
             }
         }),
 

@@ -2,6 +2,8 @@ export function createJobsDrawerSection() {
   return {
     openJobDrawer(job) {
       this.closeRowActionsMenu?.();
+      // Remember which element triggered the drawer so we can restore focus on close.
+      this._drawerReturnFocus = document.activeElement;
       this.jobDrawerData = job;
       this.jobDrawerTab = 'overview';
       this.jobDrawerHistory = [];
@@ -10,6 +12,11 @@ export function createJobsDrawerSection() {
       this.loadJobDrawerHistory(job.group, job.name);
       document.body.style.overflow = 'hidden';
       window.location.hash = this.currentPage + '/job/' + encodeURIComponent(job.group + '.' + job.name);
+      // Move focus into the dialog once Alpine has rendered the transitioned panel.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const dialog = document.querySelector('[role="dialog"][aria-labelledby="job-drawer-title"]');
+        if (dialog) dialog.focus();
+      }));
     },
 
     closeJobDrawer() {
@@ -20,6 +27,12 @@ export function createJobsDrawerSection() {
       document.body.style.overflow = '';
       if (window.location.hash.includes('/job/')) {
         window.location.hash = this.currentPage;
+      }
+      // Restore focus to the originating element (table row, pinned card, etc.).
+      const target = this._drawerReturnFocus;
+      this._drawerReturnFocus = null;
+      if (target && typeof target.focus === 'function' && document.body.contains(target)) {
+        target.focus();
       }
     },
 
