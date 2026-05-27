@@ -21,9 +21,13 @@ export function createUtilsSection() {
         },
         formatDurationAxis(ms) {
           if (!Number.isFinite(ms) || ms <= 0) return '0ms';
-          if (ms >= 10000) return Math.round(ms / 1000) + 's';
-          if (ms >= 1000) return (ms / 1000).toFixed(1) + 's';
-          return Math.round(ms) + 'ms';
+          // Use Intl.NumberFormat so de-DE / fr-FR / ar-EG users see "1.0s" / "1,0s"
+          // formatted in their locale's decimal separator. Falls back to navigator
+          // locale automatically when first arg is undefined.
+          const fmt = (n, frac) => new Intl.NumberFormat(undefined, { maximumFractionDigits: frac, minimumFractionDigits: frac }).format(n);
+          if (ms >= 10000) return fmt(Math.round(ms / 1000), 0) + 's';
+          if (ms >= 1000) return fmt(ms / 1000, 1) + 's';
+          return fmt(Math.round(ms), 0) + 'ms';
         },
 
         sortTable(table, col) {
@@ -241,11 +245,15 @@ export function createUtilsSection() {
         formatDuration(d) {
           if (!d) return '';
           if (typeof d === 'number') {
-            if (d < 1000) return d.toFixed(d < 100 ? 1 : 0) + 'ms';
-            if (d < 60000) return (d / 1000).toFixed(d < 10000 ? 2 : 1) + 's';
+            // Locale-aware formatting via Intl.NumberFormat. Falls back to
+            // navigator language; non-Latin digit systems (e.g. ar-EG) get
+            // their native numerals automatically.
+            const fmt = (n, frac) => new Intl.NumberFormat(undefined, { maximumFractionDigits: frac, minimumFractionDigits: frac }).format(n);
+            if (d < 1000) return fmt(d, d < 100 ? 1 : 0) + 'ms';
+            if (d < 60000) return fmt(d / 1000, d < 10000 ? 2 : 1) + 's';
             const mins = Math.floor(d / 60000);
             const secs = Math.round((d % 60000) / 1000);
-            return mins + 'm ' + secs + 's';
+            return fmt(mins, 0) + 'm ' + fmt(secs, 0) + 's';
           }
           if (typeof d === 'string') {
             // .NET TimeSpan: [d.]hh:mm:ss[.fffffff]

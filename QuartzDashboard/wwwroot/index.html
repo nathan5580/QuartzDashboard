@@ -13,7 +13,10 @@
     window.__QUARTZ_DASHBOARD_VERSION = '__QUARTZ_VERSION__';
   </script>
   <script>
-    // Apply theme before Alpine loads to avoid flash. Dark is default.
+    // Apply theme + locale + direction before Alpine loads to avoid flash.
+    // Dark is default; lang/dir come from the browser so dates and dictation
+    // tools pick up the right context. Falls back to en/ltr if navigator
+    // is unavailable (e.g. some headless contexts).
     (function() {
       var saved = localStorage.getItem('quartz-theme') || localStorage.getItem('qd-theme');
       if (saved === 'light') {
@@ -21,7 +24,13 @@
         document.documentElement.classList.remove('dark');
         document.documentElement.classList.add('light');
       }
-      // No else needed: dark is default (no data-theme attr, class="dark" in HTML)
+      try {
+        var lang = (navigator && navigator.language) || 'en';
+        document.documentElement.setAttribute('lang', lang);
+        var primary = lang.split('-')[0].toLowerCase();
+        var rtl = ['ar', 'he', 'fa', 'ur'].indexOf(primary) !== -1;
+        document.documentElement.setAttribute('dir', rtl ? 'rtl' : 'ltr');
+      } catch (_) { /* leave defaults */ }
     })();
   </script>
   <script src="signalr.min.js?v=__QUARTZ_VERSION__"></script>
