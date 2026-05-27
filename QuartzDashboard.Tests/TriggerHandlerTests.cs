@@ -350,10 +350,8 @@ public class TriggerHandlerTests : IClassFixture<QuartzTestFixture>
         var response = await _client.DeleteAsync(
             "/quartz/api/triggers/DEFAULT/DeleteThisTrigger");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var json = await response.Content.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(json);
-        Assert.Equal("deleted", doc.RootElement.GetProperty("status").GetString());
+        // Handler returns 204 NoContent per REST convention.
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
 
     [Fact]

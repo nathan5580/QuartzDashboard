@@ -67,6 +67,20 @@ A self-contained, embedded **Quartz.NET scheduler dashboard** for ASP.NET Core. 
 - **`FireRecord` properties are now `{ get; init; }`** — immutable across consumers and thread-safe by construction.
 - **Per-request `CancellationToken` propagation** — `ApiRouteContext.Ct` is bound to `HttpContext.RequestAborted` and flows into Quartz scheduler calls.
 
+### v4.2.2 — two-round persona audit (2026-05-27)
+
+Twelve focused commits from a 14-persona audit pass. Drop-in upgrade from 4.2.1. Full notes in [CHANGELOG.md](CHANGELOG.md#422--2026-05-27); highlights:
+
+- **Closed a stored XSS** in the timeline row-action overlay (CWE-79) and added defence-in-depth name validation on every create / import endpoint. Security headers now ship on API responses too. CSP-friendly: no more inline `onclick=` in the bundled SPA.
+- **ETag short-circuit** for static assets — Day-2 visits 304 instead of redownloading ~264 kB. `index.html` is cached as a `byte[]` after first token-replace.
+- **Idle tabs stop polling** — `document.hidden` + `visibilitychange` catch-up.
+- **Full WCAG 2.2 AA pass**: keyboard-operable job rows + drawer-as-dialog with focus restore, skip-to-content link, `aria-label` on color-only signals, sidebar contrast lift, color-blind / forced-colors hardening.
+- **Mobile responsive cleanup**: Triggers right-edge clip, Graph chip overflow, Timeline `1023.8 m[s]` clip, 44 × 44 pt tap-target floor.
+- **`AddQuartzDashboard` is now idempotent**; `QuartzDashboardOptions` is sealed. Dead `QuartzDashboardAuthMiddleware` deleted; source-generated regex for scheduler-name validation.
+- **`<html lang>` + `dir`** set from `navigator.language` at boot; locale-aware durations via `Intl.NumberFormat`.
+- **Brand**: unified on the NuGet icon's Q-ring mark (favicon + sidebar + boot splash were three different marks before).
+- **Tests**: unit suite **116 / 116 green** for the first time — pre-existing stale assertions updated to match the actual handler shapes.
+
 ### v4.2.1 fixes (post-audit)
 
 - **SignalR `Subscribe` no longer rejects** when the dashboard's `RequireAuthentication` is `false`. The method-level `[Authorize]` overrode the hub endpoint's policy, leaving auth-off clients with a permanent "Real-time connection lost" banner.
@@ -770,7 +784,7 @@ PACKAGES (v4 — split into three):
   Dot.QuartzDashboard               — middleware + handlers + SPA + in-memory/JSON history
   Dot.QuartzDashboard.Abstractions  — IFireHistoryStore + FireRecord (no ASP.NET deps)
   Dot.QuartzDashboard.Sqlite        — SqliteFireHistoryStore + AddQuartzDashboardSqliteHistory()
-CURRENT VERSION: 4.2.1
+CURRENT VERSION: 4.2.2
 TARGETS: net8.0, net9.0, net10.0
 NAMESPACES:
   QuartzDashboard                  — middleware, options, hub

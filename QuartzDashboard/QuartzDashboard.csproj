@@ -8,7 +8,7 @@
 
     <!-- NuGet packaging -->
     <PackageId>Dot.QuartzDashboard</PackageId>
-    <Version>4.2.1</Version>
+    <Version>4.2.2</Version>
     <Authors>n8</Authors>
     <Description>A beautiful, self-contained Quartz.NET scheduler dashboard. Drop into any ASP.NET Core app with two lines of code. View jobs, triggers, history, execution graph, timeline, health, and control the scheduler from a polished SPA. Includes SignalR real-time updates and an embeddable read-only mode.</Description>
     <PackageTags>quartz;quartz.net;dashboard;scheduler;admin;monitoring;realtime;signalr;jobs;triggers;history;visualization;background-jobs;aspnetcore;dotnet</PackageTags>
