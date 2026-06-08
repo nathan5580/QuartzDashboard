@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Quartz;
 using QuartzDashboard.Internal;
 using QuartzDashboard.Abstractions;
+using QuartzDashboard.Middleware;
 using QuartzDashboard.Services;
 
 namespace QuartzDashboard;
@@ -92,6 +93,15 @@ public static class QuartzDashboardServiceCollectionExtensions
 
         // Event bus
         services.TryAddSingleton<DashboardEventBus>();
+
+        // Rate limiter for mutating endpoints
+        services.TryAddSingleton(sp => new DashboardRateLimiter(
+            options.RateLimitRequestsPerMinute,
+            options.RateLimitBurstSize,
+            sp.GetRequiredService<ILogger<DashboardRateLimiter>>()));
+
+        // Dashboard health check (host apps can reference via IHealthCheck)
+        services.TryAddSingleton<DashboardHealthCheck>();
 
         if (options.UseSignalR)
         {
@@ -217,6 +227,8 @@ internal sealed class DashboardJobListener(
 {
     private readonly ILogger<DashboardJobListener> _logger = logger;
 
+    private static readonly System.Diagnostics.ActivitySource TraceSource = new("QuartzDashboard", "4.4.0");
+
     private static readonly System.Text.Json.JsonSerializerOptions WebhookJsonOptions = new()
     {
         PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
@@ -230,8 +242,7 @@ internal sealed class DashboardJobListener(
         var triggerKey = $"{context.Trigger.Key.Group}.{context.Trigger.Key.Name}";
         logBuffer?.Append(jobKey, $"▶ Executing (trigger: {triggerKey})");
 
-        // Publish trigger event with all fields the executing-jobs card needs
-        eventBus.Publish(new JobTriggeredEvent(
+        var evt = new JobTriggeredEvent(
             jobKey, triggerKey,
             context.JobDetail.Key.Name,
             context.JobDetail.Key.Group,
@@ -240,7 +251,13 @@ internal sealed class DashboardJobListener(
             context.JobDetail.JobType.Name,
             context.FireInstanceId,
             context.FireTimeUtc,
-            context.ScheduledFireTimeUtc));
+            context.ScheduledFireTimeUtc)
+        {
+            TraceContext = System.Diagnostics.Activity.Current?.Context
+        };
+
+        // Publish trigger event with all fields the executing-jobs card needs
+        eventBus.Publish(evt);
         return Task.CompletedTask;
     }
 
@@ -248,6 +265,13 @@ internal sealed class DashboardJobListener(
 
     public Task JobWasExecuted(IJobExecutionContext context, JobExecutionException? jobException, CancellationToken ct)
     {
+        using var activity = TraceSource.StartActivity("JobExecuted", System.Diagnostics.ActivityKind.Internal);
+        if (activity != null)
+        {
+            activity.SetTag("job.key", $"{context.JobDetail.Key.Group}.{context.JobDetail.Key.Name}");
+            activity.SetTag("trigger.key", $"{context.Trigger.Key.Group}.{context.Trigger.Key.Name}");
+            activity.SetTag("job.type", context.JobDetail.JobType.Name);
+        }
         var jobKey = $"{context.JobDetail.Key.Group}.{context.JobDetail.Key.Name}";
         var triggerKey = $"{context.Trigger.Key.Group}.{context.Trigger.Key.Name}";
         var duration = DateTimeOffset.UtcNow - context.FireTimeUtc;
@@ -280,8 +304,12 @@ internal sealed class DashboardJobListener(
         }
 
         // Publish to event bus for SignalR
-        eventBus.Publish(new JobExecutedEvent(jobKey, triggerKey, context.FireInstanceId, duration, success, context.FireTimeUtc,
-            jobException?.InnerException?.Message ?? jobException?.Message));
+        var execEvt = new JobExecutedEvent(jobKey, triggerKey, context.FireInstanceId, duration, success, context.FireTimeUtc,
+            jobException?.InnerException?.Message ?? jobException?.Message)
+        {
+            TraceContext = activity?.Context
+        };
+        eventBus.Publish(execEvt);
 
         if (!success && jobException != null)
         {

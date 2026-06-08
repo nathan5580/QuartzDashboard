@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Threading.Channels;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Hosting;
@@ -43,7 +44,8 @@ internal sealed record ExecutedEvent(
     double Duration,
     bool Success,
     DateTimeOffset FireTime,
-    string? ExceptionMessage = null
+    string? ExceptionMessage = null,
+    ActivityContext? TraceContext = null
 );
 
 internal sealed record TriggeredEvent(
@@ -56,7 +58,8 @@ internal sealed record TriggeredEvent(
     string JobType,
     string FireInstanceId,
     DateTimeOffset FireTime,
-    DateTimeOffset? ScheduledFireTime
+    DateTimeOffset? ScheduledFireTime,
+    ActivityContext? TraceContext = null
 );
 
 /// <summary>
@@ -68,6 +71,8 @@ internal sealed class DashboardSignalRBridge(
     DashboardEventBus eventBus,
     ILogger<DashboardSignalRBridge> logger) : IHostedService
 {
+    private static readonly ActivitySource TraceSource = new("QuartzDashboard.SignalR", "4.4.0");
+
     private readonly Channel<object> _channel = Channel.CreateBounded<object>(new BoundedChannelOptions(1024)
     {
         FullMode = BoundedChannelFullMode.DropOldest
@@ -96,7 +101,8 @@ internal sealed class DashboardSignalRBridge(
                 Duration: e.Duration.TotalMilliseconds,
                 Success: e.Success,
                 FireTime: e.FireTime,
-                ExceptionMessage: e.ExceptionMessage
+                ExceptionMessage: e.ExceptionMessage,
+                TraceContext: e.TraceContext
             )))
             {
                 logger.LogWarning("Channel full, dropping jobExecuted event");
@@ -115,7 +121,8 @@ internal sealed class DashboardSignalRBridge(
                 JobType: e.JobType,
                 FireInstanceId: e.FireInstanceId,
                 FireTime: e.FireTime,
-                ScheduledFireTime: e.ScheduledFireTime
+                ScheduledFireTime: e.ScheduledFireTime,
+                TraceContext: e.TraceContext
             )))
             {
                 logger.LogWarning("Channel full, dropping jobTriggered event");
@@ -233,11 +240,15 @@ internal sealed class DashboardSignalRBridge(
                 // Send batches
                 if (executed.Count > 0)
                 {
+                    using var sendSpan = TraceSource.StartActivity("SignalR.Send jobExecutedBatch");
+                    sendSpan?.SetTag("count", executed.Count);
                     try { await hubContext.Clients.Group(QuartzDashboardHub.GroupName).SendAsync("jobExecutedBatch", executed.ToArray(), ct); }
                     catch (Exception ex) { logger.LogWarning(ex, "SignalR batch send failed"); }
                 }
                 if (triggered.Count > 0)
                 {
+                    using var sendSpan = TraceSource.StartActivity("SignalR.Send jobTriggeredBatch");
+                    sendSpan?.SetTag("count", triggered.Count);
                     try { await hubContext.Clients.Group(QuartzDashboardHub.GroupName).SendAsync("jobTriggeredBatch", triggered.ToArray(), ct); }
                     catch (Exception ex) { logger.LogWarning(ex, "SignalR batch send failed"); }
                 }

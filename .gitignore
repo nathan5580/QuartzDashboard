@@ -33,3 +33,8 @@ node_modules/
 # *.min.js and *.min.css are tracked — they're generated from source
 !**/alpine.min.js
 !**/signalr.min.js
+
+# Screenshots from UI testing (keep icon files for NuGet packaging)
+*.png
+!**/icon.png
+*.jpg

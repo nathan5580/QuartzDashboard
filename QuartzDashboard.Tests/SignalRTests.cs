@@ -33,10 +33,9 @@ public sealed class SignalRTestFixture : IAsyncLifetime
         {
             options.Path = "/quartz";
             options.UseSignalR = true;
-            // Tests predate the v4.2 secure-default flip — restore prior behaviour so
-            // existing GET/POST assertions still pass through the dashboard middleware.
             options.RequireAuthentication = false;
             options.RequireCsrfHeader = false;
+            options.RateLimitEnabled = false;
         });
 
         App = builder.Build();

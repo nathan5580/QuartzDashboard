@@ -129,4 +129,23 @@ public sealed class QuartzDashboardOptions : IQuartzDashboardOptions
     /// Gets or sets an optional webhook URL that receives a JSON payload when a job execution fails.
     /// </summary>
     public string? WebhookUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether rate limiting is enabled on mutating dashboard endpoints.
+    /// <see langword="true"/> by default — burst of <see cref="RateLimitBurstSize"/> per second,
+    /// capped at <see cref="RateLimitRequestsPerMinute"/> per minute per IP.
+    /// </summary>
+    public bool RateLimitEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the maximum number of mutating requests allowed per minute per remote IP.
+    /// Default is <c>60</c>.
+    /// </summary>
+    public int RateLimitRequestsPerMinute { get; set; } = 60;
+
+    /// <summary>
+    /// Gets or sets the maximum burst size (per-second) for mutating requests per remote IP.
+    /// Default is <c>10</c>.
+    /// </summary>
+    public int RateLimitBurstSize { get; set; } = 10;
 }

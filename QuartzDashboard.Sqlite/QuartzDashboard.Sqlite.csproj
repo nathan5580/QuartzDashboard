@@ -6,7 +6,7 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
 
     <PackageId>Dot.QuartzDashboard.Sqlite</PackageId>
-    <Version>4.3.0</Version>
+    <Version>4.4.0</Version>
     <Authors>n8</Authors>
     <Description>SQLite-backed persistent fire-history store for Dot.QuartzDashboard. Survives application restarts, indexed by job_key, WAL mode for concurrent reads, throttled TTL pruning. Call AddQuartzDashboardSqliteHistory("history.db") after AddQuartzDashboard() to opt in.</Description>
     <PackageTags>quartz;quartz.net;dashboard;scheduler;admin;monitoring;realtime;signalr;jobs;triggers;history;visualization;background-jobs;aspnetcore;dotnet</PackageTags>

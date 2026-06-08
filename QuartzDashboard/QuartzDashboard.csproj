@@ -8,14 +8,15 @@
 
     <!-- NuGet packaging -->
     <PackageId>Dot.QuartzDashboard</PackageId>
-    <Version>4.3.0</Version>
+    <Version>4.4.0</Version>
     <Authors>n8</Authors>
     <Description>A beautiful, self-contained Quartz.NET scheduler dashboard. Drop into any ASP.NET Core app with two lines of code. View jobs, triggers, history, execution graph, timeline, health, and control the scheduler from a polished SPA. Includes SignalR real-time updates and an embeddable read-only mode.</Description>
     <PackageTags>quartz;quartz.net;dashboard;scheduler;admin;monitoring;realtime;signalr;jobs;triggers;history;visualization;background-jobs;aspnetcore;dotnet</PackageTags>
-    <PackageReleaseNotes>v4.3.0 — Test coverage + performance hardening.
-• New tests: 78 new tests covering batch operations, API routing, export/import, history store, event bus, execution buckets, name validation, config, CSRF, error handling, multi-scheduler, and callback verification (289 total, 0 failures).
-• Perf: InMemoryFireHistoryStore.CountFiltered now uses explicit override avoiding O(n) materialization from the default interface method.
-• InternalsVisibleTo added for test projects (QoL for contributors).</PackageReleaseNotes>
+    <PackageReleaseNotes>v4.4.0 — Observability, rate limiting, health checks.
+• Tracing: OpenTelemetry-compatible Activity spans propagate through listener → event bus → SignalR bridge for end-to-end job execution visibility.
+• Rate limiting: configurable per-minute request cap on mutating endpoints (pause/resume/trigger/delete), default on.
+• Health check: dashboard status exposed as IHealthCheck so host apps can include it in their own /healthz endpoint.
+• Cleanup: *.png screenshots excluded from repository via .gitignore.</PackageReleaseNotes>
     <PackageProjectUrl>https://github.com/nathan5580/QuartzDashboard</PackageProjectUrl>
     <RepositoryUrl>https://github.com/nathan5580/QuartzDashboard</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -32,11 +33,6 @@
   <!-- SourceLink: embed source files into the symbol package -->
   <ItemGroup>
     <EmbeddedFiles Include="**\*.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <InternalsVisibleTo Include="QuartzDashboard.Tests" />
-    <InternalsVisibleTo Include="QuartzDashboard.IntegrationTests" />
   </ItemGroup>
 
   <ItemGroup>

@@ -47,11 +47,9 @@ public sealed class QuartzTestFixture : IAsyncLifetime
                         services.AddQuartzDashboard(options =>
                         {
                             options.UseSignalR = false;
-                            // Tests predate the v4.2 secure-default flip. Restore the prior
-                            // behaviour so existing assertions still exercise the handlers
-                            // directly without an auth wrapper.
                             options.RequireAuthentication = false;
                             options.RequireCsrfHeader = false;
+                            options.RateLimitEnabled = false;
                         });
                     })
                     .Configure(app =>

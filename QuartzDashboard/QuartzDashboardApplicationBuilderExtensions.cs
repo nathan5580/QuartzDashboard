@@ -10,6 +10,7 @@ using Quartz;
 using QuartzDashboard.Handlers;
 using QuartzDashboard.Internal;
 using QuartzDashboard.Abstractions;
+using QuartzDashboard.Middleware;
 using QuartzDashboard.Services;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -138,6 +139,15 @@ public static partial class QuartzDashboardApplicationBuilderExtensions
                     if (!hasHeader)
                     {
                         await WriteJsonError(ctx, 403, "Missing CSRF guard header. Send X-Requested-With: XMLHttpRequest or X-CSRF-Token.");
+                        return;
+                    }
+                }
+                if (options.RateLimitEnabled && IsMutatingMethod(ctx.Request.Method))
+                {
+                    var rateLimiter = app.ApplicationServices.GetRequiredService<DashboardRateLimiter>();
+                    if (!rateLimiter.IsAllowed(ctx))
+                    {
+                        await WriteJsonError(ctx, 429, "Rate limit exceeded. Slow down.");
                         return;
                     }
                 }

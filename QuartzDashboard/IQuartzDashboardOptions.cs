@@ -56,4 +56,13 @@ public interface IQuartzDashboardOptions
 
     /// <summary>Optional webhook URL receiving a JSON payload on job failure.</summary>
     string? WebhookUrl { get; }
+
+    /// <summary>Whether rate limiting is enabled on mutating endpoints.</summary>
+    bool RateLimitEnabled { get; }
+
+    /// <summary>Maximum mutating requests per minute per remote IP.</summary>
+    int RateLimitRequestsPerMinute { get; }
+
+    /// <summary>Maximum burst size (per-second) for mutating requests per IP.</summary>
+    int RateLimitBurstSize { get; }
 }

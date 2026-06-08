@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace QuartzDashboard.Internal;
 
 /// <summary>
@@ -6,6 +8,12 @@ namespace QuartzDashboard.Internal;
 internal abstract record DashboardEvent
 {
     public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// When set, the Activity context captured at the point of publication.
+    /// Consumers (e.g. SignalR bridge) can restore this to propagate trace spans.
+    /// </summary>
+    public ActivityContext? TraceContext { get; init; }
 }
 
 internal sealed record JobExecutedEvent(
