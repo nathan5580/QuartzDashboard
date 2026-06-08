@@ -36,6 +36,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="QuartzDashboard.Tests" />
+    <InternalsVisibleTo Include="QuartzDashboard.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="\" />
     <None Include="icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
