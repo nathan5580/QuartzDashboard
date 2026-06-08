@@ -60,6 +60,15 @@ internal sealed class InMemoryFireHistoryStore : IFireHistoryStore
         return ((IEnumerable<FireRecord>)all).Reverse().Skip(offset).Take(count);
     }
 
+    public int CountFiltered(string? jobKeyFilter)
+    {
+        if (string.IsNullOrWhiteSpace(jobKeyFilter))
+            return Count;
+
+        var all = _queue.ToArray();
+        return all.Count(r => string.Equals(r.JobKey, jobKeyFilter, StringComparison.OrdinalIgnoreCase));
+    }
+
     public void Clear()
     {
         while (_queue.TryDequeue(out _)) { }
