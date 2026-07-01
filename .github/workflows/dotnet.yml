@@ -29,7 +29,7 @@ jobs:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
     - name: Cache NuGet packages
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: ~/.nuget/packages
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.slnx') }}
@@ -52,7 +52,7 @@ jobs:
         node-version: '20'
 
     - name: Cache npm
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: QuartzDashboard/node_modules
         key: ${{ runner.os }}-npm-${{ hashFiles('QuartzDashboard/package-lock.json') }}
@@ -90,7 +90,7 @@ jobs:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
     - name: Cache NuGet packages
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: ~/.nuget/packages
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.slnx') }}
@@ -106,7 +106,7 @@ jobs:
         node-version: '20'
 
     - name: Cache npm
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: QuartzDashboard/node_modules
         key: ${{ runner.os }}-npm-${{ hashFiles('QuartzDashboard/package-lock.json') }}
@@ -132,7 +132,7 @@ jobs:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
     - name: Cache NuGet packages
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: ~/.nuget/packages
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.slnx') }}
@@ -148,7 +148,7 @@ jobs:
         node-version: '20'
 
     - name: Cache npm
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: QuartzDashboard/node_modules
         key: ${{ runner.os }}-npm-${{ hashFiles('QuartzDashboard/package-lock.json') }}
@@ -233,7 +233,7 @@ jobs:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
     - name: Cache NuGet packages
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: ~/.nuget/packages
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.slnx') }}
@@ -258,7 +258,7 @@ jobs:
         node-version: '20'
 
     - name: Cache npm
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: QuartzDashboard/node_modules
         key: ${{ runner.os }}-npm-${{ hashFiles('QuartzDashboard/package-lock.json') }}
