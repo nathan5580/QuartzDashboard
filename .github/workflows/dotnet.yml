@@ -47,7 +47,7 @@ jobs:
         fi
 
     - name: Setup Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: '20'
 
@@ -101,7 +101,7 @@ jobs:
       run: dotnet restore QuartzDashboard.Demo/QuartzDashboard.Demo.csproj
 
     - name: Setup Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: '20'
 
@@ -143,7 +143,7 @@ jobs:
       run: dotnet restore QuartzDashboard.IntegrationTests/QuartzDashboard.IntegrationTests.csproj
 
     - name: Setup Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: '20'
 
@@ -253,7 +253,7 @@ jobs:
       run: dotnet restore
 
     - name: Setup Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: '20'
 
