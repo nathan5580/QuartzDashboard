@@ -55,8 +55,8 @@
 
   <ItemGroup>
     <!-- Quartz: floor is what we've tested against (3.18); ceiling locks out unverified 4.x. -->
-    <PackageReference Include="Quartz" Version="[3.18.0,4.0.0)" />
-    <PackageReference Include="Quartz.Extensions.DependencyInjection" Version="[3.18.0,4.0.0)" />
+    <PackageReference Include="Quartz" Version="[3.20.0, 4.0.0)" />
+    <PackageReference Include="Quartz.Extensions.DependencyInjection" Version="[3.20.0, 4.0.0)" />
   </ItemGroup>
 
   <ItemGroup>
